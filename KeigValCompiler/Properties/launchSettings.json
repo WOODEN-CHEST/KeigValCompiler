@@ -2,7 +2,7 @@
   "profiles": {
     "KeigValCompiler": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\Users\\User\\Desktop\\test\""
+      "commandLineArgs": "\"C:\\Users\\User\\Desktop\\spaced test\""
     }
   }
 }

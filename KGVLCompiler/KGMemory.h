@@ -1,5 +1,5 @@
 #pragma once
-#include <stdlib.h>
+#include <stddef.h>
 
 // Functions.
 void* Memory_SafeMalloc(size_t size);

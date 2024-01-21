@@ -8,7 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Finished\" />
+    <Compile Remove="Finished\**" />
+    <Compile Remove="Middle\**" />
+    <EmbeddedResource Remove="Finished\**" />
+    <EmbeddedResource Remove="Middle\**" />
+    <None Remove="Finished\**" />
+    <None Remove="Middle\**" />
   </ItemGroup>
 
 </Project>

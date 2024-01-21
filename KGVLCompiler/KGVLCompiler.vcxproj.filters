@@ -1,7 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="main.c" />
     <ClCompile Include="SourceParser.c">
       <Filter>SourceParser</Filter>
     </ClCompile>
@@ -13,6 +12,15 @@
     </ClCompile>
     <ClCompile Include="KGMemory.c">
       <Filter>Memory</Filter>
+    </ClCompile>
+    <ClCompile Include="StringBuilder.c">
+      <Filter>String</Filter>
+    </ClCompile>
+    <ClCompile Include="KGCompiler.c">
+      <Filter>Compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="SourceFileObject.c">
+      <Filter>SourceParser</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -31,9 +39,11 @@
     <Filter Include="SourceParser">
       <UniqueIdentifier>{46cf4934-6c1f-4a30-95a4-90708df551d2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Compiler">
+      <UniqueIdentifier>{803932e7-05d8-4463-ba52-32615604b802}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="exit_codes.h" />
     <ClInclude Include="SourceParser.h">
       <Filter>SourceParser</Filter>
     </ClInclude>
@@ -42,6 +52,12 @@
     </ClInclude>
     <ClInclude Include="KGErrors.h">
       <Filter>Errors</Filter>
+    </ClInclude>
+    <ClInclude Include="StringBuilder.h">
+      <Filter>String</Filter>
+    </ClInclude>
+    <ClInclude Include="SourceFileObject.h">
+      <Filter>SourceParser</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

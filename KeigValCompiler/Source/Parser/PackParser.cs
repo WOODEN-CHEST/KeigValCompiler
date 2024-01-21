@@ -1,4 +1,4 @@
-﻿using KeigValCompiler.Middle;
+﻿using KeigValCompiler.Semantician;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +10,7 @@ namespace KeigValCompiler.Source;
 internal class PackParser
 {
     // Internal fields.
-    internal DataPack Datapack;
+    internal const string SOURCE_FILE_EXTENSION = ".kgvl";
 
 
     // Private fields.
@@ -42,26 +42,18 @@ internal class PackParser
         }
     }
 
-
-    // Static methods.
-    internal static DataPack ParsePack(string sourceDirectory, string? destDirectory)
-    {
-        PackParser Parser = new(sourceDirectory, destDirectory);
-        return Parser.ParsePack();
-    }
-
     
-    // Private methods.
-    private DataPack ParsePack()
+    // Internal methods.
+    internal DataPack ParsePack()
     {
-        Datapack = new();
+        DataPack Pack = new();
         
-        foreach (string sourceFile in Directory.GetFiles(_sourceDirPath, "*.kgvl", SearchOption.AllDirectories))
+        foreach (string sourceFile in Directory.GetFiles(_sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
-            SourceFileParser FileParser = new(sourceFile);
+            SourceFileParser FileParser = new(sourceFile, Pack);
             FileParser.ParseFile();
         }
 
-        return Datapack;
+        return Pack;
     }
 }

@@ -5,12 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 
 
-namespace KeigValCompiler.Source.Exceptions;
+namespace KeigValCompiler.Source.Parser;
 
 internal class SourceFileException : FileReadException
 {
     // Constructors.
-    public SourceFileException(SourceFileParser parser, string? message) 
+    public SourceFileException(SourceFileParser parser, string? message)
         : base(parser, message)
     { }
 }

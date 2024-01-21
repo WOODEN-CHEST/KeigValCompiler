@@ -6,6 +6,9 @@ typedef enum ErrorCodeEnum
 	ErrorCode_Success,
 
 	ErrorCode_IO,
+	ErrorCode_IndexOutOfRange,
+	ErrorCode_ArgumentError,
+	ErrorCode_CommandLineArguments,
 
 	ErrorCode_Unknown
 } ErrorCode;

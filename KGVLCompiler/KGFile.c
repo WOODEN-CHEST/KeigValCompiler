@@ -2,6 +2,7 @@
 #include "KGErrors.h"
 #include "KGMemory.h"
 #include <string.h>
+#include <stdlib.h>
 
 
 // Macros.
@@ -56,4 +57,17 @@ char* File_ReadAllText(const char* path)
 	fclose(File);
 
 	return FileData;
+}
+
+char* File_JoinPaths(const char* path1, const char* path2)
+{
+	size_t Path1Length = strlen(path1);
+	size_t Path2Length = strlen(path2);
+
+	char* CombinedPath = (char*)Memory_SafeMalloc(Path1Length + Path2Length + 2);
+	strcpy(CombinedPath, path1);
+	CombinedPath[Path1Length] = PATH_SEPARATOR;
+	strcpy(CombinedPath + Path1Length + 1, path2);
+
+	return CombinedPath;
 }

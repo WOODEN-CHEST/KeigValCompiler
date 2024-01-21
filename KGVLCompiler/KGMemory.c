@@ -1,5 +1,6 @@
 #include "KGMemory.h"
 #include "KGErrors.h"
+#include <stdlib.h>
 
 // Functions.
 void* Memory_SafeMalloc(size_t size)

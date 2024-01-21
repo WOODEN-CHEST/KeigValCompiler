@@ -59,6 +59,18 @@ ErrorCode Errors_SetError(ErrorCode code, const char* message)
 			strcpy(ErrorTypeName, "IO Error");
 			break;
 
+		case ErrorCode_IndexOutOfRange:
+			strcpy(ErrorTypeName, "Index Out Of Range Error");
+			break;
+
+		case ErrorCode_ArgumentError:
+			strcpy(ErrorTypeName, "Argument Error");
+			break;
+
+		case ErrorCode_CommandLineArguments:
+			strcpy(ErrorTypeName, "Command-Line Argument Error");
+			break;
+
 		default:
 			strcpy(ErrorTypeName, "Unknown Error");
 			break;
