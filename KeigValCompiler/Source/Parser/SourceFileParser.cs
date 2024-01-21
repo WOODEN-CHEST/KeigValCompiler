@@ -28,8 +28,8 @@ internal class SourceFileParser
     private const char SEMICOLON = ';';
     private const char NAMESPACE_SEPARATOR = '.';
     private const char UNDERSCORE = '_';
-    private const char OPEN_CURLY_BRACKER = '{';
-    private const char CLOSE_CURLY_BRACKER = '}';
+    private const char OPEN_CURLY_BRACKET = '{';
+    private const char CLOSE_CURLY_BRACKET = '}';
 
 
     /* Keywords. */
@@ -93,6 +93,7 @@ internal class SourceFileParser
                     break;
 
                 case KEYWORD_CLASS:
+                    ParseClass();
                     break;
 
                 default:
@@ -109,9 +110,9 @@ internal class SourceFileParser
 
         StringBuilder NamespaceName = new();
         bool HadSeparator = false;
-        while (!(char.IsWhiteSpace(_data[_dataIndex]) || (_data[_dataIndex] == SEMICOLON)))
+        while (!(char.IsWhiteSpace(GetCharAtDataIndex()) || (GetCharAtDataIndex() == SEMICOLON)))
         {
-            char Character = _data[_dataIndex];
+            char Character = GetCharAtDataIndex();
             NamespaceName.Append(Character);
             IncrementDataIndex();
 
@@ -146,11 +147,7 @@ internal class SourceFileParser
             throw new FileReadException(this, $"Namespace starts with a namespace separator '{NAMESPACE_SEPARATOR}'");
         }
 
-        SkipUntilNonWhitespace($"Missing '{SEMICOLON}' after namespace");
-        if (_data[_dataIndex] != SEMICOLON)
-        {
-            throw new FileReadException(this, $"Expected '{SEMICOLON}' after namespace.");
-        }
+        SkipUntil($"Missing '{SEMICOLON}' after namespace", SEMICOLON);
         IncrementDataIndex();
 
         return NamespaceName.ToString();
@@ -168,10 +165,41 @@ internal class SourceFileParser
 
 
     /* Classes. */
+    internal string ParseClassName()
+    {
+        SkipUntilNonWhitespace("Expected class name.");
+        return ParseIdentifier("Expected class name.");
+    }
+
     internal void ParseClass()
+    {
+        PackClass ParsedClass = new(_activeNamespace, ParseClassName());
+        SkipUntil($"Expected class body opening '{OPEN_CURLY_BRACKET}'", OPEN_CURLY_BRACKET);
+        IncrementDataIndex();
+
+        bool IsClassClosed = false;
+        while (!IsClassClosed)
+        {
+            SkipUntilNonWhitespace(null);
+            if (GetCharAtDataIndex() == CLOSE_CURLY_BRACKET)
+            {
+                IsClassClosed = true;
+                IncrementDataIndex();
+            }
+            else
+            {
+                ParseClassMember(ParsedClass);
+            }
+        }
+    }
+
+    internal void ParseClassMember(PackClass packClass)
     {
 
     }
+
+
+    /* Functions. */
 
 
     /* Generic parsing methods. */
@@ -184,6 +212,9 @@ internal class SourceFileParser
         }
         _dataIndex++;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private char GetCharAtDataIndex() => _dataIndex >= _data.Length ? '\0' : _data[_dataIndex];
 
     private bool SkipUntilNonWhitespace(string? exceptionMessage)
     {
@@ -207,9 +238,9 @@ internal class SourceFileParser
     {
         StringBuilder Word = new();
 
-        while ((_dataIndex < _data.Length) && char.IsLetter(_data[_dataIndex]))
+        while ((_dataIndex < _data.Length) && char.IsLetter(GetCharAtDataIndex()))
         {
-            Word.Append(_data[_dataIndex]);
+            Word.Append(GetCharAtDataIndex());
             IncrementDataIndex();
         }
 
@@ -228,9 +259,9 @@ internal class SourceFileParser
     {
         StringBuilder Identifier = new();
 
-        while ((_dataIndex < _data.Length) && (char.IsLetterOrDigit(_data[_dataIndex]) || _data[_dataIndex] == UNDERSCORE))
+        while ((_dataIndex < _data.Length) && (char.IsLetterOrDigit(GetCharAtDataIndex()) || GetCharAtDataIndex() == UNDERSCORE))
         {
-            Identifier.Append(_data[_dataIndex]);
+            Identifier.Append(GetCharAtDataIndex());
             IncrementDataIndex();
         }
 
@@ -261,11 +292,11 @@ internal class SourceFileParser
 
         while (_dataIndex < _data.Length)
         {
-            if (charsToFind.Contains(_data[_dataIndex]))
+            if (charsToFind.Contains(GetCharAtDataIndex()))
             {
                 return ParsedText.ToString();
             }
-            ParsedText.Append(_data[_dataIndex]);
+            ParsedText.Append(GetCharAtDataIndex());
             IncrementDataIndex();
         }
 
@@ -285,7 +316,7 @@ internal class SourceFileParser
 
         while (_dataIndex < _data.Length)
         {
-            if (charsToFind.Contains(_data[_dataIndex]))
+            if (charsToFind.Contains(GetCharAtDataIndex()))
             {
                 return true;
             }
