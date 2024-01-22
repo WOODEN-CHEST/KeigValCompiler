@@ -24,18 +24,51 @@ internal class SourceFileParser
     private readonly HashSet<string> _namespaceImports = new(8);
 
 
-    /* Chars. */
+    /* Syntax. */
     private const char SEMICOLON = ';';
     private const char NAMESPACE_SEPARATOR = '.';
     private const char UNDERSCORE = '_';
     private const char OPEN_CURLY_BRACKET = '{';
     private const char CLOSE_CURLY_BRACKET = '}';
+    private const char OPEN_PARENTHESIS = '(';
+    private const char CLOSE_PARENTHESIS = ')';
+    private const char ASSIGNMENT_OPEERATOR = '=';
+
+    private const char LINE_COMMENT_INDICATOR1 = '/';
+    private const char LINE_COMMENT_INDICATOR2 = '*';
+    private const string MULTI_LINE_COMMENT_START = "/*";
+    private const string MULTI_LINE_COMMENT_END = "*/";
+    private const string SINGLE_LINE_COMMENT_START = "//";
+    private const char NEWLINE = '\n';
+    private const int COMMENT_INDICATOR_LENGTH = 2;
 
 
     /* Keywords. */
     private const string KEYWORD_NAMESPACE = "namespace";
     private const string KEYWORD_USING = "using";
+
     private const string KEYWORD_CLASS = "class";
+    private const string KEYWORD_STATIC = "static";
+    private const string KEYWORD_PRIVATE = "private";
+    private const string KEYWORD_PROTECTED = "protected";
+    private const string KEYWORD_PUBLIC = "public";
+    private const string KEYWORD_BUILTIN = "builtin";
+    private const string KEYWORD_INLINE = "inline";
+    private const string KEYWORD_ABSTRACT = "abstract";
+    private const string KEYWORD_VIRTUAL = "virtual";
+    private const string KEYWORD_OVERRIDE = "override";
+    private const string KEYWORD_RAW = "raw";
+
+    private const string KEYWORD_FOR = "for";
+    private const string KEYWORD_FOREACH = "foreach";
+    private const string KEYWORD_CONTINUE = "continue";
+    private const string KEYWORD_BREAK = "break";
+    private const string KEYWORD_IF = "if";
+    private const string KEYWORD_ELSE = "else";
+    private const string KEYWORD_SWITCH = "switch";
+    private const string KEYWORD_CASE = "case";
+    private const string KEYWORD_GOTO = "goto";
+    private const string KEYWORD_LABEL = "label";
 
 
     // Constructors.
@@ -51,7 +84,7 @@ internal class SourceFileParser
     {
         try
         {
-            _data = File.ReadAllText(FilePath);
+            _data = StripCodeOfComments(File.ReadAllText(FilePath));
             ParseBase();
         }
         catch (FileNotFoundException e)
@@ -68,12 +101,96 @@ internal class SourceFileParser
         }
     }
 
-
+    
     // Private methods.
-    /* Parsing stages. */
+    private string StripCodeOfComments(string code)
+    {
+        StringBuilder StrippedCode = new();
+        StringBuilder Indicator = new();
 
+        bool IsInsideSingleLineComment = false;
+        bool IsInsideMultiLineComment = false;
 
+        foreach (char Character in code)
+        {
+            if (IsInsideSingleLineComment && (Character != NEWLINE))
+            {
+                continue;
+            }
+            else if (IsInsideMultiLineComment)
+            {
+                if (Character is LINE_COMMENT_INDICATOR1 or LINE_COMMENT_INDICATOR2)
+                {
+                    Indicator.Append(Character);
+                }
+                else
+                {
+                    Indicator.Clear();
+                    continue;
+                }
 
+                if (Indicator.Length == COMMENT_INDICATOR_LENGTH)
+                {
+                    if (Indicator.Equals(MULTI_LINE_COMMENT_END))
+                    {
+                        IsInsideMultiLineComment = false;
+                        Indicator.Clear();
+                    }
+                    else
+                    {
+                        Indicator.Remove(0, 1);
+                    }
+                }
+
+                continue;
+            }
+            IsInsideSingleLineComment = false;
+
+            if (Character is LINE_COMMENT_INDICATOR1 or LINE_COMMENT_INDICATOR2)
+            {
+                Indicator.Append(Character);
+            }
+            else
+            {
+                StrippedCode.Append(Indicator);
+                Indicator.Clear();
+            }
+
+            if (Indicator.Length == COMMENT_INDICATOR_LENGTH)
+            {
+                switch (Indicator.ToString())
+                {
+                    case SINGLE_LINE_COMMENT_START:
+                        IsInsideSingleLineComment = true;
+                        Indicator.Clear();
+                        continue;
+
+                    case MULTI_LINE_COMMENT_START:
+                        IsInsideMultiLineComment = true;
+                        Indicator.Clear();
+                        continue;
+
+                    default:
+                        StrippedCode.Append(Indicator[0]);
+                        Indicator.Remove(0, 1);
+                        continue;
+                }
+            }
+
+            if (Indicator.Length == 0)
+            {
+                StrippedCode.Append(Character);
+            }
+        }
+
+        if (IsInsideMultiLineComment)
+        {
+            throw new FileReadException(this, "Multi-line comment not closed properly.");
+        }
+
+        StrippedCode.Append(Indicator);
+        return StrippedCode.ToString();
+    }
 
     /* Base. */
     private void ParseBase()
@@ -193,13 +310,145 @@ internal class SourceFileParser
         }
     }
 
+    private PackMemberModifiers CombineModifier(PackMemberModifiers appliedModifiers, PackMemberModifiers newModifier)
+    {
+        if ((appliedModifiers & newModifier) != 0)
+        {
+            throw new FileReadException(this, $"Duplicate member modifier {newModifier.ToString().ToLower()}");
+        }
+
+        appliedModifiers |= newModifier;
+
+        int AccessModifierCount = (int)(appliedModifiers & PackMemberModifiers.Private)
+            + (int)(appliedModifiers & PackMemberModifiers.Protected) + (int)(appliedModifiers & PackMemberModifiers.Public);
+        if (AccessModifierCount > 1)
+        {
+            throw new FileReadException(this, "Too many access modifiers for member.");
+        }
+
+        if ((appliedModifiers & PackMemberModifiers.Abstract) != 0 && (appliedModifiers & PackMemberModifiers.Override) != 0)
+        {
+            throw new FileReadException(this, "Member cannot be both abstract and overridden.");
+        }
+        if ((appliedModifiers & PackMemberModifiers.Abstract) != 0 && (appliedModifiers & PackMemberModifiers.Virtual) != 0)
+        {
+            throw new FileReadException(this, "Member cannot be both abstract and virtual.");
+        }
+        if ((appliedModifiers & (PackMemberModifiers.Abstract | PackMemberModifiers.Virtual | PackMemberModifiers.Override)) != 0)
+        {
+            throw new FileReadException(this, "Built-in member cannot be both abstract, virtual or overridden.");
+        }
+
+        return appliedModifiers;
+    }
+
+    private PackMemberModifiers GetModifierByKeywrod(string keywrod)
+    {
+        return keywrod switch
+        {
+            KEYWORD_STATIC => PackMemberModifiers.Static,
+            KEYWORD_PRIVATE => PackMemberModifiers.Private,
+            KEYWORD_PROTECTED => PackMemberModifiers.Protected,
+            KEYWORD_PUBLIC => PackMemberModifiers.Public,
+            KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
+            KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
+            KEYWORD_OVERRIDE => PackMemberModifiers.Override,
+            KEYWORD_BUILTIN => PackMemberModifiers.BuiltIn,
+            KEYWORD_INLINE => PackMemberModifiers.Inline,
+            KEYWORD_RAW => PackMemberModifiers.Raw,
+            _ => PackMemberModifiers.None
+        };
+    }
+
+    private void ParseClassMemberValue(PackClass packClass, PackMemberModifiers modifiers)
+    {
+        SkipUntilNonWhitespace($"Expected '{SEMICOLON}', '{ASSIGNMENT_OPEERATOR}', '{OPEN_PARENTHESIS}' or '{OPEN_CURLY_BRACKET}'");
+
+        switch (GetCharAtDataIndex())
+        {
+            case SEMICOLON:
+            case ASSIGNMENT_OPEERATOR: // Field.
+                ParseField();
+                break;
+
+            case OPEN_CURLY_BRACKET: // Property.
+                ParseProperty();
+                break;
+
+            default: // Function.
+                ParseFunction();
+                break;
+        }
+    }
+
     internal void ParseClassMember(PackClass packClass)
+    {
+        PackMemberModifiers Modifiers = PackMemberModifiers.None;
+        string? MemberName = null;
+        string? FunctionReturnType = null;
+
+        bool ReachedMemberDefinition = false;
+        while (!ReachedMemberDefinition)
+        {
+            SkipUntilNonWhitespace(null);
+            string Word = ParseIdentifier("Expected member modifier or identifier.");
+            PackMemberModifiers NewModifier = GetModifierByKeywrod(Word);
+
+            if (NewModifier != PackMemberModifiers.None)
+            {
+                Modifiers = CombineModifier(Modifiers, NewModifier);
+                continue;
+            }
+
+            ParseClassMemberValue(packClass, Modifiers);
+
+            MemberName = Word;
+            ReachedMemberDefinition = true;
+        }
+
+        if (MemberName == null)
+        {
+            throw new FileReadException(this, "Expected member identifier.");
+        }
+
+        SkipUntilNonWhitespace("");
+        switch (GetCharAtDataIndex())
+        {
+            case SEMICOLON:
+            case ASSIGNMENT_OPEERATOR:
+                ParseField();
+                break;
+
+            case OPEN_PARENTHESIS:
+                ParseFunction();
+                break;
+
+            case OPEN_CURLY_BRACKET:
+                ParseProperty();
+                break;
+        }
+    }
+
+
+    /* Functions. */
+    private void ParseFunction(PackMemberModifiers modifiers, PackClass parentClass)
     {
 
     }
 
 
-    /* Functions. */
+    /* Properties. */
+    private void ParseProperty()
+    {
+        
+    }
+
+
+    /* Fields. */
+    private void ParseField()
+    {
+
+    }
 
 
     /* Generic parsing methods. */

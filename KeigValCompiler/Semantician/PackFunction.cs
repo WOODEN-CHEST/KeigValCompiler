@@ -9,10 +9,12 @@ namespace KeigValCompiler.Semantician;
 internal class PackFunction
 {
     // Internal fields.
-    internal PackMemberModifiers Modifiers { get; set; }
+    
     internal string Name { get; private init; }
-    internal PackClass? ParentClass { get; private init; }
     internal string NameSpace { get; private init; }
+    internal string FullName { get; private init; }
+    internal PackClass? ParentClass { get; private init; }
+    internal PackMemberModifiers Modifiers { get; set; }
 
 
     // Private fields.
@@ -25,7 +27,9 @@ internal class PackFunction
         ParentClass = parentClass ?? throw new ArgumentNullException(nameof(parentClass));
         NameSpace = parentClass.NameSpace;
         Name = name ?? throw new ArgumentNullException(nameof(name));
+
         LoadParamaters(paramaters);
+        FullName = $"{ParentClass.FullName}.{Name}={GetHashCode()}";
     }
 
     internal PackFunction(string nameSpace, string name, PackMemberModifiers modifiers, FunctionParamater[] paramaters)
@@ -33,7 +37,9 @@ internal class PackFunction
         ParentClass = null;
         NameSpace = nameSpace ?? throw new ArgumentNullException(nameof(nameSpace));
         Name = name ?? throw new ArgumentNullException(nameof(name));
+
         LoadParamaters(paramaters);
+        FullName = $"{NameSpace}.{Name}={GetHashCode()}";
     }
 
 
@@ -52,7 +58,20 @@ internal class PackFunction
     {
         foreach (FunctionParamater Paramater in paramaters)
         {
-            _parameters.Add(Paramater.Name, Paramater)
+            _parameters.Add(Paramater.Name, Paramater);
         }
+    }
+
+
+    // Inherited methods.
+    public override int GetHashCode()
+    {
+        int HashCode = FullName.GetHashCode();
+        foreach (FunctionParamater paramater in _parameters.Values)
+        {
+            HashCode += paramater.GetHashCode();
+        }
+
+        return HashCode;
     }
 }

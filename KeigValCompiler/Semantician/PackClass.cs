@@ -11,7 +11,7 @@ internal class PackClass
     // Internal fields.
     internal string NameSpace { get; private init; }
     internal string Name { get; private init; }
-    internal string FullName => $"{NameSpace}.{Name}";
+    internal string FullName { get; private init; }
 
 
     // Constructors.
@@ -19,5 +19,22 @@ internal class PackClass
     {
         NameSpace = nameSpace ?? throw new ArgumentNullException(nameof(nameSpace));
         Name = name ?? throw new ArgumentNullException(nameof(nameSpace));
+        FullName = $"{NameSpace}.{Name}";
+    }
+
+
+    // Inherited methods.
+    public override int GetHashCode()
+    {
+        return FullName.GetHashCode();
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is PackClass)
+        {
+            return FullName == ((PackClass)obj).FullName;
+        }
+        return false;
     }
 }

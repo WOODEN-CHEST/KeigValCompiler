@@ -21,4 +21,11 @@ internal class FunctionParamater
         Name = name ?? throw new ArgumentNullException(nameof(name));
         Modifiers = modifier;
     }
+
+
+    // Inherited methods.
+    public override int GetHashCode()
+    {
+        return Name.GetHashCode();
+    }
 }
