@@ -9,13 +9,9 @@ namespace KeigValCompiler.Semantician;
 
 internal class DataPack
 {
-    // Internal fields.
-    internal PackClass[] Classes => _classes.ToArray();
-
-
-
     // Private fields.
-    private readonly HashSet<PackClass> _classes = new();
+    private readonly Dictionary<string, PackNameSpace> _namespaces = new();
+    
 
 
     // Constructors.
@@ -26,8 +22,20 @@ internal class DataPack
 
 
     // Internal methods.
-    internal void AddClass(PackClass packClass)
+    internal PackNameSpace GetNamespace(string nameSpace)
     {
-        _classes.Add(packClass ?? throw new ArgumentNullException(nameof(packClass)));
+        if (!_namespaces.ContainsKey(nameSpace))
+        {
+            PackNameSpace NameSpace = new(nameSpace);
+            _namespaces.Add(NameSpace.Name, NameSpace);
+            return NameSpace;
+        }
+
+        return _namespaces[nameSpace];
+    }
+
+    internal void BuildInfo()
+    {
+
     }
 }

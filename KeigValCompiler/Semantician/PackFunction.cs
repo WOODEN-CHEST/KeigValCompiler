@@ -74,4 +74,18 @@ internal class PackFunction
 
         return HashCode;
     }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is PackClass)
+        {
+            return FullName == ((PackFunction)obj).FullName;
+        }
+        return false;
+    }
+
+    public override string ToString()
+    {
+        return FullName;
+    }
 }

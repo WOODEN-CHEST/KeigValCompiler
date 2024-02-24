@@ -11,5 +11,5 @@ internal class FileReadException : Exception
 {
     // Constructors.
     internal FileReadException(SourceFileParser sourceFile, string? message)
-        : base($"Failed to read file {sourceFile.FilePath} on Line: {sourceFile.Line}. Reason: {message}") { }
+        : base($"Failed to read file {sourceFile.FilePath} on line: {sourceFile.Line}. Reason: {message}") { }
 }

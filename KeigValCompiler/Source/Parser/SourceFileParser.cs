@@ -7,7 +7,8 @@ using System.Text;
 namespace KeigValCompiler.Source;
 
 
-/* Yeah, this class may be a tiny bit too big.  */
+/* Yeah, this class may be a tiny bit too big.
+ * Good OOP principles? Never heard of it, just put everything in a single giant monolith class. */
 internal class SourceFileParser
 {
     // Internal fields.
@@ -24,53 +25,6 @@ internal class SourceFileParser
     private readonly HashSet<string> _namespaceImports = new(8);
 
 
-    /* Syntax. */
-    private const char SEMICOLON = ';';
-    private const char NAMESPACE_SEPARATOR = '.';
-    private const char UNDERSCORE = '_';
-    private const char OPEN_CURLY_BRACKET = '{';
-    private const char CLOSE_CURLY_BRACKET = '}';
-    private const char OPEN_PARENTHESIS = '(';
-    private const char CLOSE_PARENTHESIS = ')';
-    private const char ASSIGNMENT_OPEERATOR = '=';
-
-    private const char LINE_COMMENT_INDICATOR1 = '/';
-    private const char LINE_COMMENT_INDICATOR2 = '*';
-    private const string MULTI_LINE_COMMENT_START = "/*";
-    private const string MULTI_LINE_COMMENT_END = "*/";
-    private const string SINGLE_LINE_COMMENT_START = "//";
-    private const char NEWLINE = '\n';
-    private const int COMMENT_INDICATOR_LENGTH = 2;
-
-
-    /* Keywords. */
-    private const string KEYWORD_NAMESPACE = "namespace";
-    private const string KEYWORD_USING = "using";
-
-    private const string KEYWORD_CLASS = "class";
-    private const string KEYWORD_STATIC = "static";
-    private const string KEYWORD_PRIVATE = "private";
-    private const string KEYWORD_PROTECTED = "protected";
-    private const string KEYWORD_PUBLIC = "public";
-    private const string KEYWORD_BUILTIN = "builtin";
-    private const string KEYWORD_INLINE = "inline";
-    private const string KEYWORD_ABSTRACT = "abstract";
-    private const string KEYWORD_VIRTUAL = "virtual";
-    private const string KEYWORD_OVERRIDE = "override";
-    private const string KEYWORD_RAW = "raw";
-
-    private const string KEYWORD_FOR = "for";
-    private const string KEYWORD_FOREACH = "foreach";
-    private const string KEYWORD_CONTINUE = "continue";
-    private const string KEYWORD_BREAK = "break";
-    private const string KEYWORD_IF = "if";
-    private const string KEYWORD_ELSE = "else";
-    private const string KEYWORD_SWITCH = "switch";
-    private const string KEYWORD_CASE = "case";
-    private const string KEYWORD_GOTO = "goto";
-    private const string KEYWORD_LABEL = "label";
-
-
     // Constructors.
     internal SourceFileParser(string filePath, DataPack pack)
     {
@@ -84,7 +38,8 @@ internal class SourceFileParser
     {
         try
         {
-            _data = StripCodeOfComments(File.ReadAllText(FilePath));
+            _data = File.ReadAllText(FilePath);
+            StripDataOfComments();
             ParseBase();
         }
         catch (FileNotFoundException e)
@@ -103,93 +58,39 @@ internal class SourceFileParser
 
     
     // Private methods.
-    private string StripCodeOfComments(string code)
+    private void StripDataOfComments()
     {
-        StringBuilder StrippedCode = new();
-        StringBuilder Indicator = new();
+        _dataIndex = 0;
+        StringBuilder StrippedData = new(_data.Length);
 
-        bool IsInsideSingleLineComment = false;
-        bool IsInsideMultiLineComment = false;
-
-        foreach (char Character in code)
+        while (_dataIndex < _data.Length) 
         {
-            if (IsInsideSingleLineComment && (Character != NEWLINE))
+            char Character = GetCharAtDataIndex();
+
+            if (Character == KGVL.DOUBLE_QUOTE)
             {
-                continue;
+                StrippedData.Append(Character);
+                IncrementDataIndex();
+                StrippedData.Append(ParseUntil(null, KGVL.DOUBLE_QUOTE));
+                StrippedData.Append(GetCharAtDataIndex());
             }
-            else if (IsInsideMultiLineComment)
+            else if (HasStringAtIndex(_dataIndex, "//"))
             {
-                if (Character is LINE_COMMENT_INDICATOR1 or LINE_COMMENT_INDICATOR2)
-                {
-                    Indicator.Append(Character);
-                }
-                else
-                {
-                    Indicator.Clear();
-                    continue;
-                }
-
-                if (Indicator.Length == COMMENT_INDICATOR_LENGTH)
-                {
-                    if (Indicator.Equals(MULTI_LINE_COMMENT_END))
-                    {
-                        IsInsideMultiLineComment = false;
-                        Indicator.Clear();
-                    }
-                    else
-                    {
-                        Indicator.Remove(0, 1);
-                    }
-                }
-
-                continue;
+                SkipUntil(null, '\n');
             }
-            IsInsideSingleLineComment = false;
-
-            if (Character is LINE_COMMENT_INDICATOR1 or LINE_COMMENT_INDICATOR2)
+            else if (HasStringAtIndex(_dataIndex, "/*"))
             {
-                Indicator.Append(Character);
+                SkipUntilString("Multi-comment string wasn't terminated properly.", "*/");
             }
             else
             {
-                StrippedCode.Append(Indicator);
-                Indicator.Clear();
+                StrippedData.Append(Character);
             }
-
-            if (Indicator.Length == COMMENT_INDICATOR_LENGTH)
-            {
-                switch (Indicator.ToString())
-                {
-                    case SINGLE_LINE_COMMENT_START:
-                        IsInsideSingleLineComment = true;
-                        Indicator.Clear();
-                        continue;
-
-                    case MULTI_LINE_COMMENT_START:
-                        IsInsideMultiLineComment = true;
-                        Indicator.Clear();
-                        continue;
-
-                    default:
-                        StrippedCode.Append(Indicator[0]);
-                        Indicator.Remove(0, 1);
-                        continue;
-                }
-            }
-
-            if (Indicator.Length == 0)
-            {
-                StrippedCode.Append(Character);
-            }
+            IncrementDataIndex();
         }
 
-        if (IsInsideMultiLineComment)
-        {
-            throw new FileReadException(this, "Multi-line comment not closed properly.");
-        }
-
-        StrippedCode.Append(Indicator);
-        return StrippedCode.ToString();
+        _data = StrippedData.ToString();
+        _dataIndex = 0;
     }
 
     /* Base. */
@@ -197,25 +98,21 @@ internal class SourceFileParser
     {
         while (SkipUntilNonWhitespace(null))
         {
-            string Keyword = ParseWord($"Expected keyword '{KEYWORD_NAMESPACE}' or '{KEYWORD_USING}'.");
+            string Keyword = ParseWord($"Expected keyword '{KGVL.KEYWORD_NAMESPACE}' or '{KGVL.KEYWORD_USING}'.");
 
-            switch (Keyword)
+            if (Keyword == KGVL.KEYWORD_NAMESPACE)
             {
-                case KEYWORD_NAMESPACE:
-                    ParseNamespace();
-                    break;
-
-                case KEYWORD_USING:
-                    ParseUsingStatement();
-                    break;
-
-                case KEYWORD_CLASS:
-                    ParseClass();
-                    break;
-
-                default:
-                    throw new FileReadException(this, $"Invalid keyword \"{Keyword}\".");
+                ParseNamespace();
+                continue;
             }
+            else if (Keyword == KGVL.KEYWORD_USING)
+            {
+                ParseUsingStatement();
+                continue;
+            }
+
+            ReverseUntilOneAfterWhitespace(); // Go back to before keyword was parsed to allow respective functions to properly handle it.
+            ParseMember(null);
         }
     }
 
@@ -227,19 +124,19 @@ internal class SourceFileParser
 
         StringBuilder NamespaceName = new();
         bool HadSeparator = false;
-        while (!(char.IsWhiteSpace(GetCharAtDataIndex()) || (GetCharAtDataIndex() == SEMICOLON)))
+
+        while (!(char.IsWhiteSpace(GetCharAtDataIndex()) || (GetCharAtDataIndex() == KGVL.SEMICOLON)))
         {
             char Character = GetCharAtDataIndex();
             NamespaceName.Append(Character);
             IncrementDataIndex();
 
-            if (Character == NAMESPACE_SEPARATOR)
+            if (Character == KGVL.NAMESPACE_SEPARATOR)
             {
                 if (HadSeparator)
                 {
-                    throw new FileReadException(this, $"Invalid namespace, multiple namespace separators '{NAMESPACE_SEPARATOR}'");
+                    throw new FileReadException(this, $"Invalid namespace, multiple namespace separators '{KGVL.NAMESPACE_SEPARATOR}'");
                 }
-
                 HadSeparator = true;
                 continue;
             }
@@ -255,16 +152,16 @@ internal class SourceFileParser
         {
             throw new FileReadException(this, $"Expected namespace name.");
         }
-        else if (NamespaceName[^1] == NAMESPACE_SEPARATOR)
+        else if (NamespaceName[^1] == KGVL.NAMESPACE_SEPARATOR)
         {
-            throw new FileReadException(this, $"Namespace ends with a namespace separator '{NAMESPACE_SEPARATOR}'");
+            throw new FileReadException(this, $"Namespace ends with a namespace separator '{KGVL.NAMESPACE_SEPARATOR}'");
         }
-        else if (NamespaceName[0] == NAMESPACE_SEPARATOR)
+        else if (NamespaceName[0] == KGVL.NAMESPACE_SEPARATOR)
         {
-            throw new FileReadException(this, $"Namespace starts with a namespace separator '{NAMESPACE_SEPARATOR}'");
+            throw new FileReadException(this, $"Namespace starts with a namespace separator '{KGVL.NAMESPACE_SEPARATOR}'");
         }
 
-        SkipUntil($"Missing '{SEMICOLON}' after namespace", SEMICOLON);
+        SkipUntil($"Missing '{KGVL.SEMICOLON}' after namespace", KGVL.SEMICOLON);
         IncrementDataIndex();
 
         return NamespaceName.ToString();
@@ -282,32 +179,58 @@ internal class SourceFileParser
 
 
     /* Classes. */
-    internal string ParseClassName()
+    internal void ParseClass(PackMemberModifiers modifiers, PackClass? parentClass)
     {
-        SkipUntilNonWhitespace("Expected class name.");
-        return ParseIdentifier("Expected class name.");
-    }
+        if ((modifiers & (~PackMemberModifiers.Static & ~PackMemberModifiers.Abstract)) != 0)
+        {
+            throw new FileReadException(this, $"Class may only have the modifiers '{KGVL.KEYWORD_STATIC}' and '{KGVL.KEYWORD_ABSTRACT}'");
+        }
 
-    internal void ParseClass()
-    {
-        PackClass ParsedClass = new(_activeNamespace, ParseClassName());
-        SkipUntil($"Expected class body opening '{OPEN_CURLY_BRACKET}'", OPEN_CURLY_BRACKET);
+        SkipUntilNonWhitespace("Expected class name.");
+        string ClassName = ParseIdentifier("Expected class name.");
+
+        List<string> ExtendedItems = new();
+        SkipWhitespaceUntil("Expected class body, class extension or interface implementation.", KGVL.COLON, KGVL.OPEN_CURLY_BRACKET);
+        if (GetCharAtDataIndex() == KGVL.COLON)
+        {
+            do
+            {
+                IncrementDataIndex();
+                SkipUntilNonWhitespace("Expected class or interface name.");
+
+                ExtendedItems.Add(ParseIdentifier("Expected class or interface name."));
+
+                SkipWhitespaceUntil("Expected class body, class extension or interface implementation", KGVL.OPEN_CURLY_BRACKET, KGVL.COMMA);
+            }
+            while (GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET);
+        }
+
+        PackClass ParsedClass = new(_activeNamespace, ClassName, parentClass, modifiers, ExtendedItems.ToArray());
         IncrementDataIndex();
+        //Pack.AddClass(ParsedClass);
 
         bool IsClassClosed = false;
         while (!IsClassClosed)
         {
             SkipUntilNonWhitespace(null);
-            if (GetCharAtDataIndex() == CLOSE_CURLY_BRACKET)
+            if (GetCharAtDataIndex() == KGVL.CLOSE_CURLY_BRACKET)
             {
                 IsClassClosed = true;
                 IncrementDataIndex();
             }
             else
             {
-                ParseClassMember(ParsedClass);
+                ParseMember(ParsedClass);
             }
         }
+    }
+
+
+    /* Namespace and class members. */
+    private int CountAccessModifiers(PackMemberModifiers modifiers)
+    {
+        return ((modifiers & PackMemberModifiers.Private) > 0 ? 1 : 0)
+            + ((modifiers & PackMemberModifiers.Protected) > 0 ? 1 : 0) + ((modifiers & PackMemberModifiers.Public) > 0 ? 1 : 0);
     }
 
     private PackMemberModifiers CombineModifier(PackMemberModifiers appliedModifiers, PackMemberModifiers newModifier)
@@ -319,9 +242,7 @@ internal class SourceFileParser
 
         appliedModifiers |= newModifier;
 
-        int AccessModifierCount = (int)(appliedModifiers & PackMemberModifiers.Private)
-            + (int)(appliedModifiers & PackMemberModifiers.Protected) + (int)(appliedModifiers & PackMemberModifiers.Public);
-        if (AccessModifierCount > 1)
+        if (CountAccessModifiers(appliedModifiers) > 1)
         {
             throw new FileReadException(this, "Too many access modifiers for member.");
         }
@@ -336,63 +257,65 @@ internal class SourceFileParser
         }
         if ((appliedModifiers & (PackMemberModifiers.Abstract | PackMemberModifiers.Virtual | PackMemberModifiers.Override)) != 0)
         {
-            throw new FileReadException(this, "Built-in member cannot be both abstract, virtual or overridden.");
+            throw new FileReadException(this, "Built-in member cannot be abstract, virtual or overridden.");
         }
 
         return appliedModifiers;
     }
 
-    private PackMemberModifiers GetModifierByKeywrod(string keywrod)
+    private void ParseMemberValue(PackClass? packClass, PackMemberModifiers modifiers, string type)
     {
-        return keywrod switch
-        {
-            KEYWORD_STATIC => PackMemberModifiers.Static,
-            KEYWORD_PRIVATE => PackMemberModifiers.Private,
-            KEYWORD_PROTECTED => PackMemberModifiers.Protected,
-            KEYWORD_PUBLIC => PackMemberModifiers.Public,
-            KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
-            KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
-            KEYWORD_OVERRIDE => PackMemberModifiers.Override,
-            KEYWORD_BUILTIN => PackMemberModifiers.BuiltIn,
-            KEYWORD_INLINE => PackMemberModifiers.Inline,
-            KEYWORD_RAW => PackMemberModifiers.Raw,
-            _ => PackMemberModifiers.None
-        };
-    }
-
-    private void ParseClassMemberValue(PackClass packClass, PackMemberModifiers modifiers)
-    {
-        SkipUntilNonWhitespace($"Expected '{SEMICOLON}', '{ASSIGNMENT_OPEERATOR}', '{OPEN_PARENTHESIS}' or '{OPEN_CURLY_BRACKET}'");
+        SkipUntilNonWhitespace("Expected member identifier.");
+        string Identifier = ParseIdentifier("Expected member identifier.");
+        SkipUntilNonWhitespace(null);
 
         switch (GetCharAtDataIndex())
         {
-            case SEMICOLON:
-            case ASSIGNMENT_OPEERATOR: // Field.
-                ParseField();
+            case KGVL.SEMICOLON:
+            case KGVL.ASSIGNMENT_OPEERATOR:
+                IncrementDataIndex();
+                ParseField(modifiers, packClass);
                 break;
 
-            case OPEN_CURLY_BRACKET: // Property.
-                ParseProperty();
+            case KGVL.OPEN_CURLY_BRACKET:
+                IncrementDataIndex();
+                ParseProperty(modifiers, packClass);
                 break;
 
-            default: // Function.
-                ParseFunction();
+            case KGVL.OPEN_PARENTHESIS:
+                IncrementDataIndex();
+                ParseFunction(modifiers, packClass, type);
                 break;
+
+            default:
+                throw new FileReadException(this, $"Expected '{KGVL.SEMICOLON}', '{KGVL.ASSIGNMENT_OPEERATOR}'," +
+                    $" '{KGVL.OPEN_PARENTHESIS}' or '{KGVL.OPEN_CURLY_BRACKET}'");
         }
     }
 
-    internal void ParseClassMember(PackClass packClass)
+    private PackMemberModifiers ParseItemModifiers(PackClass? packClass, out string type)
     {
         PackMemberModifiers Modifiers = PackMemberModifiers.None;
-        string? MemberName = null;
-        string? FunctionReturnType = null;
 
-        bool ReachedMemberDefinition = false;
-        while (!ReachedMemberDefinition)
+        while (true) // While true loops are the most fun!
         {
-            SkipUntilNonWhitespace(null);
+            SkipUntilNonWhitespace("Expected member modifier or identifier");
             string Word = ParseIdentifier("Expected member modifier or identifier.");
-            PackMemberModifiers NewModifier = GetModifierByKeywrod(Word);
+            PackMemberModifiers NewModifier = Word switch
+            {
+                KGVL.KEYWORD_STATIC => PackMemberModifiers.Static,
+                KGVL.KEYWORD_PRIVATE => PackMemberModifiers.Private,
+                KGVL.KEYWORD_PROTECTED => PackMemberModifiers.Protected,
+                KGVL.KEYWORD_PUBLIC => PackMemberModifiers.Public,
+                KGVL.KEYWORD_READONLY => PackMemberModifiers.Readonly,
+                KGVL.KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
+                KGVL.KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
+                KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
+                KGVL.KEYWORD_BUILTIN => PackMemberModifiers.BuiltIn,
+                KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
+                KGVL.KEYWORD_RAW => PackMemberModifiers.Raw,
+                _ => PackMemberModifiers.None
+            };
 
             if (NewModifier != PackMemberModifiers.None)
             {
@@ -400,52 +323,67 @@ internal class SourceFileParser
                 continue;
             }
 
-            ParseClassMemberValue(packClass, Modifiers);
+            if ((CountAccessModifiers(Modifiers) == 0) && (packClass != null))
+            {
+                Modifiers |= PackMemberModifiers.Private;
+            }
 
-            MemberName = Word;
-            ReachedMemberDefinition = true;
-        }
+            type = Word;
 
-        if (MemberName == null)
-        {
-            throw new FileReadException(this, "Expected member identifier.");
-        }
-
-        SkipUntilNonWhitespace("");
-        switch (GetCharAtDataIndex())
-        {
-            case SEMICOLON:
-            case ASSIGNMENT_OPEERATOR:
-                ParseField();
-                break;
-
-            case OPEN_PARENTHESIS:
-                ParseFunction();
-                break;
-
-            case OPEN_CURLY_BRACKET:
-                ParseProperty();
-                break;
+            return Modifiers;
         }
     }
 
+    internal void ParseMember(PackClass? packClass)
+    {
+        PackMemberModifiers Modifiers = ParseItemModifiers(packClass ,out string LastIdentifier);
 
-    /* Functions. */
-    private void ParseFunction(PackMemberModifiers modifiers, PackClass parentClass)
+        if (LastIdentifier == KGVL.KEYWORD_CLASS)
+        {
+            ParseClass(Modifiers, packClass);
+            return;
+        }
+
+        if (packClass == null && ((Modifiers & (PackMemberModifiers.Static | PackMemberModifiers.Abstract | PackMemberModifiers.Virtual
+                | PackMemberModifiers.Override)) != 0)) // Extra modifier restrains for members outside of classes.
+        {
+            throw new FileReadException(this, "Members outside of classes may not be static, abstract, virtual or overridden.");
+        }
+        if ((packClass != null) && ((Modifiers & PackMemberModifiers.Static) == 0))
+        {
+            throw new FileReadException(this, "All members of a static class must be static");
+        }
+
+        ParseMemberValue(packClass, Modifiers, LastIdentifier);
+    }
+
+
+    /* Statements. */
+    private void ParseStatement()
     {
 
     }
 
 
+    /* Functions. */
+    private void ParseFunction(PackMemberModifiers modifiers, PackClass? parentClass, string returnType)
+    {
+        if ((modifiers & PackMemberModifiers.Readonly) != 0)
+        {
+            throw new FileReadException(this, $"Functions cannot have the modifier '{KGVL.KEYWORD_READONLY}'");
+        }
+    }
+
+
     /* Properties. */
-    private void ParseProperty()
+    private void ParseProperty(PackMemberModifiers modifiers, PackClass? parentClass)
     {
         
     }
 
 
     /* Fields. */
-    private void ParseField()
+    private void ParseField(PackMemberModifiers modifiers, PackClass? parentClass)
     {
 
     }
@@ -462,26 +400,31 @@ internal class SourceFileParser
         _dataIndex++;
     }
 
+    private void IncrementDatIndexNTimes(int count)
+    {
+        for (int i = 0; i < count; i++) { IncrementDataIndex(); }
+    }
+
+    private void DecrementDataIndex()
+    {
+        _dataIndex = Math.Max(0, _dataIndex - 1);
+        if (_data[_dataIndex] == '\n')
+        {
+            Line--;
+        }
+    }
+
+    private void DecrementDataIndexNTimes(int count)
+    {
+        for (int i = 0; i < count; i++) { DecrementDataIndex(); }
+    }
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private char GetCharAtDataIndex() => _dataIndex >= _data.Length ? '\0' : _data[_dataIndex];
 
-    private bool SkipUntilNonWhitespace(string? exceptionMessage)
-    {
-        while ((_dataIndex < _data.Length) && char.IsWhiteSpace(_data[_dataIndex]))
-        {
-            IncrementDataIndex();
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private char GetCharAtDataIndex(int index) => index >= _data.Length ? '\0' : _data[index];
 
-        if (_dataIndex >= _data.Length)
-        {
-            if (exceptionMessage != null)
-            {
-                throw new FileReadException(this, exceptionMessage);
-            }
-            return false;
-        }
-        return true;
-    }
 
     private string ParseWord(string? exceptionMessage)
     {
@@ -508,7 +451,7 @@ internal class SourceFileParser
     {
         StringBuilder Identifier = new();
 
-        while ((_dataIndex < _data.Length) && (char.IsLetterOrDigit(GetCharAtDataIndex()) || GetCharAtDataIndex() == UNDERSCORE))
+        while ((_dataIndex < _data.Length) && (char.IsLetterOrDigit(GetCharAtDataIndex()) || GetCharAtDataIndex() == KGVL.UNDERSCORE))
         {
             Identifier.Append(GetCharAtDataIndex());
             IncrementDataIndex();
@@ -530,6 +473,20 @@ internal class SourceFileParser
         return Identifier.ToString();
     }
 
+    private void ReverseUntilOneAfterWhitespace()
+    {
+        DecrementDataIndex();
+        while (_dataIndex > 0)
+        {
+            if (char.IsWhiteSpace(GetCharAtDataIndex()))
+            {
+                IncrementDataIndex();
+                return;
+            }
+            DecrementDataIndex();
+        }
+    }
+
     private string ParseUntil(string? exceptionMessage, params char[] charsToFind)
     {
         if (charsToFind == null)
@@ -549,7 +506,7 @@ internal class SourceFileParser
             IncrementDataIndex();
         }
 
-        if ((ParsedText.Length == 0) && (exceptionMessage != null))
+        if (((ParsedText.Length == 0) && (exceptionMessage != null)) || !charsToFind.Contains(GetCharAtDataIndex()))
         {
             throw new FileReadException(this, exceptionMessage);
         }
@@ -577,5 +534,99 @@ internal class SourceFileParser
             throw new FileReadException(this, exceptionMessage);
         }
         return false;
+    }
+
+    private bool SkipWhitespaceUntil(string? exceptionMessage, params char[] charsToFind)
+    {
+        if (charsToFind == null)
+        {
+            throw new ArgumentNullException(nameof(charsToFind));
+        }
+
+        while (_dataIndex < _data.Length)
+        {
+            if (charsToFind.Contains(GetCharAtDataIndex()))
+            {
+                return true;
+            }
+            else if (!char.IsWhiteSpace(GetCharAtDataIndex()))
+            {
+                throw new FileReadException(this, exceptionMessage);
+            }
+            IncrementDataIndex();
+        }
+
+        if (exceptionMessage != null)
+        {
+            throw new FileReadException(this, exceptionMessage);
+        }
+        return false;
+    }
+
+    private bool SkipUntilNonWhitespace(string? exceptionMessage)
+    {
+        while ((_dataIndex < _data.Length) && char.IsWhiteSpace(_data[_dataIndex]))
+        {
+            IncrementDataIndex();
+        }
+
+        if (_dataIndex >= _data.Length)
+        {
+            if (exceptionMessage != null)
+            {
+                throw new FileReadException(this, exceptionMessage);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private bool SkipUntilString(string? exceptionMessage, params string[] stringsToFind)
+    {
+        if (stringsToFind == null)
+        {
+            throw new ArgumentNullException(nameof(stringsToFind));
+        }
+
+        while (_dataIndex < _data.Length)
+        {
+            for (int i = 0; i < stringsToFind.Length; i++)
+            {
+                if (HasStringAtIndex(_dataIndex, stringsToFind[i]))
+                {
+                    IncrementDatIndexNTimes(stringsToFind[i].Length);
+                    return true;
+                }
+            }
+            IncrementDataIndex();
+        }
+
+        if (exceptionMessage != null)
+        {
+            throw new FileReadException(this, exceptionMessage);
+        }
+        return false;
+    }
+
+    private bool HasStringAtIndex(int index, string stringToFind)
+    {
+        if (index < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(index));
+        }
+        if (_data.Length - index < stringToFind.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < stringToFind.Length; i++)
+        {
+            if (GetCharAtDataIndex(index + i) != stringToFind[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
