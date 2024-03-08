@@ -51,7 +51,7 @@ internal class PackParser
         foreach (string sourceFile in Directory.GetFiles(_sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
             SourceFileParser FileParser = new(sourceFile, Pack);
-            FileParser.ParseFile();
+            FileParser.ParseFile(Pack);
         }
 
         return Pack;

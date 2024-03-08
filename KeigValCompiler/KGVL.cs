@@ -18,7 +18,9 @@ internal static class KGVL
     public const char CLOSE_CURLY_BRACKET = '}';
     public const char OPEN_PARENTHESIS = '(';
     public const char CLOSE_PARENTHESIS = ')';
-    public const char ASSIGNMENT_OPEERATOR = '=';
+    public const char ASSIGNMENT_OPERATOR = '=';
+    public const char STRING_INTERPOLATION_OPERATOR = '$';
+    public const char ESCAPE_CHAR = '\\';
 
     public const char LINE_COMMENT_INDICATOR1 = '/';
     public const char LINE_COMMENT_INDICATOR2 = '*';
