@@ -32,10 +32,7 @@ internal class CompilerOptions
         if (args.Length >= 2)
         {
             DestinationDirectory = args[1];
-            if (!Directory.Exists(DestinationDirectory))
-            {
-                throw new CommandlineArgumentException($"Deqtination directory \"{DestinationDirectory}\" not found.");
-            }
+            Directory.CreateDirectory(DestinationDirectory);
         }
     }
 }

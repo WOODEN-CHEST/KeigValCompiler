@@ -44,17 +44,21 @@ internal class SourceFileParser
             StripDataOfComments();
             ParseBase();
         }
+        catch (PackContentException e)
+        {
+            throw new FileReadException(this, $"Invalid pack content for file \"{FilePath}\": {e.Message}");
+        }
         catch (FileNotFoundException e)
         {
             throw new FileReadException(this, $"File \"{FilePath}\" not found.");
         }
         catch (DirectoryNotFoundException e)
         {
-            throw new FileReadException(this, $"Directory not found for file \"{FilePath}\". {e}");
+            throw new FileReadException(this, $"Directory not found for file \"{FilePath}\". {e.Message}");
         }
         catch (IOException e)
         {
-            throw new FileReadException(this, $"IOException reading file \"{FilePath}\". {e}");
+            throw new FileReadException(this, $"IOException reading file \"{FilePath}\". {e.Message}");
         }
     }
 
@@ -417,20 +421,6 @@ internal class SourceFileParser
     internal void ParseMember(PackClass? memberClass)
     {
         PackMemberModifiers Modifiers = ParseMemberModifiers(memberClass);
-        if ((CountAccessModifiers(Modifiers) == 0) && (memberClass != null))
-        {
-            Modifiers |= PackMemberModifiers.Private;
-        }
-
-        if (memberClass == null && ((Modifiers & (PackMemberModifiers.Static | PackMemberModifiers.Abstract | PackMemberModifiers.Virtual
-                | PackMemberModifiers.Override)) != 0)) // Extra modifier restrains for members outside of classes.
-        {
-            throw new FileReadException(this, "Members outside of classes may not be static, abstract, virtual or overridden.");
-        }
-        if ((memberClass?.IsStatic ?? false) && ((Modifiers & PackMemberModifiers.Static) == 0))
-        {
-            throw new FileReadException(this, "All members of a static class must be static");
-        }
 
         string Keyword = ReadIdentifier("Expected return type or member type.");
         SkipUntilNonWhitespace("Expected member identifier.");

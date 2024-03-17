@@ -29,11 +29,11 @@ internal class PackNameSpace
     // Methods.
     internal void AddClass(PackClass packClass)
     {
-        if (_classes.ContainsKey(packClass.Name))
+        if (_classes.ContainsKey(packClass.Identifier))
         {
-            throw new PackContentException($"Pack {packClass.FullName} defined multiple times.");
+            throw new PackContentException($"Pack {packClass.FullyQualifiedIdentifier} defined multiple times.");
         }
-        _classes.Add(packClass.Name, packClass);
+        _classes.Add(packClass.Identifier, packClass);
     }
 
     internal void AddFunction(PackFunction function)
@@ -55,11 +55,11 @@ internal class PackNameSpace
     }
     internal void AddProperty(PackProperty property)
     {
-        if (_properties.ContainsKey(property.Name))
+        if (_properties.ContainsKey(property.Identifier))
         {
-            throw new PackContentException($"Pack {property.FullName} defined multiple times.");
+            throw new PackContentException($"Pack {property.FullyQualifiedIdentifier} defined multiple times.");
         }
-        _properties.Add(property.Name, property);
+        _properties.Add(property.Identifier, property);
     }
 
 

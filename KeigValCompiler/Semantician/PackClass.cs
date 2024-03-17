@@ -15,62 +15,40 @@ internal class PackClass : PackMember
 
     // Private fields.
     private readonly string[] _extensions;
-
-    
-
-
-    // Private fields.
     private readonly Dictionary<string, PackFunction> _functions = new();
     private readonly Dictionary<string, PackField> _fields = new();
 
 
+
     // Constructors.
-    internal PackClass(string name, PackClass parentClass, PackMemberModifiers modifiers, string[] extendedItems)
-        : base(name, parentClass, modifiers)
-    {
-        ParentClass = parentClass;
-        _extensions = extendedItems ?? throw new ArgumentNullException(nameof(extendedItems));
-    }
-
-    internal PackClass(string name, string parentNamespace, PackMemberModifiers modifiers, string[] extendedItems, PackSourceFile sourceFile)
-        : base(name, parentNamespace, modifiers, sourceFile)
+    internal PackClass(string identifier, PackMemberModifiers modifiers, PackClass parentClass, string[] extendedItems)
+        : base(identifier, modifiers, parentClass)
     {
         _extensions = extendedItems ?? throw new ArgumentNullException(nameof(extendedItems));
+        VerifyDefinition();
+    }
+
+    internal PackClass(string identifier, PackMemberModifiers modifiers, string parentNamespace, PackSourceFile sourceFile, string[] extendedItems)
+        : base(identifier, modifiers, parentNamespace, sourceFile)
+    {
+        _extensions = extendedItems ?? throw new ArgumentNullException(nameof(extendedItems));
+        VerifyDefinition();
     }
 
 
-
-
-    // Internal methods.
-    /* Info-building stage. */
-    internal void BuildInfo(DataPack pack)
+    // Private methods.
+    private void VerifyDefinition()
     {
-
-    }
-
-    internal void AddFunction(PackFunction function) => _functions.Add(function.Name, function);
-
-    internal void AddField(PackField field) => _fields.Add(field.Name, field);
-
-
-
-    // Inherited methods.
-    public override int GetHashCode()
-    {
-        return FullName.GetHashCode();
-    }
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is PackClass)
+        if (IsStatic && _extensions.Length > 0)
         {
-            return FullName == ((PackClass)obj).FullName;
+            throw new PackContentException("Static classes may not extend any other classes or implement interfaces.");
         }
-        return false;
-    }
 
-    public override string ToString()
-    {
-        return FullName;
+        if (HasAnyModifiersExcept(PackMemberModifiers.Private, PackMemberModifiers.Protected,
+            PackMemberModifiers.Public, PackMemberModifiers.Static))
+        {
+            throw new PackContentException("Classes may only have the following modifiers: " +
+                $"{KGVL.KEYWORD_STATIC}, {KGVL.KEYWORD_PRIVATE}, {KGVL.KEYWORD_PROTECTED}, {KGVL.KEYWORD_PUBLIC}");
+        }
     }
 }
