@@ -10,6 +10,6 @@ namespace KeigValCompiler.Source.Parser;
 internal class FileReadException : Exception
 {
     // Constructors.
-    internal FileReadException(SourceFileParser sourceFile, string? message)
-        : base($"Failed to read file {sourceFile.FilePath} on line: {sourceFile.Line}. Reason: {message}") { }
+    internal FileReadException(SourceFileParser sourceFileParser, string? message)
+        : base($"Failed to read file {sourceFileParser.FilePath} on line: {sourceFileParser.Line}. Reason: {message}") { }
 }

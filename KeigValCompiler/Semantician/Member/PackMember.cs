@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KeigValCompiler.Semantician;
+namespace KeigValCompiler.Semantician.Member;
 
 internal abstract class PackMember
 {
@@ -17,7 +17,6 @@ internal abstract class PackMember
     internal virtual PackSourceFile SourceFile { get; set; }
     internal virtual DataPack Pack => SourceFile.Pack;
     internal virtual PackMemberModifiers Modifiers { get; set; }
-
     internal bool IsStatic => (Modifiers & PackMemberModifiers.Static) != 0;
     internal bool IsAbstract => (Modifiers & PackMemberModifiers.Abstract) != 0;
 
@@ -78,27 +77,38 @@ internal abstract class PackMember
             CombinedModifiers |= AllowedModifier;
         }
 
-        return (CombinedModifiers | Modifiers) == CombinedModifiers;
+        return (CombinedModifiers | Modifiers) != CombinedModifiers;
     }
 
     // Private methods.
     private void VerifyModifiers()
     {
         if ((ParentClass == null) && HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.Virtual,
-            PackMemberModifiers.Override, PackMemberModifiers.Static))
+            PackMemberModifiers.Override, PackMemberModifiers.Static) && (this is not PackClass))
         {
             throw new PackContentException("Namespace members may not be abstract, virtual, overridden or static.");
         }
-
         if ((ParentClass?.IsStatic ?? false) && HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.Virtual,
             PackMemberModifiers.Override))
         {
             throw new PackContentException("Members of static classes may not be abstract, virtual or overridden.");
         }
-
         if ((ParentClass?.IsStatic ?? false) && !HasAnyModifier(PackMemberModifiers.Static))
         {
             throw new PackContentException("Members of static classes must be static.");
+        }
+        if (HasAnyModifier(PackMemberModifiers.Virtual) && HasAnyModifier(PackMemberModifiers.Abstract))
+        {
+            throw new PackContentException("A member cannot be both abstract and virtual.");
+        }
+        if (HasAnyModifier(PackMemberModifiers.Override) && HasAnyModifier(PackMemberModifiers.Abstract))
+        {
+            throw new PackContentException("A member cannot be both abstract and overridden.");
+        }
+        if (HasAnyModifier(PackMemberModifiers.BuiltIn) && HasAnyModifier(PackMemberModifiers.Abstract,
+            PackMemberModifiers.Virtual, PackMemberModifiers.Override))
+        {
+            throw new PackContentException("A built-in member cannot be both abstract, virtual or overridden.");
         }
 
         int AccessModifierCount = CountAccessModifiers();

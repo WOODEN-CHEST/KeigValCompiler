@@ -1,4 +1,5 @@
 ﻿using KeigValCompiler.Semantician;
+using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Source.Parser;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -22,8 +23,7 @@ internal class SourceFileParser
     private string _data;
     private int _dataIndex = 0;
 
-    private string _activeNamespace = string.Empty;
-    private readonly HashSet<string> _namespaceImports = new(8);
+    private PackNameSpace _activeNamespace;
 
 
     // Constructors.
@@ -210,13 +210,18 @@ internal class SourceFileParser
 
             if (Keyword == KGVL.KEYWORD_NAMESPACE)
             {
-                _activeNamespace = ParseNamespaceName();
+                _activeNamespace = Pack.GetNamespace(ParseNamespaceName());
+                SourceFile.AddNamespace(_activeNamespace);
                 continue;
             }
             else if (Keyword == KGVL.KEYWORD_USING)
             {
                 ParseUsingStatement();
                 continue;
+            }
+            else if (_activeNamespace == null)
+            {
+                throw new FileReadException(this, "Expected namespace,");
             }
 
             ReverseUntilOneAfterWhitespace(); // Go back to before keyword was parsed to allow respective functions to properly handle it.
@@ -257,21 +262,13 @@ internal class SourceFileParser
 
     private void ParseUsingStatement()
     {
-        _namespaceImports.Add(ParseNamespaceName());
+        SourceFile.AddNamespaceImport(ParseNamespaceName());
     }
 
 
     /* Classes. */
-    internal void ParseClass(PackMemberModifiers modifiers, PackClass? parentClass, string identifier)
+    internal string[] ParseClassExtensions()
     {
-        if ((modifiers & (~PackMemberModifiers.Static & ~PackMemberModifiers.Abstract)) != 0)
-        {
-            throw new FileReadException(this, $"Class may only have the modifiers '{KGVL.KEYWORD_STATIC}' and '{KGVL.KEYWORD_ABSTRACT}'");
-        }
-
-        SkipUntilNonWhitespace("Expected class name.");
-        string ClassName = ReadIdentifier("Expected class name.");
-
         List<string> ExtendedItems = new();
         SkipWhitespaceUntil("Expected class body, class extension or interface implementation.", KGVL.COLON, KGVL.OPEN_CURLY_BRACKET);
         if (GetCharAtDataIndex() == KGVL.COLON)
@@ -279,18 +276,32 @@ internal class SourceFileParser
             do
             {
                 IncrementDataIndex();
-                SkipUntilNonWhitespace("Expected class or interface name.");
-
-                ExtendedItems.Add(ReadIdentifier("Expected class or interface name."));
-
+                SkipUntilNonWhitespace("Expected extended class or interface name.");
+                ExtendedItems.Add(ReadIdentifier("Expected extended class or interface name."));
                 SkipWhitespaceUntil("Expected class body, class extension or interface implementation", KGVL.OPEN_CURLY_BRACKET, KGVL.COMMA);
             }
             while (GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET);
         }
 
-        PackClass ParsedClass = new(_activeNamespace, ClassName, parentClass, modifiers, ExtendedItems.ToArray());
+        return ExtendedItems.ToArray();
+    }
+
+    internal void ParseClass(PackMemberModifiers modifiers, PackClass? parentClass, string identifier)
+    {
+        string[] ExtendedItems = ParseClassExtensions();
+        PackClass ParsedClass;
+
+        if (parentClass != null)
+        {
+            ParsedClass = new(identifier, modifiers, parentClass, ExtendedItems);
+        }
+        else
+        {
+            ParsedClass = new(identifier, modifiers, _activeNamespace.Name, SourceFile, ExtendedItems);
+        }
+
         IncrementDataIndex();
-        //Pack.AddClass(ParsedClass);
+        _activeNamespace.AddClass(ParsedClass);
 
         bool IsClassClosed = false;
         while (!IsClassClosed)
@@ -310,12 +321,6 @@ internal class SourceFileParser
 
 
     /* Namespace and class members. */
-    private int CountAccessModifiers(PackMemberModifiers modifiers)
-    {
-        return ((modifiers & PackMemberModifiers.Private) > 0 ? 1 : 0)
-            + ((modifiers & PackMemberModifiers.Protected) > 0 ? 1 : 0) + ((modifiers & PackMemberModifiers.Public) > 0 ? 1 : 0);
-    }
-
     private PackMemberModifiers CombineModifier(PackMemberModifiers appliedModifiers, PackMemberModifiers newModifier)
     {
         if ((appliedModifiers & newModifier) != 0)
@@ -325,55 +330,7 @@ internal class SourceFileParser
 
         appliedModifiers |= newModifier;
 
-        if (CountAccessModifiers(appliedModifiers) > 1)
-        {
-            throw new FileReadException(this, "Too many access modifiers for member.");
-        }
-
-        if ((appliedModifiers & PackMemberModifiers.Abstract) != 0 && (appliedModifiers & PackMemberModifiers.Override) != 0)
-        {
-            throw new FileReadException(this, "Member cannot be both abstract and overridden.");
-        }
-        if ((appliedModifiers & PackMemberModifiers.Abstract) != 0 && (appliedModifiers & PackMemberModifiers.Virtual) != 0)
-        {
-            throw new FileReadException(this, "Member cannot be both abstract and virtual.");
-        }
-        if ((appliedModifiers & (PackMemberModifiers.Abstract | PackMemberModifiers.Virtual | PackMemberModifiers.Override)) != 0)
-        {
-            throw new FileReadException(this, "Built-in member cannot be abstract, virtual or overridden.");
-        }
-
         return appliedModifiers;
-    }
-
-    private void ParseMemberValue(PackClass? packClass, PackMemberModifiers modifiers, string type)
-    {
-        SkipUntilNonWhitespace("Expected member identifier.");
-        string Identifier = ReadIdentifier("Expected member identifier.");
-        SkipUntilNonWhitespace(null);
-
-        switch (GetCharAtDataIndex())
-        {
-            case KGVL.SEMICOLON:
-            case KGVL.ASSIGNMENT_OPERATOR:
-                IncrementDataIndex();
-                ParseField(modifiers, packClass);
-                break;
-
-            case KGVL.OPEN_CURLY_BRACKET:
-                IncrementDataIndex();
-                ParseProperty(modifiers, packClass);
-                break;
-
-            case KGVL.OPEN_PARENTHESIS:
-                IncrementDataIndex();
-                ParseFunction(modifiers, packClass, type);
-                break;
-
-            default:
-                throw new FileReadException(this, $"Expected '{KGVL.SEMICOLON}', '{KGVL.ASSIGNMENT_OPERATOR}'," +
-                    $" '{KGVL.OPEN_PARENTHESIS}' or '{KGVL.OPEN_CURLY_BRACKET}'");
-        }
     }
 
     private PackMemberModifiers StringToModifier(string modifierName)
@@ -390,7 +347,6 @@ internal class SourceFileParser
             KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
             KGVL.KEYWORD_BUILTIN => PackMemberModifiers.BuiltIn,
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
-            KGVL.KEYWORD_RAW => PackMemberModifiers.Raw,
             _ => PackMemberModifiers.None
         };
 }
@@ -398,7 +354,7 @@ internal class SourceFileParser
     private PackMemberModifiers ParseMemberModifiers(PackClass? packClass)
     {
         PackMemberModifiers Modifiers = PackMemberModifiers.None;
-        const string EXCEPTION_MSG_EXPECTED_MODIFIER = "Expected member modifier or identifier";
+        const string EXCEPTION_MSG_EXPECTED_MODIFIER = "Expected member modifier.";
 
         while (true) // While true loops are the most fun!
         {
@@ -422,7 +378,7 @@ internal class SourceFileParser
     {
         PackMemberModifiers Modifiers = ParseMemberModifiers(memberClass);
 
-        string Keyword = ReadIdentifier("Expected return type or member type.");
+        string Keyword = ReadIdentifier("Expected return type or property / field type.");
         SkipUntilNonWhitespace("Expected member identifier.");
         string Identifier = ReadIdentifier("Expected member identifier");
 
@@ -449,7 +405,7 @@ internal class SourceFileParser
 
 
     /* Statements. */
-    private void ParseStatement()
+    private void ParseValueStatement()
     {
 
     }
@@ -458,10 +414,7 @@ internal class SourceFileParser
     /* Functions. */
     private void ParseFunction(PackMemberModifiers modifiers, PackClass? parentClass, string identifier, string returnType)
     {
-        if ((modifiers & PackMemberModifiers.Readonly) != 0)
-        {
-            throw new FileReadException(this, $"Functions cannot have the modifier '{KGVL.KEYWORD_READONLY}'");
-        }
+
     }
 
 

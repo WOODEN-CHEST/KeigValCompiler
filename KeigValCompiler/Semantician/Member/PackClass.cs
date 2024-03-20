@@ -1,10 +1,11 @@
-﻿using System;
+﻿using KeigValCompiler.Semantician.Member;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KeigValCompiler.Semantician;
+namespace KeigValCompiler.Semantician.Member;
 
 internal class PackClass : PackMember
 {
@@ -45,10 +46,10 @@ internal class PackClass : PackMember
         }
 
         if (HasAnyModifiersExcept(PackMemberModifiers.Private, PackMemberModifiers.Protected,
-            PackMemberModifiers.Public, PackMemberModifiers.Static))
+            PackMemberModifiers.Public, PackMemberModifiers.Static, PackMemberModifiers.Abstract))
         {
             throw new PackContentException("Classes may only have the following modifiers: " +
-                $"{KGVL.KEYWORD_STATIC}, {KGVL.KEYWORD_PRIVATE}, {KGVL.KEYWORD_PROTECTED}, {KGVL.KEYWORD_PUBLIC}");
+                $"{KGVL.KEYWORD_STATIC}, {KGVL.KEYWORD_PRIVATE}, {KGVL.KEYWORD_PROTECTED}, {KGVL.KEYWORD_PUBLIC}, {KGVL.KEYWORD_ABSTRACT}");
         }
     }
 }

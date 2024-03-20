@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KeigValCompiler.Semantician;
+namespace KeigValCompiler.Semantician.Member;
 
 internal class PackProperty : PackMember
 {

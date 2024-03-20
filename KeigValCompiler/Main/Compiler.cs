@@ -21,6 +21,9 @@ public static class Compiler
         }
 
 
+        TwoIntDecimal Dec1 = 0;
+        Dec1 = TwoIntDecimal.Ceil(Dec1);
+
         CompilerOptions Options;
         try
         {

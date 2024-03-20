@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using KeigValCompiler.Semantician.Member;
 
 namespace KeigValCompiler.Semantician;
 
@@ -10,6 +11,11 @@ internal class PackNameSpace
 {
     // Internal fields.
     internal string Name { get; private init; }
+    internal PackClass[] Classes => _classes.Values.ToArray();
+    internal PackFunction[] Functions => _functions.Values.ToArray();
+    internal PackField[] Fields => _fields.Values.ToArray();
+    internal PackProperty[] Properties => _properties.Values.ToArray();
+
 
 
     // Private fields.
@@ -38,20 +44,20 @@ internal class PackNameSpace
 
     internal void AddFunction(PackFunction function)
     {
-        if (_functions.ContainsKey(function.Name))
+        if (_functions.ContainsKey(function.FullyQualifiedIdentifier))
         {
-            throw new PackContentException($"Pack {function.FullName} defined multiple times.");
+            throw new PackContentException($"Pack {function.FullyQualifiedIdentifier} defined multiple times.");
         }
-        _functions.Add(function.Name, function);
+        _functions.Add(function.FullyQualifiedIdentifier, function);
     }
 
     internal void AddField(PackField field)
     {
-        if (_fields.ContainsKey(field.Name))
+        if (_fields.ContainsKey(field.Identifier))
         {
-            throw new PackContentException($"Pack {field.FullName} defined multiple times.");
+            throw new PackContentException($"Pack {field.FullyQualifiedIdentifier} defined multiple times.");
         }
-        _fields.Add(field.Name, field);
+        _fields.Add(field.Identifier, field);
     }
     internal void AddProperty(PackProperty property)
     {

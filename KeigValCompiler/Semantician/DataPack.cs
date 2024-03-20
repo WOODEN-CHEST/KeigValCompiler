@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using KeigValCompiler.Semantician.Member;
 
 namespace KeigValCompiler.Semantician;
 
 internal class DataPack
 {
+    // Internal fields.
+    internal PackClass[] Classes => _namespaces.Values.SelectMany((NameSpace) => NameSpace.Classes).ToArray();
+
+
     // Private fields.
     private readonly Dictionary<string, PackNameSpace> _namespaces = new();
     
