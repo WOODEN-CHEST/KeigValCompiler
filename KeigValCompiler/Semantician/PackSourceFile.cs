@@ -1,22 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace KeigValCompiler.Semantician;
+﻿namespace KeigValCompiler.Semantician;
 
 internal class PackSourceFile
 {
     // Internal fields.
     internal DataPack Pack { get; private set; }
-    internal string[] NamespaceImports => _namespaceImports.ToArray();
+    internal PackNameSpace[] NamespaceImports => _namespaceImports.ToArray();
     internal PackNameSpace[] Namespaces => _namespaces.ToArray();
+    internal PackNameSpace[] AllUsedNamespaces => _namespaces.Concat(_namespaceImports).ToArray();
 
 
     // Private fields.
-    private readonly HashSet<string> _namespaceImports = new();
-    private readonly HashSet<PackNameSpace> _namespaces = new();
+    private readonly List<PackNameSpace> _namespaceImports = new();
+    private readonly List<PackNameSpace> _namespaces = new();
 
 
     // Constructors.
@@ -27,13 +22,13 @@ internal class PackSourceFile
 
 
     // Internal methods.
-    internal void AddNamespaceImport(string name)
+    internal void AddNamespaceImport(PackNameSpace packNameSpace)
     {
-        _namespaceImports.Add(name);
+        _namespaceImports.Add(packNameSpace ?? throw new ArgumentNullException(nameof(packNameSpace)));
     }
 
     internal void AddNamespace(PackNameSpace nameSpace)
     {
-        _namespaces.Add(nameSpace);
+        _namespaces.Add(nameSpace ?? throw new ArgumentNullException(nameof(nameSpace)));
     }
 }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace KeigValCompiler;
+﻿namespace KeigValCompiler;
 
 internal static class KGVL
 {
@@ -59,11 +53,14 @@ internal static class KGVL
     public const string KEYWORD_ELSE = "else";
     public const string KEYWORD_SWITCH = "switch";
     public const string KEYWORD_CASE = "case";
+    public const string KEYWORD_DEFAULT = "default";
     public const string KEYWORD_GOTO = "goto";
     public const string KEYWORD_LABEL = "label";
     public const string KEYWORD_TRY = "try";
     public const string KEYWORD_CATCH = "catch";
     public const string KEYWORD_THROW = "throw";
+    public const string KEYWORD_FINALLY = "finally";
+    public const string KEYWORD_CONSTALLOC = "constalloc";
 
     public const string KEYWORD_SBYTE = "sbyte";
     public const string KEYWORD_BYTE = "byte";
@@ -73,8 +70,13 @@ internal static class KGVL
     public const string KEYWORD_UINT = "uint";
     public const string KEYWORD_LONG = "long";
     public const string KEYWORD_ULONG = "ulong";
-    public const string KEYWORD_FIXED = "fixed";
-    public const string KEYWORD_DNUM = "dnum";
+    public const string KEYWORD_DECIMAL = "decimal";
     public const string KEYWORD_STRING = "string";
     public const string KEYWORD_BOOL = "bool";
+    public const string KEYWORD_NULL = "null";
+
+
+    /* Internal. */
+    public const char IDENTIFIER_SEPARATOR_FUNCTION = '!';
+    public const char IDENTIFIER_SEPARATOR_OVERLOAD = '=';
 }

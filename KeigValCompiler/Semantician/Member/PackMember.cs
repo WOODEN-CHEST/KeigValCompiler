@@ -1,50 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace KeigValCompiler.Semantician.Member;
 
-namespace KeigValCompiler.Semantician.Member;
-
-internal abstract class PackMember
+internal abstract class PackMember : IIdentifiable
 {
+    // Fields.
+    public virtual Identifier SelfIdentifier { get; private init; }
+
+
     // Internal fields.
-    internal virtual string Identifier { get; set; }
-    internal virtual string FullyQualifiedIdentifier => ParentClass != null
-        ? $"{ParentClass.FullyQualifiedIdentifier}.{Identifier}" : $"{NameSpace}.{Identifier}";
-    internal virtual PackClass? ParentClass { get; set; }
-    internal virtual string NameSpace { get; set; }
+    internal virtual IIdentifiable ParentItem { get; private init; }
+    internal virtual PackNameSpace NameSpace { get; private init; }
     internal virtual PackSourceFile SourceFile { get; set; }
     internal virtual DataPack Pack => SourceFile.Pack;
     internal virtual PackMemberModifiers Modifiers { get; set; }
-    internal bool IsStatic => (Modifiers & PackMemberModifiers.Static) != 0;
-    internal bool IsAbstract => (Modifiers & PackMemberModifiers.Abstract) != 0;
-
 
 
     // Constructors.
-    internal PackMember(string identifier, PackMemberModifiers modifiers, PackClass parentClass)
-        : this(identifier, modifiers)
+    internal PackMember(Identifier identifier, 
+        PackMemberModifiers modifiers,
+        PackSourceFile sourceFile, 
+        PackNameSpace nameSpace,
+        IIdentifiable parentItem)
     {
-        ParentClass = parentClass ?? throw new ArgumentNullException(nameof(parentClass));
-        NameSpace = ParentClass.NameSpace;
-        SourceFile = ParentClass.SourceFile;
-        VerifyModifiers();
-    }
-
-    internal PackMember(string identifier, PackMemberModifiers modifiers, string parentNamespace,  PackSourceFile sourceFile)
-        : this(identifier, modifiers)
-    {
-        ParentClass = null;
-        NameSpace = parentNamespace ?? throw new ArgumentNullException(nameof(parentNamespace));
-        SourceFile = sourceFile ?? throw new ArgumentNullException(nameof(sourceFile));
-        VerifyModifiers();
-    }
-
-    private PackMember(string identifier, PackMemberModifiers modifiers)
-    {
-        Identifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
+        SelfIdentifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
         Modifiers = modifiers;
+        SourceFile = sourceFile ?? throw new ArgumentNullException(nameof(sourceFile));
+        NameSpace = nameSpace ?? throw new ArgumentNullException(nameof(nameSpace));
+        ParentItem = parentItem ?? throw new ArgumentNullException(nameof(parentItem));
     }
 
 
@@ -80,66 +61,26 @@ internal abstract class PackMember
         return (CombinedModifiers | Modifiers) != CombinedModifiers;
     }
 
-    // Private methods.
-    private void VerifyModifiers()
-    {
-        if ((ParentClass == null) && HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.Virtual,
-            PackMemberModifiers.Override, PackMemberModifiers.Static) && (this is not PackClass))
-        {
-            throw new PackContentException("Namespace members may not be abstract, virtual, overridden or static.");
-        }
-        if ((ParentClass?.IsStatic ?? false) && HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.Virtual,
-            PackMemberModifiers.Override))
-        {
-            throw new PackContentException("Members of static classes may not be abstract, virtual or overridden.");
-        }
-        if ((ParentClass?.IsStatic ?? false) && !HasAnyModifier(PackMemberModifiers.Static))
-        {
-            throw new PackContentException("Members of static classes must be static.");
-        }
-        if (HasAnyModifier(PackMemberModifiers.Virtual) && HasAnyModifier(PackMemberModifiers.Abstract))
-        {
-            throw new PackContentException("A member cannot be both abstract and virtual.");
-        }
-        if (HasAnyModifier(PackMemberModifiers.Override) && HasAnyModifier(PackMemberModifiers.Abstract))
-        {
-            throw new PackContentException("A member cannot be both abstract and overridden.");
-        }
-        if (HasAnyModifier(PackMemberModifiers.BuiltIn) && HasAnyModifier(PackMemberModifiers.Abstract,
-            PackMemberModifiers.Virtual, PackMemberModifiers.Override))
-        {
-            throw new PackContentException("A built-in member cannot be both abstract, virtual or overridden.");
-        }
-
-        int AccessModifierCount = CountAccessModifiers();
-        if (AccessModifierCount == 0)
-        {
-            Modifiers |= PackMemberModifiers.Private;
-        }
-        else if (AccessModifierCount > 1)
-        {
-            throw new PackContentException("Members may only have 1 access modifier.");
-        }
-    }
+    internal bool HasModifier(PackMemberModifiers modifier) => (Modifiers | modifier) > 0;
 
 
     // Inherited methods.
     public override int GetHashCode()
     {
-        return FullyQualifiedIdentifier.GetHashCode();
+        return SelfIdentifier.ToString().GetHashCode(); // Random number go!
     }
 
     public override bool Equals(object? obj)
     {
-        if (obj is PackClass)
+        if (obj is PackMember MemberObj)
         {
-            return FullyQualifiedIdentifier == ((PackClass)obj)?.FullyQualifiedIdentifier;
+            return SelfIdentifier.Equals(MemberObj?.SelfIdentifier);
         }
         return false;
     }
 
     public override string ToString()
     {
-        return FullyQualifiedIdentifier;
+        return SelfIdentifier.ToString();
     }
 }

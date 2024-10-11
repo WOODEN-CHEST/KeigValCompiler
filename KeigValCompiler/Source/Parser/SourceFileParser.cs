@@ -1,5 +1,6 @@
 ﻿using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Member.Class;
 using KeigValCompiler.Source.Parser;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -62,7 +63,7 @@ internal class SourceFileParser
         }
     }
 
-    
+
     // Private methods.
     /* Comments. */
     private void StripDataOfComments()
@@ -70,7 +71,7 @@ internal class SourceFileParser
         _dataIndex = 0;
         StringBuilder StrippedData = new(_data.Length);
 
-        while (_dataIndex < _data.Length) 
+        while (_dataIndex < _data.Length)
         {
             char Character = GetCharAtDataIndex();
 
@@ -262,7 +263,7 @@ internal class SourceFileParser
 
     private void ParseUsingStatement()
     {
-        SourceFile.AddNamespaceImport(ParseNamespaceName());
+        SourceFile.AddNamespaceImport(Pack.GetNamespace(ParseNamespaceName()));
     }
 
 
@@ -349,7 +350,7 @@ internal class SourceFileParser
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
             _ => PackMemberModifiers.None
         };
-}
+    }
 
     private PackMemberModifiers ParseMemberModifiers(PackClass? packClass)
     {
@@ -421,7 +422,7 @@ internal class SourceFileParser
     /* Properties. */
     private void ParseProperty(PackMemberModifiers modifiers, PackClass? parentClass, string identifier)
     {
-        
+
     }
 
 

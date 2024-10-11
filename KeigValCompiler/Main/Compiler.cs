@@ -1,6 +1,6 @@
 ﻿using KeigValCompiler.Semantician;
-using KeigValCompiler.Source;
-using KeigValCompiler.Source.Parser;
+using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Member.Function;
 using System.Diagnostics;
 
 namespace KeigValCompiler.Main;
@@ -14,51 +14,51 @@ public static class Compiler
     // Internal static methods.
     internal static void Main(string[] args)
     {
-        if (args.Length == 0)
-        {
-            Console.WriteLine($"KeigVal Compiler Version {CompilerVersion}." +
-                $"\nCommand-line arguments: <source directory> <destination directory (optional)>");
-        }
+        Test();
+        //return;
 
+        //if (args.Length == 0)
+        //{
+        //    Console.WriteLine($"KeigVal Compiler Version {CompilerVersion}." +
+        //        $"\nCommand-line arguments: <source directory> <destination directory (optional)>");
+        //    return;
+        //}
 
-        TwoIntDecimal Dec1 = 0;
-        Dec1 = TwoIntDecimal.Ceil(Dec1);
+        //CompilerOptions Options;
+        //try
+        //{
+        //    Options = new(args);
+        //}
+        //catch (CommandlineArgumentException e)
+        //{
+        //    Console.WriteLine(e.Message);
+        //    return;
+        //}
 
-        CompilerOptions Options;
-        try
-        {
-            Options = new(args);
-        }
-        catch (CommandlineArgumentException e)
-        {
-            Console.WriteLine(e.Message);
-            return;
-        }
+        //try
+        //{
+        //    Console.WriteLine($"Compiling pack using KeigVal compiler {CompilerVersion}.");
+        //    Stopwatch CompilationTimeMeasurer = new();
+        //    CompilationTimeMeasurer.Start();
 
-        try
-        {
-            Console.WriteLine($"Compiling pack using KeigVal compiler {CompilerVersion}.");
-            Stopwatch CompilationTimeMeasurer = new();
-            CompilationTimeMeasurer.Start();
+        //    CompilePack(Options);
 
-            CompilePack(Options);
+        //    CompilationTimeMeasurer.Stop();
+        //    Console.WriteLine($"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
 
-            CompilationTimeMeasurer.Stop();
-            Console.WriteLine($"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
-
-        }
-        catch (FileReadException e)
-        {
-            Console.WriteLine(e.Message);
-        }
-        catch (PackContentException e)
-        {
-            Console.WriteLine(e.Message);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
+        //}
+        //catch (FileReadException e)
+        //{
+        //    Console.WriteLine(e.Message);
+        //}
+        //catch (PackContentException e)
+        //{
+        //    Console.WriteLine(e.Message);
+        //}
+        //catch (Exception e)
+        //{
+        //    Console.WriteLine(e);
+        //}
     }
 
 
@@ -66,7 +66,12 @@ public static class Compiler
     // Private static methods.
     private static void CompilePack(CompilerOptions options)
     {
-        PackParser Parser = new(options.SourceDirectory, options.DestinationDirectory);
-        DataPack ObjectDataPack = Parser.ParsePack();
+        //PackParser Parser = new(options.SourceDirectory, options.DestinationDirectory);
+        //DataPack ObjectDataPack = Parser.ParsePack();
+    }
+
+    private static void Test()
+    {
+
     }
 }

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -10,10 +10,32 @@
   <ItemGroup>
     <Compile Remove="Finished\**" />
     <Compile Remove="Middle\**" />
+    <Compile Remove="Semantician\Member\Class\**" />
+    <Compile Remove="Semantician\Member\Enum\**" />
+    <Compile Remove="Semantician\Member\Field\**" />
+    <Compile Remove="Semantician\Member\Indexer\**" />
+    <Compile Remove="Semantician\Member\Property\**" />
+    <Compile Remove="Source\Parser\**" />
     <EmbeddedResource Remove="Finished\**" />
     <EmbeddedResource Remove="Middle\**" />
+    <EmbeddedResource Remove="Semantician\Member\Class\**" />
+    <EmbeddedResource Remove="Semantician\Member\Enum\**" />
+    <EmbeddedResource Remove="Semantician\Member\Field\**" />
+    <EmbeddedResource Remove="Semantician\Member\Indexer\**" />
+    <EmbeddedResource Remove="Semantician\Member\Property\**" />
+    <EmbeddedResource Remove="Source\Parser\**" />
     <None Remove="Finished\**" />
     <None Remove="Middle\**" />
+    <None Remove="Semantician\Member\Class\**" />
+    <None Remove="Semantician\Member\Enum\**" />
+    <None Remove="Semantician\Member\Field\**" />
+    <None Remove="Semantician\Member\Indexer\**" />
+    <None Remove="Semantician\Member\Property\**" />
+    <None Remove="Source\Parser\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Source\" />
   </ItemGroup>
 
 </Project>

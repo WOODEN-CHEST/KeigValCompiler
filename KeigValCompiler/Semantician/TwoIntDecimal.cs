@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace KeigValCompiler.Semantician;
 
@@ -18,10 +14,10 @@ internal struct TwoIntDecimal
     internal static TwoIntDecimal Pi { get; } = new(double.Pi);
     internal static TwoIntDecimal E { get; } = new(double.E);
     internal static TwoIntDecimal Tau { get; } = new(double.Tau);
-    internal static TwoIntDecimal MaxValue { get; } = new(999_999_999, int.MaxValue - 1);
-    internal static TwoIntDecimal MinValue { get; } = new(-999_999_999, int.MaxValue - 1);
-    internal static TwoIntDecimal PositiveInfinity { get; } = new(999_999_999, int.MaxValue);
-    internal static TwoIntDecimal NegativeInfinity { get; } = new(-999_999_999, int.MinValue);
+    internal static TwoIntDecimal MaxValue { get; } = new(MAX_MANTISSA, int.MaxValue - 1);
+    internal static TwoIntDecimal MinValue { get; } = new(-MAX_MANTISSA, int.MaxValue - 1);
+    internal static TwoIntDecimal PositiveInfinity { get; } = new(MAX_MANTISSA, int.MaxValue);
+    internal static TwoIntDecimal NegativeInfinity { get; } = new(-MAX_MANTISSA, int.MaxValue);
     internal static TwoIntDecimal NaN { get; } = new(MANTISSA_LIMIT, 0);
 
 
@@ -38,6 +34,7 @@ internal struct TwoIntDecimal
             }
         }
     }
+
     public int Exponent { get; set; }
 
 
@@ -86,7 +83,8 @@ internal struct TwoIntDecimal
             return;
         }
 
-        int ValueExponent = (int)Math.Floor(Math.Log10(Math.Abs(value)));
+
+        int ValueExponent = ((value != 0d) && (value != -0d) ? (int)Math.Floor(Math.Log10(Math.Abs(value))) : 0);
         const int REQUIRED_EXPONENT = 8;
 
         Mantissa = (int)(value / Math.Pow(10d, ValueExponent - REQUIRED_EXPONENT));
@@ -136,6 +134,11 @@ internal struct TwoIntDecimal
         throw new NotImplementedException();
     }
 
+    internal static TwoIntDecimal Log10(TwoIntDecimal dec)
+    {
+        throw new NotImplementedException();
+    }
+
     internal static TwoIntDecimal Sqrt(TwoIntDecimal dec)
     {
         int Iterations = Math.Min(10 + dec.Exponent / 10, 1000);
@@ -166,6 +169,11 @@ internal struct TwoIntDecimal
         return X;
     }
 
+    internal static TwoIntDecimal NthRoot(TwoIntDecimal dec)
+    {
+        throw new NotImplementedException();
+    }
+
     internal static TwoIntDecimal Ceil(TwoIntDecimal dec) => MoveTowardsSign(dec, 1);
 
     internal static TwoIntDecimal Floor(TwoIntDecimal dec) => MoveTowardsSign(dec, -1);
@@ -182,17 +190,17 @@ internal struct TwoIntDecimal
 
     internal static TwoIntDecimal Trunctate(TwoIntDecimal dec)
     {
-        throw new NotImplementedException();
+        dec.Mantissa -= GetFractionDigits(dec) * Sign(dec);
+        return dec;
     }
 
 
     // Private static methods.
     private static int CountDigitsInLong(long value)
     {
-        value = Math.Abs(value);
         int Digits = 0;
 
-        while (value > 0)
+        while (value != 0)
         {
             value /= 10;
             Digits++;
@@ -225,7 +233,7 @@ internal struct TwoIntDecimal
         {
             return false;
         }
-       
+
         string MantissaStr = number.Substring(0, number.IndexOf('e'));
         string ExponentStr = number.Substring(number.IndexOf('e') + 1);
 

@@ -1,9 +1,4 @@
 ﻿using KeigValCompiler.Semantician;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace KeigValCompiler.Source;
 
@@ -42,12 +37,12 @@ internal class PackParser
         }
     }
 
-    
+
     // Internal methods.
     internal DataPack ParsePack()
     {
         DataPack Pack = new();
-        
+
         foreach (string sourceFile in Directory.GetFiles(_sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
             SourceFileParser FileParser = new(sourceFile, Pack);
