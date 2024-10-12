@@ -1,14 +1,17 @@
-﻿using KeigValCompiler.Semantician.Member;
+﻿namespace KeigValCompiler.Semantician.Member;
 
-namespace KeigValCompiler.Semantician;
-
-internal class PackNameSpace : IIdentifiable
+internal class PackStruct : PackMember
 {
-    // Fields.
-    public Identifier SelfIdentifier { get; private init; }
-
-
     // Internal fields.
+    internal PackInterface[] ImplementedInterfaces
+    {
+        get => _implementedInterfaces;
+        set => _implementedInterfaces = value?.ToArray() ?? throw new ArgumentNullException(nameof(value));
+    }
+    internal OperatorOverloadCollection OperatorOverloads { get; private set; }
+    internal GenericTypeParameterCollection GenericParameters { get; private init; }
+    internal Identifier[] ExtendedItems { get; private init; }
+
     internal PackClass[] Classes => _classes.ToArray();
     internal PackInterface[] Interfaces => _interfaces.ToArray();
     internal PackProperty[] Properties => _properties.ToArray();
@@ -19,19 +22,31 @@ internal class PackNameSpace : IIdentifiable
 
 
     // Private fields.
-    private readonly List<PackClass> _classes = new();
-    private readonly List<PackInterface> _interfaces = new();
+    private PackInterface[] _implementedInterfaces = Array.Empty<PackInterface>();
+    private readonly List<PackFunction> _functions = new();
     private readonly List<PackProperty> _properties = new();
     private readonly List<PackField> _fields = new();
-    private readonly List<PackFunction> _functions = new();
+    private readonly List<PackIndexer> _indexers = new();
+    private readonly List<PackClass> _classes = new();
+    private readonly List<PackInterface> _interfaces = new();
     private readonly List<PackEnum> _enums = new();
     private readonly List<PackStruct> _structs = new();
 
 
     // Constructors.
-    internal PackNameSpace(Identifier name)
+    internal PackStruct(Identifier identifier,
+        PackMemberModifiers modifiers,
+        PackSourceFile sourceFile,
+        PackNameSpace nameSpace,
+        Identifier parentItem,
+        GenericTypeParameter[]? typeParameters,
+        OperatorOverload[]? operatorOverloads,
+        Identifier[]? extendedItems)
+        : base(identifier, modifiers, sourceFile, nameSpace, parentItem)
     {
-        SelfIdentifier = name ?? throw new ArgumentNullException(nameof(name));
+        ExtendedItems = extendedItems ?? Array.Empty<Identifier>();
+        OperatorOverloads = new(operatorOverloads ?? Array.Empty<OperatorOverload>());
+        GenericParameters = new(typeParameters ?? Array.Empty<GenericTypeParameter>());
     }
 
 
@@ -69,26 +84,5 @@ internal class PackNameSpace : IIdentifiable
     internal void AddStruct(PackStruct item)
     {
         _structs.Add(item ?? throw new ArgumentNullException(nameof(item)));
-    }
-
-
-    // Inherited methods.
-    public override int GetHashCode()
-    {
-        return SelfIdentifier.GetHashCode();
-    }
-
-    public override string ToString()
-    {
-        return SelfIdentifier.ToString();
-    }
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is PackNameSpace NameSpace)
-        {
-            return SelfIdentifier.Equals(NameSpace?.SelfIdentifier);
-        }
-        return false;
     }
 }

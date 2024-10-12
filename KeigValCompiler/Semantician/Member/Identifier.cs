@@ -3,17 +3,15 @@
 internal sealed class Identifier
 {
     // Fields.
-    internal string SelfName { get; private set; }
+    internal string SelfName { get; set; }
     internal string SourceCodeName { get; private init; }
     internal string? ResolvedName { get; set; }
     internal IIdentifiable? Target { get; set; }
-    internal IdentifierUsageContext Context { get; private init; }
 
 
     // Constructors.
-    internal Identifier(string sourceCodeName, IdentifierUsageContext context)
+    internal Identifier(string sourceCodeName)
     {
-        Context = context ?? throw new ArgumentNullException(nameof(context));
         SourceCodeName = sourceCodeName ?? throw new ArgumentNullException(nameof(sourceCodeName));
     }
 

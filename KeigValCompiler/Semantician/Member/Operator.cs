@@ -1,4 +1,4 @@
-﻿namespace KeigValCompiler.Semantician.Member.Class;
+﻿namespace KeigValCompiler.Semantician.Member;
 
 internal enum Operator
 {

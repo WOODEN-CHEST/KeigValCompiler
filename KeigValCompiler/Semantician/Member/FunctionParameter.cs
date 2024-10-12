@@ -1,4 +1,4 @@
-﻿namespace KeigValCompiler.Semantician.Member.Function;
+﻿namespace KeigValCompiler.Semantician.Member;
 
 internal class FunctionParameter : IIdentifiable
 {

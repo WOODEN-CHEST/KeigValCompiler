@@ -61,9 +61,10 @@ internal static class KGVL
     public const string KEYWORD_THROW = "throw";
     public const string KEYWORD_FINALLY = "finally";
     public const string KEYWORD_CONSTALLOC = "constalloc";
+    public const string KEYWORD_NAMEOF = "nameof";
 
-    public const string KEYWORD_SBYTE = "sbyte";
     public const string KEYWORD_BYTE = "byte";
+    public const string KEYWORD_UBYTE = "ubyte";
     public const string KEYWORD_SHORT = "short";
     public const string KEYWORD_USHORT = "ushort";
     public const string KEYWORD_INT = "int";
@@ -74,6 +75,7 @@ internal static class KGVL
     public const string KEYWORD_STRING = "string";
     public const string KEYWORD_BOOL = "bool";
     public const string KEYWORD_NULL = "null";
+    public const string KEYWORD_FIELD = "field";
 
 
     /* Internal. */

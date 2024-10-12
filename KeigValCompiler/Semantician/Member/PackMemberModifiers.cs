@@ -18,5 +18,7 @@ internal enum PackMemberModifiers
     Protected = 128,
     Public = 256,
 
-    Inline = 512
+    Inline = 512,
+
+    Sealed = 1024,
 }

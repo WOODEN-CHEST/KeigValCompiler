@@ -1,6 +1,6 @@
-﻿using KeigValCompiler.Semantician.Member.Generics;
+﻿
 
-namespace KeigValCompiler.Semantician.Member.Function;
+namespace KeigValCompiler.Semantician.Member;
 
 internal class PackFunction : PackMember
 {
@@ -19,7 +19,7 @@ internal class PackFunction : PackMember
         PackMemberModifiers modifiers,
         PackSourceFile sourceFile,
         PackNameSpace nameSpace,
-        IIdentifiable parentItem,
+        Identifier parentItem,
         FunctionParameterCollection parameters,
         GenericTypeParameter[]? genericParameters,
         StatementCollection statements)

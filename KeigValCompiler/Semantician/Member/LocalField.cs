@@ -1,11 +1,4 @@
-﻿using KeigValCompiler.Semantician.Member;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace KeigValCompiler.Semantician.Member.Function;
+﻿namespace KeigValCompiler.Semantician.Member;
 
 internal class LocalField : IIdentifiable
 {

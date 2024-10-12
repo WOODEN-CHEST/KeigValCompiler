@@ -7,7 +7,7 @@ internal abstract class PackMember : IIdentifiable
 
 
     // Internal fields.
-    internal virtual IIdentifiable ParentItem { get; private init; }
+    internal virtual Identifier ParentItem { get; private init; }
     internal virtual PackNameSpace NameSpace { get; private init; }
     internal virtual PackSourceFile SourceFile { get; set; }
     internal virtual DataPack Pack => SourceFile.Pack;
@@ -15,11 +15,11 @@ internal abstract class PackMember : IIdentifiable
 
 
     // Constructors.
-    internal PackMember(Identifier identifier, 
+    internal PackMember(Identifier identifier,
         PackMemberModifiers modifiers,
-        PackSourceFile sourceFile, 
+        PackSourceFile sourceFile,
         PackNameSpace nameSpace,
-        IIdentifiable parentItem)
+        Identifier parentItem)
     {
         SelfIdentifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
         Modifiers = modifiers;

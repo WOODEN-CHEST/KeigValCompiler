@@ -7,6 +7,7 @@ internal class PackSourceFile
     internal PackNameSpace[] NamespaceImports => _namespaceImports.ToArray();
     internal PackNameSpace[] Namespaces => _namespaces.ToArray();
     internal PackNameSpace[] AllUsedNamespaces => _namespaces.Concat(_namespaceImports).ToArray();
+    internal string Path { get; private init; }
 
 
     // Private fields.
@@ -15,9 +16,10 @@ internal class PackSourceFile
 
 
     // Constructors.
-    internal PackSourceFile(DataPack pack)
+    internal PackSourceFile(DataPack pack, string path)
     {
         Pack = pack ?? throw new ArgumentNullException(nameof(pack));
+        Path = path ?? throw new ArgumentNullException(nameof(path));
     }
 
 

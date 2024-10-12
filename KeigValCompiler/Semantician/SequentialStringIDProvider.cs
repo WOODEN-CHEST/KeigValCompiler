@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 
 namespace KeigValCompiler.Semantician;
 
-internal class MinecraftStringIDProvider : IStringIDProvider
+internal class SequentialStringIDProvider : IStringIDProvider
 {
     // Private fields.
     private ulong _availableID = 1uL;

@@ -1,6 +1,4 @@
-﻿using KeigValCompiler.Semantician.Member.Function;
-
-namespace KeigValCompiler.Semantician.Member.Class;
+﻿namespace KeigValCompiler.Semantician.Member;
 
 internal class OperatorOverload
 {
@@ -20,12 +18,11 @@ internal class OperatorOverload
     // Inherited methods.
     public override bool Equals(object? obj)
     {
-        if (obj == null || !(obj is OperatorOverload))
+        if (obj is not OperatorOverload Overload)
         {
             return false;
         }
 
-        OperatorOverload Overload = (OperatorOverload)obj;
         return OverloadedOperator == Overload.OverloadedOperator && Function.Parameters.Equals(Overload.Function.Parameters);
     }
 

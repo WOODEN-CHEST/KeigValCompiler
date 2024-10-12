@@ -5,41 +5,44 @@ using System.Text;
 namespace KeigValCompiler.Semantician;
 
 /* A lot of magic numbers in here :) */
-internal struct TwoIntDecimal
+internal readonly struct TwoIntDecimal
 {
-    // Static fields.
-    const int MAX_MANTISSA = 999_999_999;
-    const int MANTISSA_LIMIT = 1_000_000_000;
+    // Internal static fields.
+    internal const int MAX_MANTISSA = 999_999_999;
+    internal const int MANTISSA_LIMIT = 1_000_000_000;
+    internal const int MANTISSA_DEFAULT_VALUE = 100_000_000;
+    internal const int MANTISSA_DIGIT_COUNT = 9;
+    internal const int MANTISSA_EXPONENT = MANTISSA_DIGIT_COUNT - 1;
 
     internal static TwoIntDecimal Pi { get; } = new(double.Pi);
     internal static TwoIntDecimal E { get; } = new(double.E);
     internal static TwoIntDecimal Tau { get; } = new(double.Tau);
     internal static TwoIntDecimal MaxValue { get; } = new(MAX_MANTISSA, int.MaxValue - 1);
     internal static TwoIntDecimal MinValue { get; } = new(-MAX_MANTISSA, int.MaxValue - 1);
+    internal static TwoIntDecimal Epsilon { get; } = new(1, int.MinValue);
     internal static TwoIntDecimal PositiveInfinity { get; } = new(MAX_MANTISSA, int.MaxValue);
     internal static TwoIntDecimal NegativeInfinity { get; } = new(-MAX_MANTISSA, int.MaxValue);
     internal static TwoIntDecimal NaN { get; } = new(MANTISSA_LIMIT, 0);
 
 
     // Fields.
-    public int Mantissa
+    public int Mantissa { get; private init; }
+    public int Exponent
     {
-        get => _mantissa;
-        set
+        get => _exponent;
+        private init
         {
-            _mantissa = value;
-            if (_mantissa == 0)
+            _exponent = value;
+            if (Mantissa == 0)
             {
                 Exponent = 0;
             }
         }
     }
 
-    public int Exponent { get; set; }
-
 
     // Private fields.
-    private int _mantissa;
+    private readonly int _exponent;
 
 
     // Constructors.
@@ -51,21 +54,22 @@ internal struct TwoIntDecimal
 
     internal TwoIntDecimal(long value)
     {
-        int ValueExponent = CountDigitsInLong(value) - 1;
-        const int REQUIRED_EXPONENT = 8;
+        int DigitsInLong = CountDigitsInLong(value);
+        int RequiredDigitsInLong = MANTISSA_DIGIT_COUNT;
+        long NormalizedValue = value;
 
-        for (int i = ValueExponent; i > REQUIRED_EXPONENT; i--)
+        for (int i = DigitsInLong; i > RequiredDigitsInLong; i--)
         {
-            value /= 10;
+            NormalizedValue /= 10L;
         }
-        for (int i = ValueExponent; i < REQUIRED_EXPONENT; i++)
+        for (int i = DigitsInLong; i < RequiredDigitsInLong; i++)
         {
-            value *= 10;
+            NormalizedValue *= 10L;
         }
 
 
-        Mantissa = (int)value;
-        Exponent = ValueExponent;
+        Mantissa = (int)NormalizedValue;
+        Exponent = DigitsInLong - 1;
     }
 
     internal TwoIntDecimal(double value)
@@ -83,20 +87,14 @@ internal struct TwoIntDecimal
             return;
         }
 
-
-        int ValueExponent = ((value != 0d) && (value != -0d) ? (int)Math.Floor(Math.Log10(Math.Abs(value))) : 0);
-        const int REQUIRED_EXPONENT = 8;
-
-        Mantissa = (int)(value / Math.Pow(10d, ValueExponent - REQUIRED_EXPONENT));
-        Exponent = ValueExponent;
+        Mantissa = GetMantissaFromDouble(value);
+        Exponent = (int)Math.Floor(Math.Log10(Math.Abs(value)));
     }
 
 
     // Internal static methods.
     internal static bool TryParse(string number, out TwoIntDecimal dec)
     {
-        TwoIntDecimal Result = new();
-
         if (number.Contains('e'))
         {
             return TryParseScientificNotation(number, out dec);
@@ -180,7 +178,6 @@ internal struct TwoIntDecimal
 
     internal static TwoIntDecimal Round(TwoIntDecimal dec)
     {
-        // Not optimized but works alright.
         int LeadingDigit = GetFractionDigits(dec);
         LeadingDigit = LeadingDigit / (int)Math.Pow(10d, GetMantissaDigitCountInFraction(dec) - 1);
 
@@ -188,10 +185,9 @@ internal struct TwoIntDecimal
         return MoveTowardsSign(dec, TargetSign);
     }
 
-    internal static TwoIntDecimal Trunctate(TwoIntDecimal dec)
+    internal static TwoIntDecimal Truncate(TwoIntDecimal dec)
     {
-        dec.Mantissa -= GetFractionDigits(dec) * Sign(dec);
-        return dec;
+        return new(dec.Mantissa - GetFractionDigits(dec) * Sign(dec), dec.Exponent);
     }
 
 
@@ -209,20 +205,34 @@ internal struct TwoIntDecimal
         return Digits;
     }
 
+    private static int GetMantissaFromDouble(double value)
+    {
+        if ((value == 0d) || (value == -0d))
+        {
+            return 0;
+        }
+
+        int CurrentExponent = (int)Math.Log10(Math.Abs(value));
+        return (int)(value * Math.Pow(10d, MANTISSA_EXPONENT - CurrentExponent));
+    }
+
     private static (TwoIntDecimal Bigger, TwoIntDecimal Smaller) GetAdjustedTwoIntDecimals(TwoIntDecimal a, TwoIntDecimal b)
     {
+        TwoIntDecimal A = a;
+        TwoIntDecimal B = b;
+
         if (a.Exponent < b.Exponent)
         {
-            (a, b) = (b, a);
+            (A, B) = (B, A);
         }
 
-        const int MAX_SHIFTS = 9;
-        for (int i = 0; i < Math.Min(MAX_SHIFTS, a.Exponent - b.Exponent); i++)
+        int NewBMantissa = B.Mantissa;
+        for (int i = 0; i < Math.Min(MANTISSA_DIGIT_COUNT, a.Exponent - b.Exponent); i++)
         {
-            b.Mantissa /= 10;
+            NewBMantissa /= 10;
         }
 
-        return (a, b);
+        return (a, new TwoIntDecimal(NewBMantissa, B.Exponent));
     }
 
     private static bool TryParseScientificNotation(string number, out TwoIntDecimal result)
@@ -251,8 +261,19 @@ internal struct TwoIntDecimal
             return false;
         }
 
-        result = new(Mantissa);
-        result.Exponent = Exponent;
+        if (double.IsNaN(Mantissa))
+        {
+            result = NaN;
+        }
+        else if (double.IsInfinity(Mantissa))
+        {
+            result = Mantissa > 0 ? PositiveInfinity : NegativeInfinity;
+        }
+        else
+        {
+            result = new(GetMantissaFromDouble(Mantissa), Exponent);
+        }
+
         return true;
     }
 
@@ -260,13 +281,12 @@ internal struct TwoIntDecimal
     {
         result = default;
 
-        int MANTISSA_DIGIT_COUNT = 9;
-        int Index = 0;
-
-
-        foreach (Char Character in number)
+        foreach (char Character in number)
         {
-            if (char.IsDigit(Character)) { }
+            if (char.IsDigit(Character))
+            {
+
+            }
         }
 
         throw new NotImplementedException();
@@ -280,20 +300,11 @@ internal struct TwoIntDecimal
     private static TwoIntDecimal MoveTowardsSign(TwoIntDecimal dec, int sign)
     {
         int FractionDigits = GetFractionDigits(dec);
-        if (FractionDigits == 0)
-        {
-            return dec;
-        }
 
-        int MantissaSign = Sign(dec);
-        dec.Mantissa -= FractionDigits * MantissaSign;
+        int NewMantissa = dec.Mantissa - FractionDigits + Sign(dec);
+        int NewExponent = dec.Exponent + (Math.Sign(NewMantissa) * (NewMantissa / MANTISSA_LIMIT));
 
-        if (MantissaSign == sign)
-        {
-            dec += sign;
-        }
-
-        return dec;
+        return new(NewMantissa, NewExponent);
     }
 
     private static int GetMantissaDigitCountInFraction(TwoIntDecimal dec) => Math.Clamp(8 - dec.Exponent, 0, 9);
@@ -405,20 +416,20 @@ internal struct TwoIntDecimal
 
         (a, b) = GetAdjustedTwoIntDecimals(a, b);
 
-        a.Mantissa += b.Mantissa;
+        int NewMantissa = a.Mantissa + b.Mantissa;
+        int NewExponent = a.Exponent;
         if (Math.Abs(a.Mantissa) > MAX_MANTISSA)
         {
-            a.Exponent++;
-            a.Mantissa /= 10;
+            NewExponent++;
+            NewMantissa /= 10;
         }
 
-        return a;
+        return new(NewMantissa, NewExponent);
     }
 
     public static TwoIntDecimal operator -(TwoIntDecimal a)
     {
-        a.Mantissa = -a.Mantissa;
-        return a;
+        return new(-a.Mantissa, a.Exponent);
     }
 
     public static TwoIntDecimal operator -(TwoIntDecimal a, TwoIntDecimal b)
@@ -438,48 +449,44 @@ internal struct TwoIntDecimal
             return NaN;
         }
 
-        a.Exponent += b.Exponent;
-        long Mantissa = (long)a.Mantissa * (long)b.Mantissa;
-        int ValueExponent = CountDigitsInLong(Mantissa) - 1;
-        const int TARGET_EXPONENT = 8;
-        const int REQUIRED_CARRY_OVER_EXPONENT = 17;
-
-        if (ValueExponent >= REQUIRED_CARRY_OVER_EXPONENT)
+        double Mantissa = a.Mantissa * ((double)b.Mantissa / MANTISSA_DEFAULT_VALUE);
+        int NewExponent = a.Exponent + b.Exponent;
+        int NormalizedMantissa;
+        if (Math.Abs(Mantissa) > MAX_MANTISSA)
         {
-            a.Exponent += 1;
+            NormalizedMantissa = (int)(Mantissa * 0.1d);
+            NewExponent++;
         }
-
-        for (int i = ValueExponent; i > TARGET_EXPONENT; i--)
+        else
         {
-            Mantissa /= 10;
+            NormalizedMantissa = (int)Mantissa;
         }
-
-        a.Mantissa = (int)Mantissa;
-        return a;
+       
+        return new(NormalizedMantissa, NewExponent);
     }
 
     public static TwoIntDecimal operator /(TwoIntDecimal a, TwoIntDecimal b)
     {
-        if (IsNaN(a) || IsNaN(b))
+        // Implemented as in DataPacks (which is why it is so complex).
+        if (IsNaN(a) || IsNaN(b) || (b.Mantissa == 0))
         {
             return NaN;
         }
 
-        a.Exponent -= b.Exponent;
-        double Mantissa = (double)a.Mantissa / (double)b.Mantissa * 100_000_000d;
-        while (Mantissa < 100_000_000)
+        double MantissaDivisionResult = (double)a.Mantissa / b.Mantissa;
+        int NewMantissa;
+        int NewExponent = a.Exponent - b.Exponent;
+        if (MantissaDivisionResult < 1d)
         {
-            Mantissa *= 10d;
-            a.Exponent -= 1;
+            NewExponent--;
+            NewMantissa = (int)(MantissaDivisionResult * 10d * MANTISSA_DEFAULT_VALUE);
         }
-        while (Mantissa >= 1_000_000_000)
+        else
         {
-            Mantissa *= 0.1d;
-            a.Exponent += 1;
+            NewMantissa = (int)(MantissaDivisionResult * MANTISSA_DEFAULT_VALUE);
         }
 
-        a.Mantissa = (int)Mantissa;
-        return a;
+        return new(NewMantissa, NewExponent);
     }
 
     public static TwoIntDecimal operator ++(TwoIntDecimal dec)
@@ -524,31 +531,49 @@ internal struct TwoIntDecimal
 
     public static explicit operator double(TwoIntDecimal dec)
     {
-        return (double)dec.Mantissa / 100_000_000d * Math.Pow(10, dec.Exponent);
+        if (IsNaN(dec))
+        {
+            return double.NaN;
+        }
+        if (IsInfinity(dec))
+        {
+            return Sign(dec) == 1 ? double.PositiveInfinity : double.NegativeInfinity;
+        }
+
+        return (double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10f, dec.Exponent);
     }
 
     public static explicit operator float(TwoIntDecimal dec)
     {
-        return (float)dec.Mantissa / 100_000_000f * MathF.Pow(10, dec.Exponent);
+        if (IsNaN(dec))
+        {
+            return float.NaN;
+        }
+        if (IsInfinity(dec))
+        {
+            return Sign(dec) == 1 ? float.PositiveInfinity : float.NegativeInfinity;
+        }
+
+        return (float)dec.Mantissa / MANTISSA_DEFAULT_VALUE * MathF.Pow(10f, dec.Exponent);
     }
 
     public static explicit operator long(TwoIntDecimal dec)
     {
-        return (long)((double)dec.Mantissa / 100_000_000d * Math.Pow(10, dec.Exponent));
+        return (long)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
     }
 
     public static explicit operator int(TwoIntDecimal dec)
     {
-        return (int)((double)dec.Mantissa / 100_000_000d * Math.Pow(10, dec.Exponent));
+        return (int)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
     }
 
     public static explicit operator short(TwoIntDecimal dec)
     {
-        return (short)((double)dec.Mantissa / 100_000_000d * Math.Pow(10, dec.Exponent));
+        return (short)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
     }
 
     public static explicit operator byte(TwoIntDecimal dec)
     {
-        return (byte)((double)dec.Mantissa / 100_000_000d * Math.Pow(10, dec.Exponent));
+        return (byte)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
     }
 }

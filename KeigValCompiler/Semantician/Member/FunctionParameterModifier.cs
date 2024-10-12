@@ -1,4 +1,4 @@
-﻿namespace KeigValCompiler.Semantician.Member.Function;
+﻿namespace KeigValCompiler.Semantician.Member;
 
 [Flags]
 internal enum FunctionParameterModifier

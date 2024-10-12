@@ -1,17 +1,12 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections;
 
-namespace KeigValCompiler.Semantician.Member.Function;
+namespace KeigValCompiler.Semantician.Member;
 
 internal class StatementCollection : IEnumerable<Statement>
 {
     // Fields.
     public int Count => _statements.Length;
-    public Statement this[int index] => _statements[index]; 
+    public Statement this[int index] => _statements[index];
 
 
 

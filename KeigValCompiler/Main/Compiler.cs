@@ -1,7 +1,5 @@
 ﻿using KeigValCompiler.Semantician;
-using KeigValCompiler.Semantician.Member;
-using KeigValCompiler.Semantician.Member.Function;
-using System.Diagnostics;
+using KeigValCompiler.Semantician.Resolver;
 
 namespace KeigValCompiler.Main;
 
@@ -72,6 +70,13 @@ public static class Compiler
 
     private static void Test()
     {
+        TwoIntDecimal Dec1 = new(-6);
+        TwoIntDecimal Dec2 = new(2);
+        TwoIntDecimal Dec3 = Dec2 * Dec1;
 
+
+        //DataPack Pack = new();
+        //IPackResolver Resolver = new KGVLPackResolver();
+        //Resolver.ResolvePack(Pack);
     }
 }
