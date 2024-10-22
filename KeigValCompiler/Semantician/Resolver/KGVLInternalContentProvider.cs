@@ -1,89 +1,100 @@
 ﻿using KeigValCompiler.Semantician.Member;
+using System.Diagnostics;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
 internal class KGVLInternalContentProvider : IInternalContentProvider
 {
     // Private fields.
-    private const string INTERNAL_SOURCE_FILE_PATH = "{internal}";
-    private const string INTERNAL_NAMESPACE = "{internal}";
+    private const string INTERNAL_SOURCE_FILE_PATH = "/\\internal\\/";
+    private const string NAMESPACE_KGVL = "KGVL";
+
 
     // Private methods.
-    private PackStruct CreateBoolStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    /* Primitives. */
+    private PackStruct GetPrimitiveStruct(string name, PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_BOOL);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = new(new(name), sourceFile);
+        Struct.Modifiers |= (PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn);
         return Struct;
     }
 
-    private PackStruct CreateByteStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    private PackStruct CreateBoolStruct(PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_BYTE);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_BOOL_NAME, sourceFile);
         return Struct;
     }
 
-    private PackStruct CreateUByteStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    private PackStruct CreateByteStruct(PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_UBYTE);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_BYTE_NAME, sourceFile);
         return Struct;
     }
 
-    private PackStruct CreateShortStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    private PackStruct CreateUByteStruct(PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_SHORT);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_UBYTE_NAME, sourceFile);
         return Struct;
     }
 
-    private PackStruct CreateUShortStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    private PackStruct CreateShortStruct(PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_USHORT);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_SHORT_NAME, sourceFile);
         return Struct;
     }
 
-    private PackStruct CreateIntStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    private PackStruct CreateUShortStruct(PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_INT);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_USHORT_NAME, sourceFile);
         return Struct;
     }
 
-    private PackStruct CreateUIntStruct(DataPack pack, PackSourceFile sourceFile, PackNameSpace nameSpace)
+    private PackStruct CreateIntStruct(PackSourceFile sourceFile)
     {
-        Identifier TargetIdentifier = new(KGVL.KEYWORD_UINT);
-
-        PackStruct Struct = new(TargetIdentifier, PackMemberModifiers.Sealed | PackMemberModifiers.BuiltIn, sourceFile,
-            nameSpace, nameSpace.SelfIdentifier, null, null, null);
-        TargetIdentifier.Target = Struct;
-
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_INT_NAME, sourceFile);
         return Struct;
+    }
+
+    private PackStruct CreateUIntStruct(PackSourceFile sourceFile)
+    {
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_UINT_NAME, sourceFile);
+        return Struct;
+    }
+
+    private PackStruct CreateLongStruct(PackSourceFile sourceFile)
+    {
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_LONG_NAME, sourceFile);
+        return Struct;
+    }
+
+    private PackStruct CreateULongStruct(PackSourceFile sourceFile)
+    {
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_ULONG_NAME, sourceFile);
+        return Struct;
+    }
+
+    private PackStruct CreateDecimalStruct(PackSourceFile sourceFile)
+    {
+        PackStruct Struct = GetPrimitiveStruct(KGVL.TYPE_DECIMAL_NAME, sourceFile);
+        return Struct;
+    }
+
+    private PackNameSpace GetKGVLNameSpace(PackSourceFile sourceFile)
+    {
+        PackNameSpace TargetNameSpace = new(new Identifier(NAMESPACE_KGVL));
+
+        TargetNameSpace.AddStruct(CreateByteStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateUByteStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateShortStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateUShortStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateIntStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateUIntStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateLongStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateULongStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateDecimalStruct(sourceFile));
+        TargetNameSpace.AddStruct(CreateBoolStruct(sourceFile));
+
+        return TargetNameSpace;
     }
 
 
@@ -91,17 +102,10 @@ internal class KGVLInternalContentProvider : IInternalContentProvider
     public void AddInternalContent(DataPack pack)
     {
         ArgumentNullException.ThrowIfNull(pack, nameof(pack));
-        PackNameSpace TargetNameSpace = new(new Identifier(INTERNAL_NAMESPACE));
         PackSourceFile SourceFile = new(pack, INTERNAL_SOURCE_FILE_PATH);
-        SourceFile.AddNamespace(TargetNameSpace);
         pack.AddSourceFile(SourceFile);
 
-        TargetNameSpace.AddStruct(CreateByteStruct(pack, SourceFile, TargetNameSpace));
-        TargetNameSpace.AddStruct(CreateUByteStruct(pack, SourceFile, TargetNameSpace));
-        TargetNameSpace.AddStruct(CreateShortStruct(pack, SourceFile, TargetNameSpace));
-        TargetNameSpace.AddStruct(CreateUShortStruct(pack, SourceFile, TargetNameSpace));
-        TargetNameSpace.AddStruct(CreateIntStruct(pack, SourceFile, TargetNameSpace));
-        TargetNameSpace.AddStruct(CreateUIntStruct(pack, SourceFile, TargetNameSpace));
-        TargetNameSpace.AddStruct(CreateBoolStruct(pack, SourceFile, TargetNameSpace));
+        PackNameSpace PrimitiveNameSpace = GetKGVLNameSpace(SourceFile);
+        SourceFile.AddNamespace(PrimitiveNameSpace);
     }
 }

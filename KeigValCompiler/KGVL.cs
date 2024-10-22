@@ -2,6 +2,19 @@
 
 internal static class KGVL
 {
+    /* Types. */
+    public const string TYPE_BOOL_NAME = "Boolean";
+    public const string TYPE_BYTE_NAME = "Int8";
+    public const string TYPE_UBYTE_NAME = "UInt8";
+    public const string TYPE_SHORT_NAME = "Int16";
+    public const string TYPE_USHORT_NAME = "UInt16";
+    public const string TYPE_INT_NAME = "Int32";
+    public const string TYPE_UINT_NAME = "UInt32";
+    public const string TYPE_LONG_NAME = "Int64";
+    public const string TYPE_ULONG_NAME = "UInt64";
+    public const string TYPE_DECIMAL_NAME = "TwoIntDecimal";
+
+
     /* Syntax. */
     public const char SEMICOLON = ';';
     public const char COLON = ':';
@@ -62,6 +75,7 @@ internal static class KGVL
     public const string KEYWORD_FINALLY = "finally";
     public const string KEYWORD_CONSTALLOC = "constalloc";
     public const string KEYWORD_NAMEOF = "nameof";
+    public const string KEYWORD_IS = "is";
 
     public const string KEYWORD_BYTE = "byte";
     public const string KEYWORD_UBYTE = "ubyte";
@@ -80,5 +94,5 @@ internal static class KGVL
 
     /* Internal. */
     public const char IDENTIFIER_SEPARATOR_FUNCTION = '!';
-    public const char IDENTIFIER_SEPARATOR_OVERLOAD = '=';
+    public const char IDENTIFIER_ACCESSOR= '&';
 }

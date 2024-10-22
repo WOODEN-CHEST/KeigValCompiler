@@ -70,13 +70,30 @@ public static class Compiler
 
     private static void Test()
     {
-        TwoIntDecimal Dec1 = new(-6);
-        TwoIntDecimal Dec2 = new(2);
-        TwoIntDecimal Dec3 = Dec2 * Dec1;
+        //TwoIntDecimal.TryParse("1.234", out var Dec);
+
+        //TwoIntDecimal Dec1 = TwoIntDecimal.Round(new(1.6d));
+        //Dec1 = TwoIntDecimal.Round(new(1.4d));
+        //Dec1 = TwoIntDecimal.Round(new(2d));
+
+        //Dec1 = TwoIntDecimal.Ceil(new(1.1d));
+        //Dec1 = TwoIntDecimal.Ceil(new(1.9d));
+        //Dec1 = TwoIntDecimal.Ceil(new(2d));
+
+        //Dec1 = TwoIntDecimal.Floor(new(1.1d));
+        //Dec1 = TwoIntDecimal.Floor(new(1.9d));
+        //Dec1 = TwoIntDecimal.Floor(new(2d));
+
+        //Dec1 = TwoIntDecimal.Truncate(new(1.4d));
+        //Dec1 = TwoIntDecimal.Truncate(new(-1.4d));
 
 
-        //DataPack Pack = new();
-        //IPackResolver Resolver = new KGVLPackResolver();
-        //Resolver.ResolvePack(Pack);
+        DataPack Pack = new();
+
+        IInternalContentProvider ContentProvider = new KGVLInternalContentProvider();
+        ContentProvider.AddInternalContent(Pack);
+
+        IPackResolver Resolver = new KGVLPackResolver();
+        Resolver.ResolvePack(Pack);
     }
 }

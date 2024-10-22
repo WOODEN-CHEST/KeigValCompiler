@@ -9,25 +9,37 @@ internal class OperatorOverloadCollection : IEnumerable<OperatorOverload>
     {
         get
         {
-            _overloads.TryGetValue(targetOperator, out OperatorOverload[]? overloads);
-            return overloads ?? Array.Empty<OperatorOverload>();
+            _overloads.TryGetValue(targetOperator, out List<OperatorOverload>? overloads);
+            return overloads?.ToArray() ?? Array.Empty<OperatorOverload>();
         }
     }
 
 
     // Private fields.
-    private readonly Dictionary<Operator, OperatorOverload[]> _overloads = new();
+    private readonly Dictionary<Operator, List<OperatorOverload>> _overloads = new();
 
 
     // Constructors.
-    public OperatorOverloadCollection(OperatorOverload[] items)
+    public OperatorOverloadCollection()
     {
-        ArgumentNullException.ThrowIfNull(items, nameof(items));
-
         foreach (Operator TargetOperator in Enum.GetValues(typeof(Operator)))
         {
-            _overloads[TargetOperator] = items.Where(item => item.OverloadedOperator == TargetOperator).ToArray();
+            _overloads.Add(TargetOperator, new());
         }
+    }
+
+
+    // Methods.
+    public void AddOverload(OperatorOverload overload)
+    {
+        ArgumentNullException.ThrowIfNull(overload, nameof(overload));
+        _overloads[overload.OverloadedOperator].Add(overload);
+    }
+
+    public void RemoveOverload(OperatorOverload overload)
+    {
+        ArgumentNullException.ThrowIfNull(overload, nameof(overload));
+        _overloads[overload.OverloadedOperator].Remove(overload);
     }
 
 

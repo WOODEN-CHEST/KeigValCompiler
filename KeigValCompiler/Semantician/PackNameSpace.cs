@@ -1,94 +1,165 @@
 ﻿using KeigValCompiler.Semantician.Member;
+using System.Collections;
 
 namespace KeigValCompiler.Semantician;
 
-internal class PackNameSpace : IIdentifiable
+internal class PackNameSpace : IPackTypeHolder, IPackFieldHolder, IPackFunctionHolder, IIdentifiable
 {
     // Fields.
+    public PackClass[] Classes => _members.Classes;
+    public PackInterface[] Interfaces => _members.Interfaces;
+    public PackStruct[] Structs => _members.Structs;
+    public PackProperty[] Properties => _members.Properties;
+    public PackField[] Fields => _members.Fields;
+    public PackFunction[] Functions => _members.Functions;
+    public PackEnumeration[] Enums => _members.Enums;
+    public PackIndexer[] Indexers => _members.Indexers;
+    public PackMember[] Types => Enumerable.Empty<PackMember>().Concat(Classes)
+        .Concat(Interfaces).Concat(Structs).Concat(Enums).ToArray();
+
+    public PackClass[] AllClasses => AddClassesFromTypeHolder(new(), this).ToArray();
+    public PackInterface[] AllInterfaces => AddInterfacesFromTypeHolder(new(), this).ToArray();
+    public PackStruct[] AllStructs => AddStructsFromTypeHolder(new(), this).ToArray();
+    public PackProperty[] AllProperties => GetAllTypeHolders<IPackFunctionHolder>().SelectMany(holder => holder.Properties).ToArray();
+    public PackField[] AllFields => GetAllTypeHolders<IPackFieldHolder>().SelectMany(holder => holder.Fields).ToArray();
+    public PackFunction[] AllFunctions => GetAllTypeHolders<IPackFunctionHolder>().SelectMany(holder => holder.Functions).ToArray();
+    public PackEnumeration[] AllEnums => GetAllTypeHolders<IPackTypeHolder>().SelectMany(holder => holder.Enums).ToArray();
+    public PackIndexer[] AllIndexers => GetAllTypeHolders<IPackFunctionHolder>().SelectMany(holder => holder.Indexers).ToArray();
+    public PackMember[] AllTypes => Enumerable.Empty<PackMember>().Concat(AllClasses)
+        .Concat(AllInterfaces).Concat(AllStructs).Concat(AllEnums).ToArray();
+    public PackMember[] AllMembers => Enumerable.Empty<PackMember>().Concat(AllClasses).Concat(AllInterfaces).Concat(AllStructs)
+        .Concat(AllProperties).Concat(AllFields).Concat(AllFunctions).Concat(AllEnums).Concat(AllIndexers).ToArray();
+
     public Identifier SelfIdentifier { get; private init; }
 
 
-    // Internal fields.
-    internal PackClass[] Classes => _classes.ToArray();
-    internal PackInterface[] Interfaces => _interfaces.ToArray();
-    internal PackProperty[] Properties => _properties.ToArray();
-    internal PackField[] Fields => _fields.ToArray();
-    internal PackFunction[] Functions => _functions.ToArray();
-    internal PackEnum[] Enums => _enums.ToArray();
-    internal PackStruct[] Structs => _structs.ToArray();
-
-
     // Private fields.
-    private readonly List<PackClass> _classes = new();
-    private readonly List<PackInterface> _interfaces = new();
-    private readonly List<PackProperty> _properties = new();
-    private readonly List<PackField> _fields = new();
-    private readonly List<PackFunction> _functions = new();
-    private readonly List<PackEnum> _enums = new();
-    private readonly List<PackStruct> _structs = new();
+    private readonly MemberContainer _members = new();
 
 
     // Constructors.
-    internal PackNameSpace(Identifier name)
+    internal PackNameSpace(Identifier identifier)
     {
-        SelfIdentifier = name ?? throw new ArgumentNullException(nameof(name));
+        SelfIdentifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
     }
 
 
-    // Internal methods.
-    internal void AddClass(PackClass item)
+    // Private methods.
+    private List<PackClass> AddClassesFromTypeHolder(List<PackClass> items, IPackTypeHolder holder)
     {
-        _classes.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        items.AddRange(holder.Classes);
+        foreach (PackClass Target in holder.Classes)
+        {
+            AddClassesFromTypeHolder(items, Target);
+        }
+        return items;
     }
 
-    internal void AddInterface(PackInterface item)
+    private List<PackInterface> AddInterfacesFromTypeHolder(List<PackInterface> items, IPackTypeHolder holder)
     {
-        _interfaces.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        items.AddRange(holder.Interfaces);
+        foreach (PackInterface target in holder.Interfaces)
+        {
+            AddInterfacesFromTypeHolder(items, target);
+        }
+        return items;
     }
 
-    internal void AddProperty(PackProperty item)
+    private List<PackStruct> AddStructsFromTypeHolder(List<PackStruct> items, IPackTypeHolder holder)
     {
-        _properties.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        items.AddRange(holder.Structs);
+        foreach (PackStruct target in holder.Structs)
+        {
+            AddStructsFromTypeHolder(items, target);
+        }
+        return items;
     }
 
-    internal void AddField(PackField item)
+    private IEnumerable<T> GetAllTypeHolders<T>()
     {
-        _fields.Add(item ?? throw new ArgumentNullException(nameof(item)));
-    }
-
-    internal void AddFunction(PackFunction item)
-    {
-        _functions.Add(item ?? throw new ArgumentNullException(nameof(item)));
-    }
-
-    internal void AddEnum(PackEnum item)
-    {
-        _enums.Add(item ?? throw new ArgumentNullException(nameof(item)));
-    }
-
-    internal void AddStruct(PackStruct item)
-    {
-        _structs.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        return Enumerable.Empty<IPackTypeHolder>().Concat(AllInterfaces).Concat(AllStructs)
+            .Concat(AllInterfaces).Select(item => (T)item);
     }
 
 
     // Inherited methods.
-    public override int GetHashCode()
+    public void AddClass(PackClass item)
     {
-        return SelfIdentifier.GetHashCode();
+        _members.AddClass(item);
     }
 
-    public override string ToString()
+    public void AddInterface(PackInterface item)
     {
-        return SelfIdentifier.ToString();
+        _members.AddInterface(item);
     }
 
-    public override bool Equals(object? obj)
+    public void AddProperty(PackProperty item)
     {
-        if (obj is PackNameSpace NameSpace)
-        {
-            return SelfIdentifier.Equals(NameSpace?.SelfIdentifier);
-        }
-        return false;
+        _members.AddProperty(item);
+    }
+
+    public void AddField(PackField item)
+    {
+        _members.AddField(item);
+    }
+
+    public void AddFunction(PackFunction item)
+    {
+        _members.AddFunction(item);
+    }
+
+    public void AddEnum(PackEnumeration item)
+    {
+        _members.AddEnum(item);
+    }
+
+    public void AddStruct(PackStruct item)
+    {
+        _members.AddStruct(item);
+    }
+
+    public void AddIndexer(PackIndexer item)
+    {
+        _members.AddIndexer(item);
+    }
+
+    public void RemoveClass(PackClass item)
+    {
+        _members.RemoveClass(item);
+    }
+
+    public void RemoveInterface(PackInterface item)
+    {
+        _members.RemoveInterface(item);
+    }
+
+    public void RemoveProperty(PackProperty item)
+    {
+        _members.RemoveProperty(item);
+    }
+
+    public void RemoveField(PackField item)
+    {
+        _members.RemoveField(item);
+    }
+
+    public void RemoveFunction(PackFunction item)
+    {
+        _members.RemoveFunction(item);
+    }
+
+    public void RemoveEnum(PackEnumeration item)
+    {
+        _members.RemoveEnum(item);
+    }
+
+    public void RemoveStruct(PackStruct item)
+    {
+        _members.RemoveStruct(item);
+    }
+
+    public void RemoveIndexer(PackIndexer item)
+    {
+        _members.RemoveIndexer(item);
     }
 }

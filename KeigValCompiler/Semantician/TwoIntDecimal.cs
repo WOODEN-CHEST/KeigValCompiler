@@ -32,11 +32,7 @@ internal readonly struct TwoIntDecimal
         get => _exponent;
         private init
         {
-            _exponent = value;
-            if (Mantissa == 0)
-            {
-                Exponent = 0;
-            }
+            _exponent = Mantissa != 0 ? value : 0;
         }
     }
 
@@ -178,10 +174,9 @@ internal readonly struct TwoIntDecimal
 
     internal static TwoIntDecimal Round(TwoIntDecimal dec)
     {
-        int LeadingDigit = GetFractionDigits(dec);
-        LeadingDigit = LeadingDigit / (int)Math.Pow(10d, GetMantissaDigitCountInFraction(dec) - 1);
+        int LeadingDigits = GetFractionDigits(dec);
 
-        int TargetSign = (LeadingDigit >= 5 ? 1 : -1) * Sign(dec);
+        int TargetSign = (LeadingDigits >= 5 ? 1 : -1) * Sign(dec);
         return MoveTowardsSign(dec, TargetSign);
     }
 
@@ -203,6 +198,17 @@ internal readonly struct TwoIntDecimal
         }
 
         return Digits;
+    }
+
+    private static int GetDigitAtIndex(long value, int indexFromLSD)
+    {
+        long Divisor = 1;
+        for (int i = 0; i < indexFromLSD; i++)
+        {
+            Divisor *= 10L;
+        }
+
+        return (int)(Math.Abs(value) / Divisor % 10L) * Math.Sign(value);
     }
 
     private static int GetMantissaFromDouble(double value)
@@ -273,28 +279,31 @@ internal readonly struct TwoIntDecimal
         {
             result = new(GetMantissaFromDouble(Mantissa), Exponent);
         }
-
         return true;
+    }
+
+    private static int GetMantissa(string number)
+    {
+        int Mantissa = 0;
+        return Mantissa;
     }
 
     private static bool TryParseRegular(string number, out TwoIntDecimal result)
     {
         result = default;
-
-        foreach (char Character in number)
-        {
-            if (char.IsDigit(Character))
-            {
-
-            }
-        }
-
-        throw new NotImplementedException();
+        return true;
     }
 
     private static int GetFractionDigits(TwoIntDecimal dec)
     {
-        return Math.Abs(dec.Mantissa) % (int)Math.Pow(10d, GetMantissaDigitCountInFraction(dec));
+        int Digits = dec.Mantissa;
+        int DigitMask = 1;
+        int DigitCountInFraction = GetMantissaDigitCountInFraction(dec);
+        for (int i = 0; i < DigitCountInFraction; i++)
+        {
+            DigitMask *= 10;
+        }
+        return dec.Mantissa % DigitMask;
     }
 
     private static TwoIntDecimal MoveTowardsSign(TwoIntDecimal dec, int sign)
@@ -307,7 +316,48 @@ internal readonly struct TwoIntDecimal
         return new(NewMantissa, NewExponent);
     }
 
-    private static int GetMantissaDigitCountInFraction(TwoIntDecimal dec) => Math.Clamp(8 - dec.Exponent, 0, 9);
+    private static int GetMantissaDigitCountInFraction(TwoIntDecimal dec) =>
+        Math.Clamp(MANTISSA_EXPONENT - dec.Exponent, 0, MANTISSA_DIGIT_COUNT);
+
+    private static string GetScientificNotationString(TwoIntDecimal dec)
+    {
+        return $"{(dec.Mantissa > 0 ? null : '-')}{Math.Abs(dec.Mantissa) / MANTISSA_DEFAULT_VALUE}" +
+                $".{Math.Abs(dec.Mantissa) % MANTISSA_DEFAULT_VALUE}e{dec.Exponent}";
+    }
+
+    private static string GetRegularString(TwoIntDecimal dec)
+    {
+        StringBuilder Builder = new();
+
+        if (dec.Mantissa < 0)
+        {
+            Builder.Append('-');
+        }
+
+        if (dec.Exponent < 0)
+        {
+            Builder.Append("0.");
+            for (int i = dec.Exponent + 1; i < 0; i++)
+            {
+                Builder.Append('0');
+            }
+            Builder.Append(Math.Abs(dec.Mantissa));
+        }
+        else
+        {
+            Builder.Append(Math.Abs(dec.Mantissa));
+            if ((dec.Exponent < MANTISSA_EXPONENT) && dec.Mantissa != 0)
+            {
+                Builder.Insert(dec.Exponent + 1, '.');
+            }
+            for (int i = MANTISSA_EXPONENT; i < dec.Exponent; i++)
+            {
+                Builder.Append('0');
+            }
+        }
+
+        return Builder.ToString();
+    }
 
 
     // Inherited methods.
@@ -325,40 +375,9 @@ internal readonly struct TwoIntDecimal
         const int SCIENTIFIC_NOTATION_MIN_EXPONENT = 18;
         if (Math.Abs(Exponent) >= SCIENTIFIC_NOTATION_MIN_EXPONENT)
         {
-            return $"{(Mantissa > 0 ? null : '-')}{Math.Abs(Mantissa) / 100_000_000}.{Math.Abs(Mantissa) % 100_000_000}e{Exponent}";
+            return GetScientificNotationString(this);
         }
-
-        const int MANTISSA_DIGIT_COUNT = 9;
-        StringBuilder Builder = new();
-
-        if (Exponent < 0)
-        {
-            Builder.Append("0.");
-            for (int i = Exponent + 1; i < 0; i++)
-            {
-                Builder.Append('0');
-            }
-            Builder.Append(Math.Abs(Mantissa));
-        }
-        else
-        {
-            Builder.Append(Mantissa != 0 ? Math.Abs(Mantissa) : 0);
-            if ((Exponent < MANTISSA_DIGIT_COUNT - 1) && Mantissa != 0)
-            {
-                Builder.Insert(Exponent + 1, '.');
-            }
-            for (int i = MANTISSA_DIGIT_COUNT; i <= Exponent; i++)
-            {
-                Builder.Append("0");
-            }
-        }
-
-        if (Mantissa < 0)
-        {
-            Builder.Insert(0, '-');
-        }
-
-        return Builder.ToString();
+        return GetRegularString(this);
     }
 
     public override bool Equals([NotNullWhen(true)] object? obj)
@@ -468,25 +487,34 @@ internal readonly struct TwoIntDecimal
     public static TwoIntDecimal operator /(TwoIntDecimal a, TwoIntDecimal b)
     {
         // Implemented as in DataPacks (which is why it is so complex).
-        if (IsNaN(a) || IsNaN(b) || (b.Mantissa == 0))
+        if (IsNaN(a) || IsNaN(b))
         {
             return NaN;
         }
-
-        double MantissaDivisionResult = (double)a.Mantissa / b.Mantissa;
-        int NewMantissa;
-        int NewExponent = a.Exponent - b.Exponent;
-        if (MantissaDivisionResult < 1d)
+        if (b.Mantissa == 0)
         {
-            NewExponent--;
-            NewMantissa = (int)(MantissaDivisionResult * 10d * MANTISSA_DEFAULT_VALUE);
-        }
-        else
-        {
-            NewMantissa = (int)(MantissaDivisionResult * MANTISSA_DEFAULT_VALUE);
+            return Sign(a) == 1 ? PositiveInfinity : NegativeInfinity;
         }
 
-        return new(NewMantissa, NewExponent);
+        int ResultingMantissa = 0;
+        long PickedNumber = a.Mantissa;
+        int NewExponent = a.Exponent - b.Exponent - (a.Mantissa < b.Mantissa ? 1 : 0);
+
+        while (Math.Abs(ResultingMantissa) < MANTISSA_DEFAULT_VALUE)
+        {
+            while ((PickedNumber < b.Mantissa) && (Math.Abs(ResultingMantissa) < MANTISSA_DEFAULT_VALUE / 10))
+            {
+                PickedNumber *= 10L;
+                ResultingMantissa *= 10;
+            }
+
+            ResultingMantissa *= 10;
+            ResultingMantissa += (int)(PickedNumber / b.Mantissa);
+            PickedNumber %= b.Mantissa;
+            PickedNumber *= 10L;
+        }
+
+        return new(ResultingMantissa, NewExponent);
     }
 
     public static TwoIntDecimal operator ++(TwoIntDecimal dec)
