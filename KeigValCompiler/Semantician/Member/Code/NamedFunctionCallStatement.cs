@@ -10,4 +10,11 @@ internal class NamedFunctionCallStatement : FunctionCallStatement
 {
     // Internal fields.
     internal Identifier FunctionName { get; set; }
+
+
+    // Constructors.
+    public NamedFunctionCallStatement(Identifier functionName)
+    {
+        FunctionName = functionName ?? throw new ArgumentNullException(nameof(functionName));
+    }
 }

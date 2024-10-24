@@ -7,13 +7,12 @@ internal class LocalField : IIdentifiable
 
 
     // Internal fields.
-    internal Identifier Type { get; private init; }
+    internal Identifier Type { get; set; }
 
 
     // Constructors.
-    internal LocalField(Identifier type, Identifier name)
+    internal LocalField(Identifier name)
     {
-        Type = type ?? throw new ArgumentNullException(nameof(type));
         SelfIdentifier = name ?? throw new ArgumentNullException(nameof(name));
     }
 }

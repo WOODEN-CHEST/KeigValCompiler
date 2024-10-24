@@ -2,5 +2,5 @@
 
 internal interface IInternalContentProvider
 {
-    void AddInternalContent(DataPack pack);
+    BuiltInTypeRegistry AddInternalContent(DataPack pack);
 }

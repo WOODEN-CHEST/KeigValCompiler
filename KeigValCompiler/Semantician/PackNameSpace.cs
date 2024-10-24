@@ -3,34 +3,38 @@ using System.Collections;
 
 namespace KeigValCompiler.Semantician;
 
-internal class PackNameSpace : IPackTypeHolder, IPackFieldHolder, IPackFunctionHolder, IIdentifiable
+internal class PackNameSpace : IPackTypeHolder, IPackFieldHolder, IPackFunctionHolder, IPackEventHolder, IIdentifiable
 {
     // Fields.
-    public PackClass[] Classes => _members.Classes;
-    public PackInterface[] Interfaces => _members.Interfaces;
-    public PackStruct[] Structs => _members.Structs;
-    public PackProperty[] Properties => _members.Properties;
-    public PackField[] Fields => _members.Fields;
-    public PackFunction[] Functions => _members.Functions;
-    public PackEnumeration[] Enums => _members.Enums;
-    public PackIndexer[] Indexers => _members.Indexers;
-    public PackMember[] Types => Enumerable.Empty<PackMember>().Concat(Classes)
-        .Concat(Interfaces).Concat(Structs).Concat(Enums).ToArray();
-
-    public PackClass[] AllClasses => AddClassesFromTypeHolder(new(), this).ToArray();
-    public PackInterface[] AllInterfaces => AddInterfacesFromTypeHolder(new(), this).ToArray();
-    public PackStruct[] AllStructs => AddStructsFromTypeHolder(new(), this).ToArray();
-    public PackProperty[] AllProperties => GetAllTypeHolders<IPackFunctionHolder>().SelectMany(holder => holder.Properties).ToArray();
-    public PackField[] AllFields => GetAllTypeHolders<IPackFieldHolder>().SelectMany(holder => holder.Fields).ToArray();
-    public PackFunction[] AllFunctions => GetAllTypeHolders<IPackFunctionHolder>().SelectMany(holder => holder.Functions).ToArray();
-    public PackEnumeration[] AllEnums => GetAllTypeHolders<IPackTypeHolder>().SelectMany(holder => holder.Enums).ToArray();
-    public PackIndexer[] AllIndexers => GetAllTypeHolders<IPackFunctionHolder>().SelectMany(holder => holder.Indexers).ToArray();
-    public PackMember[] AllTypes => Enumerable.Empty<PackMember>().Concat(AllClasses)
-        .Concat(AllInterfaces).Concat(AllStructs).Concat(AllEnums).ToArray();
-    public PackMember[] AllMembers => Enumerable.Empty<PackMember>().Concat(AllClasses).Concat(AllInterfaces).Concat(AllStructs)
-        .Concat(AllProperties).Concat(AllFields).Concat(AllFunctions).Concat(AllEnums).Concat(AllIndexers).ToArray();
-
     public Identifier SelfIdentifier { get; private init; }
+    public OperatorOverloadCollection OperatorOverloads => _members.OperatorOverloads;
+    public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
+    public IEnumerable<PackClass> Classes => _members.Classes;
+    public IEnumerable<PackInterface> Interfaces => _members.Interfaces;
+    public IEnumerable<PackStruct> Structs => _members.Structs;
+    public IEnumerable<PackProperty> Properties => _members.Properties;
+    public IEnumerable<PackField> Fields => _members.Fields;
+    public IEnumerable<PackFunction> Functions => _members.Functions;
+    public IEnumerable<PackEnumeration> Enums => _members.Enums;
+    public IEnumerable<PackIndexer> Indexers => _members.Indexers;
+    public IEnumerable<PackDelegate> Delegates => _members.Delegates;
+    public IEnumerable<PackFunction> Constructors => Functions.Where(
+        function => function.SelfIdentifier.SourceCodeName == SelfIdentifier.SelfName).ToArray();
+    public IEnumerable<PackMember> Types => _members.Types;
+    public IEnumerable<PackMember> AllTypes => _members.AllTypes;
+    public IEnumerable<PackEvent> Events => _members.Events;
+    public IEnumerable<PackClass> AllClasses => _members.AllClasses;
+    public IEnumerable<PackInterface> AllInterfaces => _members.AllInterfaces;
+    public IEnumerable<PackStruct> AllStructs => _members.AllStructs;
+    public IEnumerable<PackEnumeration> AllEnums => _members.AllEnums;
+    public IEnumerable<PackDelegate> AllDelegates => _members.AllDelegates;
+    public IEnumerable<PackField> AllFields => _members.AllFields;
+    public IEnumerable<PackFunction> AllFunctions => _members.AllFunctions;
+    public IEnumerable<PackProperty> AllProperties => _members.AllProperties;
+    public IEnumerable<PackIndexer> AllIndexers => _members.AllIndexers;
+    public IEnumerable<PackEvent> AllEvents => _members.AllEvents;
+    public IEnumerable<PackMember> Members => _members.Members;
+    public IEnumerable<PackMember> AllMembers => _members.AllMembers;
 
 
     // Private fields.
@@ -45,41 +49,6 @@ internal class PackNameSpace : IPackTypeHolder, IPackFieldHolder, IPackFunctionH
 
 
     // Private methods.
-    private List<PackClass> AddClassesFromTypeHolder(List<PackClass> items, IPackTypeHolder holder)
-    {
-        items.AddRange(holder.Classes);
-        foreach (PackClass Target in holder.Classes)
-        {
-            AddClassesFromTypeHolder(items, Target);
-        }
-        return items;
-    }
-
-    private List<PackInterface> AddInterfacesFromTypeHolder(List<PackInterface> items, IPackTypeHolder holder)
-    {
-        items.AddRange(holder.Interfaces);
-        foreach (PackInterface target in holder.Interfaces)
-        {
-            AddInterfacesFromTypeHolder(items, target);
-        }
-        return items;
-    }
-
-    private List<PackStruct> AddStructsFromTypeHolder(List<PackStruct> items, IPackTypeHolder holder)
-    {
-        items.AddRange(holder.Structs);
-        foreach (PackStruct target in holder.Structs)
-        {
-            AddStructsFromTypeHolder(items, target);
-        }
-        return items;
-    }
-
-    private IEnumerable<T> GetAllTypeHolders<T>()
-    {
-        return Enumerable.Empty<IPackTypeHolder>().Concat(AllInterfaces).Concat(AllStructs)
-            .Concat(AllInterfaces).Select(item => (T)item);
-    }
 
 
     // Inherited methods.
@@ -161,5 +130,25 @@ internal class PackNameSpace : IPackTypeHolder, IPackFieldHolder, IPackFunctionH
     public void RemoveIndexer(PackIndexer item)
     {
         _members.RemoveIndexer(item);
+    }
+
+    public void AddDelegate(PackDelegate packDelegate)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveDelegate(PackDelegate packDelegate)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void AddEvent(PackEvent packEvent)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void RemoveEvent(PackEvent packEvent)
+    {
+        throw new NotImplementedException();
     }
 }

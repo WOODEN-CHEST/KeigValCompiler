@@ -9,7 +9,8 @@ namespace KeigValCompiler.Semantician.Member;
 internal interface IPackFieldHolder
 {
     // Fields.
-    PackField[] Fields { get; }
+    IEnumerable<PackField> Fields { get; }
+    IEnumerable<PackField> AllFields { get; }
 
 
     // Methods.

@@ -90,10 +90,9 @@ public static class Compiler
 
         DataPack Pack = new();
 
-        IInternalContentProvider ContentProvider = new KGVLInternalContentProvider();
-        ContentProvider.AddInternalContent(Pack);
+        IInternalContentProvider ContentProvider = new DefaultInternalContentProvider();
 
-        IPackResolver Resolver = new KGVLPackResolver();
-        Resolver.ResolvePack(Pack);
+        IPackResolver Resolver = new DefaultPackResolver();
+        Resolver.ResolvePack(Pack, ContentProvider.AddInternalContent(Pack));
     }
 }

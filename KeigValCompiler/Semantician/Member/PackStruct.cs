@@ -1,20 +1,41 @@
 ﻿namespace KeigValCompiler.Semantician.Member;
 
 internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPackFunctionHolder,
-    IPackMemberExtender, IOperatorOverloadHolder, IGenericParameterHolder
+    IPackMemberExtender, IOperatorOverloadHolder, IGenericParameterHolder, IPackType, IPackEventHolder
 {
     // Fields.
-    public OperatorOverloadCollection OperatorOverloads { get; private init; } = new();
+    public OperatorOverloadCollection OperatorOverloads => _members.OperatorOverloads;
     public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
-    public Identifier[] ExtendedMembers => _extendedMember.ToArray();
-    public PackClass[] Classes => _members.Classes;
-    public PackInterface[] Interfaces => _members.Interfaces;
-    public PackStruct[] Structs => _members.Structs;
-    public PackProperty[] Properties => _members.Properties;
-    public PackField[] Fields => _members.Fields;
-    public PackFunction[] Functions => _members.Functions;
-    public PackEnumeration[] Enums => _members.Enums;
-    public PackIndexer[] Indexers => _members.Indexers;
+    public IEnumerable<Identifier> ExtendedMembers => _extendedMember.ToArray();
+    public IEnumerable<PackClass> Classes => _members.Classes;
+    public IEnumerable<PackInterface> Interfaces => _members.Interfaces;
+    public IEnumerable<PackStruct> Structs => _members.Structs;
+    public IEnumerable<PackProperty> Properties => _members.Properties;
+    public IEnumerable<PackField> Fields => _members.Fields;
+    public IEnumerable<PackFunction> Functions => _members.Functions;
+    public IEnumerable<PackEnumeration> Enums => _members.Enums;
+    public IEnumerable<PackIndexer> Indexers => _members.Indexers;
+    public IEnumerable<PackDelegate> Delegates => _members.Delegates;
+    public IEnumerable<PackFunction> Constructors => Functions.Where(
+        function => function.SelfIdentifier.SourceCodeName == SelfIdentifier.SelfName).ToArray();
+    public IEnumerable<PackMember> Types => _members.Types;
+    public IEnumerable<PackMember> AllTypes => _members.AllTypes;
+    public IEnumerable<PackEvent> Events => _members.Events;
+    public IEnumerable<PackClass> AllClasses => _members.AllClasses;
+    public IEnumerable<PackInterface> AllInterfaces => _members.AllInterfaces;
+    public IEnumerable<PackStruct> AllStructs => _members.AllStructs;
+    public IEnumerable<PackEnumeration> AllEnums => _members.AllEnums;
+    public IEnumerable<PackDelegate> AllDelegates => _members.AllDelegates;
+    public IEnumerable<PackField> AllFields => _members.AllFields;
+    public IEnumerable<PackFunction> AllFunctions => _members.AllFunctions;
+    public IEnumerable<PackProperty> AllProperties => _members.AllProperties;
+    public IEnumerable<PackIndexer> AllIndexers => _members.AllIndexers;
+    public IEnumerable<PackEvent> AllEvents => _members.AllEvents;
+
+
+    // Internal fields.
+    internal override IEnumerable<PackMember> SubMembers => _members.Members;
+    internal override IEnumerable<PackMember> AllSubMembers => _members.AllMembers;
 
 
     // Private fields.
@@ -67,6 +88,16 @@ internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPack
         _members.AddIndexer(item);
     }
 
+    public void AddDelegate(PackDelegate packDelegate)
+    {
+        _members.AddDelegate(packDelegate);
+    }
+
+    public void AddEvent(PackEvent packEvent)
+    {
+        _members.AddEvent(packEvent);
+    }
+
     public void RemoveClass(PackClass item)
     {
         _members.RemoveClass(item);
@@ -105,6 +136,16 @@ internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPack
     public void RemoveIndexer(PackIndexer item)
     {
         _members.RemoveIndexer(item);
+    }
+
+    public void RemoveDelegate(PackDelegate packDelegate)
+    {
+        _members.RemoveDelegate(packDelegate);
+    }
+
+    public void RemoveEvent(PackEvent packEvent)
+    {
+        _members.RemoveEvent(packEvent);
     }
 
     public void AddExtendedMember(Identifier identifier)

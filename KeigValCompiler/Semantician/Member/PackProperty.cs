@@ -10,6 +10,29 @@ internal class PackProperty : PackMember
     internal PackFunction? GetFunction { get;set; }
     internal PackFunction? SetFunction { get; set; }
     internal PackFunction? InitFunction { get; set; }
+    internal override IEnumerable<PackMember> SubMembers
+    {
+        get
+        {
+            List<PackMember> SubMembers = new();
+
+            if (GetFunction != null)
+            {
+                SubMembers.Add(GetFunction);
+            }
+            if (SetFunction != null)
+            {
+                SubMembers.Add(SetFunction);
+            }
+            if (InitFunction != null)
+            {
+                SubMembers.Add(InitFunction);
+            }
+
+            return SubMembers.ToArray();
+        }
+    }
+    internal override IEnumerable<PackMember> AllSubMembers => SubMembers;
 
 
     // Constructors.

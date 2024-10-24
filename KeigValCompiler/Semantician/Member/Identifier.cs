@@ -15,9 +15,21 @@ internal sealed class Identifier
         SourceCodeName = sourceCodeName ?? throw new ArgumentNullException(nameof(sourceCodeName));
     }
 
+    internal Identifier(Identifier identifierToCopy)
+    {
+        ArgumentNullException.ThrowIfNull(identifierToCopy, nameof(identifierToCopy));
+        SourceCodeName = identifierToCopy.SourceCodeName;
+        ResolveFrom(identifierToCopy);
+    }
 
-    // Methods.
 
+    // Internal methods.
+    internal void ResolveFrom(Identifier otherIdentifier)
+    {
+        SelfName = otherIdentifier.SelfName;
+        ResolvedName = otherIdentifier.ResolvedName;
+        Target = otherIdentifier.Target;
+    }
 
     // Inherited methods.
     public override bool Equals(object? obj)

@@ -9,7 +9,14 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class IfStatement : Statement
 {
     // Internal fields.
-    internal Statement Condition { get; set; }
-    internal StatementCollection IfBody { get; set; }
-    internal StatementCollection ElseBody { get; set; }
+    internal Statement Condition { get; private init; }
+    internal StatementCollection IfBody { get; } = new();
+    internal StatementCollection ElseBody { get; } = new();
+
+
+    // Constructors.
+    internal IfStatement(Statement condition)
+    {
+        Condition = condition ?? throw new ArgumentNullException(nameof(condition));
+    }
 }

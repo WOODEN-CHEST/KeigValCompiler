@@ -12,4 +12,12 @@ internal class VariableAssignmentStatement : Statement
     internal Identifier? Type { get; set; }
     internal bool IsDeclaration { get; set; } = false;
     internal VariableAssignmentCollection Assignments { get; } = new();
+
+
+    // Constructors.
+    internal VariableAssignmentStatement(Identifier? type, bool isDeclaration)
+    {
+        Type = type;
+        IsDeclaration = isDeclaration;
+    }
 }

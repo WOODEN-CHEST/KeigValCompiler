@@ -57,6 +57,7 @@ internal static class KGVL
     public const string KEYWORD_VIRTUAL = "virtual";
     public const string KEYWORD_OVERRIDE = "override";
     public const string KEYWORD_RAW = "raw";
+    public const string KEYWORD_REQUIRED = "required";
 
     public const string KEYWORD_FOR = "for";
     public const string KEYWORD_FOREACH = "foreach";
@@ -74,8 +75,12 @@ internal static class KGVL
     public const string KEYWORD_THROW = "throw";
     public const string KEYWORD_FINALLY = "finally";
     public const string KEYWORD_CONSTALLOC = "constalloc";
-    public const string KEYWORD_NAMEOF = "nameof";
     public const string KEYWORD_IS = "is";
+    public const string KEYWORD_AS = "as";
+    public const string KEYWORD_BASE = "base";
+
+    public const string KEYWORD_NAMEOF = "nameof";
+    public const string KEYWORD_TYPEOF = "typeof";
 
     public const string KEYWORD_BYTE = "byte";
     public const string KEYWORD_UBYTE = "ubyte";
@@ -90,9 +95,13 @@ internal static class KGVL
     public const string KEYWORD_BOOL = "bool";
     public const string KEYWORD_NULL = "null";
     public const string KEYWORD_FIELD = "field";
+    public const string KEYWORD_VALUE = "value";
+    public const string KEYWORD_PARAMS = "params";
+    public const string KEYWORD_TRUE = "true";
+    public const string KEYWORD_FALSE = "false";
 
 
     /* Internal. */
     public const char IDENTIFIER_SEPARATOR_FUNCTION = '!';
-    public const char IDENTIFIER_ACCESSOR= '&';
+    public const char IDENTIFIER_ACCESSOR = '&';
 }

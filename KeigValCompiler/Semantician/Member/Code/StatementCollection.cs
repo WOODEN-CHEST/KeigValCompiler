@@ -24,6 +24,11 @@ internal class StatementCollection : IEnumerable<Statement>
         _statements.Add(statement);
     }
 
+    public void AddStatements(StatementCollection collection)
+    {
+        _statements.AddRange(collection);
+    }
+
     public void InsertStatement(Statement statement, int index)
     {
         _statements.Insert(index, statement);

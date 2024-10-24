@@ -5,12 +5,12 @@ namespace KeigValCompiler.Semantician.Member;
 internal class OperatorOverloadCollection : IEnumerable<OperatorOverload>
 {
     // Internal fields.
-    internal OperatorOverload[] this[Operator targetOperator]
+    internal IEnumerable<OperatorOverload> this[Operator targetOperator]
     {
         get
         {
             _overloads.TryGetValue(targetOperator, out List<OperatorOverload>? overloads);
-            return overloads?.ToArray() ?? Array.Empty<OperatorOverload>();
+            return overloads ?? Enumerable.Empty<OperatorOverload>();
         }
     }
 

@@ -2,8 +2,12 @@
 
 namespace KeigValCompiler.Semantician.Member;
 
-internal class PackEnumeration : PackMember, IEnumerable<KeyValuePair<string, int>>
+internal class PackEnumeration : PackMember, IEnumerable<KeyValuePair<string, int>>, IPackType
 {
+    // Fields.
+    public IEnumerable<PackFunction> Constructors => Enumerable.Empty<PackFunction>();
+
+
     // Internal fields.
     internal string[] Names => _values.Keys.ToArray();
     internal int[] Values => _values.Values.Distinct().ToArray();

@@ -37,7 +37,6 @@ internal class IdentifiableCollection<T> : IEnumerable<T> where T : IIdentifiabl
     }
 
 
-
     // Inherited methods.
     public IEnumerator<T> GetEnumerator()
     {

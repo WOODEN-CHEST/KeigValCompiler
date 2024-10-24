@@ -9,6 +9,13 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class WhileStatement : Statement
 {
     // Internal fields.
-    internal Statement Condition { get; set; }
+    internal Statement? Condition { get; set; }
     internal StatementCollection Body { get; } = new();
+
+
+    // Constructors.
+    internal WhileStatement(Statement? condition)
+    {
+        Condition = condition;
+    }
 }

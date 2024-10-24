@@ -2,5 +2,5 @@
 
 internal interface IPackResolver
 {
-    void ResolvePack(DataPack pack);
+    void ResolvePack(DataPack pack, BuiltInTypeRegistry registry);
 }

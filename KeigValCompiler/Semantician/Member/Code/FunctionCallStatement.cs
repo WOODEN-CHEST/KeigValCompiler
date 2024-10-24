@@ -9,11 +9,21 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal abstract class FunctionCallStatement : Statement
 {
     // Internal fields.
-    internal Statement[] Arguments => _arguments.ToArray();
+    internal IEnumerable<Statement> Arguments => _arguments;
 
 
     // Private fields.
     private readonly List<Statement> _arguments = new();
+
+
+    // Constructors.
+    internal FunctionCallStatement(params Statement[]? arguments)
+    {
+        if (arguments != null)
+        {
+            _arguments.AddRange(arguments);
+        }
+    }
 
 
     // Methods.
@@ -24,12 +34,12 @@ internal abstract class FunctionCallStatement : Statement
 
     public void AddArgument(Statement argument)
     {
-        _arguments.Add(argument ?? throw new ArgumentNullException(nameof(argument));
+        _arguments.Add(argument ?? throw new ArgumentNullException(nameof(argument)));
     }
 
     public void RemoveArgument(Statement argument)
     {
-        _arguments.Remove(argument ?? throw new ArgumentNullException(nameof(argument));
+        _arguments.Remove(argument ?? throw new ArgumentNullException(nameof(argument)));
     }
 
     public void AddArgumentAt(int index)

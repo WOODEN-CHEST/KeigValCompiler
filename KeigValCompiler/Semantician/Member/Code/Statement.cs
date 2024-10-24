@@ -3,5 +3,5 @@
 internal abstract class Statement
 {
     // Fields.
-    internal Identifier StatementReturnType { get; }
+    internal virtual Identifier? StatementReturnType { get; set; }
 }

@@ -17,9 +17,9 @@ internal class VariableAssignment : IIdentifiable
 
 
     // Constructors.
-    internal VariableAssignment(Identifier identifier)
+    internal VariableAssignment(Identifier identifier, Statement? value = null)
     {
         SelfIdentifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
-        int a = 5;
+        Value = value;
     }
 }

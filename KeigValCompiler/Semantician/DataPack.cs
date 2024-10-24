@@ -6,19 +6,21 @@ namespace KeigValCompiler.Semantician;
 internal class DataPack
 {
     // Internal fields.
-    internal PackSourceFile[] SourceFiles => _sourceFiles.ToArray();
-    internal PackNameSpace[] NameSpaces => _sourceFiles.SelectMany(file => file.Namespaces).Distinct().ToArray();
+    internal IEnumerable<PackSourceFile> SourceFiles => _sourceFiles;
+    internal IEnumerable<PackNameSpace> NameSpaces => _sourceFiles.SelectMany(file => file.Namespaces).Distinct();
 
-    public PackClass[] Classes => NameSpaces.SelectMany(nameSpace => nameSpace.AllClasses).ToArray();
-    public PackInterface[] Interfaces => NameSpaces.SelectMany(nameSpace => nameSpace.AllInterfaces).ToArray();
-    public PackStruct[] Structs => NameSpaces.SelectMany(nameSpace => nameSpace.AllStructs).ToArray();
-    public PackProperty[] Properties => NameSpaces.SelectMany(nameSpace => nameSpace.AllProperties).ToArray();
-    public PackField[] Fields => NameSpaces.SelectMany(nameSpace => nameSpace.AllFields).ToArray();
-    public PackFunction[] Functions => NameSpaces.SelectMany(nameSpace => nameSpace.AllFunctions).ToArray();
-    public PackEnumeration[] Enums => NameSpaces.SelectMany(nameSpace => nameSpace.AllEnums).ToArray();
-    public PackIndexer[] Indexers => NameSpaces.SelectMany(nameSpace => nameSpace.AllIndexers).ToArray();
-    public PackMember[] Members => NameSpaces.SelectMany(nameSpace => nameSpace.AllMembers).ToArray();
-    public PackMember[] Types => NameSpaces.SelectMany(nameSpace => nameSpace.AllTypes).ToArray();
+    public IEnumerable<PackClass> Classes => NameSpaces.SelectMany(nameSpace => nameSpace.AllClasses);
+    public IEnumerable<PackInterface> Interfaces => NameSpaces.SelectMany(nameSpace => nameSpace.AllInterfaces);
+    public IEnumerable<PackStruct> Structs => NameSpaces.SelectMany(nameSpace => nameSpace.AllStructs);
+    public IEnumerable<PackProperty> Properties => NameSpaces.SelectMany(nameSpace => nameSpace.AllProperties);
+    public IEnumerable<PackField> Fields => NameSpaces.SelectMany(nameSpace => nameSpace.AllFields);
+    public IEnumerable<PackFunction> Functions => NameSpaces.SelectMany(nameSpace => nameSpace.AllFunctions);
+    public IEnumerable<PackEnumeration> Enums => NameSpaces.SelectMany(nameSpace => nameSpace.AllEnums);
+    public IEnumerable<PackIndexer> Indexers => NameSpaces.SelectMany(nameSpace => nameSpace.AllIndexers);
+    public IEnumerable<PackDelegate> Delegates => NameSpaces.SelectMany(nameSpace => nameSpace.AllDelegates);
+    public IEnumerable<PackEvent> Events => NameSpaces.SelectMany(nameSpace => nameSpace.AllEvents);
+    public IEnumerable<PackMember> Members => NameSpaces.SelectMany(nameSpace => nameSpace.AllMembers);
+    public IEnumerable<PackMember> Types => NameSpaces.SelectMany(nameSpace => nameSpace.AllTypes);
 
 
     // Private fields.

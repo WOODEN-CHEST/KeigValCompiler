@@ -6,4 +6,8 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Semantician.Member.Code;
 
-internal class TernaryStatement : IfStatement { }
+internal class TernaryStatement : IfStatement
+{
+    // Constructors.
+    internal TernaryStatement(Statement condition) : base(condition) { }
+}

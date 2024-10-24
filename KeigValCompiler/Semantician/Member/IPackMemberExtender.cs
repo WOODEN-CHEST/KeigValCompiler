@@ -9,8 +9,7 @@ namespace KeigValCompiler.Semantician.Member;
 internal interface IPackMemberExtender
 {
     // Fields/
-    Identifier[] ExtendedMembers { get; }
-
+    IEnumerable<Identifier> ExtendedMembers { get; }
 
     // Methods.
     void AddExtendedMember(Identifier identifier);

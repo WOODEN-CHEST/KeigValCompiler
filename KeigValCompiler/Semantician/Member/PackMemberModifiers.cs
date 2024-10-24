@@ -4,21 +4,23 @@
 internal enum PackMemberModifiers
 {
     None = 0,
-    Static = 1,
+    Static = 1 << 0,
 
-    Readonly = 2,
+    Readonly = 1 << 1,
 
-    BuiltIn = 4,
+    BuiltIn = 1 << 2,
 
-    Abstract = 8,
-    Virtual = 16,
-    Override = 32,
+    Abstract = 1 << 3,
+    Virtual = 1 << 4,
+    Override = 1 << 5,
 
-    Private = 64,
-    Protected = 128,
-    Public = 256,
+    Private = 1 << 6,
+    Protected = 1 << 7,
+    Public = 1 << 8,
 
-    Inline = 512,
+    Inline = 1 << 9,
 
-    Sealed = 1024,
+    Sealed = 1 << 10,
+
+    Required = 1 << 11
 }

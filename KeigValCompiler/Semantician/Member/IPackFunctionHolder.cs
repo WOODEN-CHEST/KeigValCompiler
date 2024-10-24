@@ -9,9 +9,12 @@ namespace KeigValCompiler.Semantician.Member;
 internal interface IPackFunctionHolder
 {
     // Fields.
-    PackFunction[] Functions { get; }
-    PackProperty[] Properties { get; }
-    PackIndexer[] Indexers { get; }
+    IEnumerable<PackFunction> Functions { get; }
+    IEnumerable<PackFunction> AllFunctions { get; }
+    IEnumerable<PackProperty> Properties { get; }
+    IEnumerable<PackProperty> AllProperties { get; }
+    IEnumerable<PackIndexer> Indexers { get; }
+    IEnumerable<PackIndexer> AllIndexers { get; }
 
 
     // Methods.
