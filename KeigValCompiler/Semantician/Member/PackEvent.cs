@@ -10,8 +10,15 @@ internal class PackEvent : PackMember
 {
     // Internal fields.
     internal Identifier Type { get; set; }
+    internal Identifier DelegateIdentifier { get; private init; }
 
 
     // Constructors.
-    public PackEvent(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
+    public PackEvent(Identifier identifier, 
+        Identifier delegateIdentifier,
+        PackSourceFile sourceFile) 
+        : base(identifier, sourceFile)
+    {
+        DelegateIdentifier = delegateIdentifier ?? throw new ArgumentNullException(nameof(delegateIdentifier));
+    }
 }

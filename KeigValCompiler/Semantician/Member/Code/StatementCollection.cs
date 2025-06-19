@@ -9,7 +9,6 @@ internal class StatementCollection : IEnumerable<Statement>
     public Statement this[int index] => _statements[index];
 
 
-
     // Private fields.
     private readonly List<Statement> _statements;
 

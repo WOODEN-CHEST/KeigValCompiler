@@ -22,5 +22,7 @@ internal enum PackMemberModifiers
 
     Sealed = 1 << 10,
 
-    Required = 1 << 11
+    Required = 1 << 11,
+
+    Record = 1 << 12
 }

@@ -31,6 +31,7 @@ internal sealed class Identifier
         Target = otherIdentifier.Target;
     }
 
+
     // Inherited methods.
     public override bool Equals(object? obj)
     {

@@ -13,13 +13,16 @@ internal readonly struct TwoIntDecimal
     internal const int MANTISSA_DEFAULT_VALUE = 100_000_000;
     internal const int MANTISSA_DIGIT_COUNT = 9;
     internal const int MANTISSA_EXPONENT = MANTISSA_DIGIT_COUNT - 1;
+    internal const char DECIMAL_SEPARATOR_PERIOD = '.';
+    internal const char DECIMAL_SEPARATOR_COMMA = ',';
+    internal const char NEGATION_SYMBOL = '-';
 
     internal static TwoIntDecimal Pi { get; } = new(double.Pi);
     internal static TwoIntDecimal E { get; } = new(double.E);
     internal static TwoIntDecimal Tau { get; } = new(double.Tau);
     internal static TwoIntDecimal MaxValue { get; } = new(MAX_MANTISSA, int.MaxValue - 1);
     internal static TwoIntDecimal MinValue { get; } = new(-MAX_MANTISSA, int.MaxValue - 1);
-    internal static TwoIntDecimal Epsilon { get; } = new(1, int.MinValue);
+    internal static TwoIntDecimal Epsilon { get; } = new(MANTISSA_DEFAULT_VALUE, int.MinValue);
     internal static TwoIntDecimal PositiveInfinity { get; } = new(MAX_MANTISSA, int.MaxValue);
     internal static TwoIntDecimal NegativeInfinity { get; } = new(-MAX_MANTISSA, int.MaxValue);
     internal static TwoIntDecimal NaN { get; } = new(MANTISSA_LIMIT, 0);
@@ -91,6 +94,12 @@ internal readonly struct TwoIntDecimal
     // Internal static methods.
     internal static bool TryParse(string number, out TwoIntDecimal dec)
     {
+        if (string.IsNullOrWhiteSpace(number))
+        {
+            dec = default;
+            return false;
+        }
+
         if (number.Contains('e'))
         {
             return TryParseScientificNotation(number, out dec);
@@ -129,6 +138,21 @@ internal readonly struct TwoIntDecimal
     }
 
     internal static TwoIntDecimal Log10(TwoIntDecimal dec)
+    {
+        throw new NotImplementedException();
+    }
+
+    internal static TwoIntDecimal Log(TwoIntDecimal value, TwoIntDecimal numberBase)
+    {
+        throw new NotImplementedException();
+    }
+
+    internal static TwoIntDecimal DegToRad(TwoIntDecimal deg)
+    {
+        throw new NotImplementedException();
+    }
+
+    internal static TwoIntDecimal RadToDeg(TwoIntDecimal rad)
     {
         throw new NotImplementedException();
     }
@@ -282,15 +306,53 @@ internal readonly struct TwoIntDecimal
         return true;
     }
 
-    private static int GetMantissa(string number)
-    {
-        int Mantissa = 0;
-        return Mantissa;
-    }
-
     private static bool TryParseRegular(string number, out TwoIntDecimal result)
     {
         result = default;
+
+        int Mantissa = 0;
+        int MantissaDigitWeight = MANTISSA_DEFAULT_VALUE;
+        int Exponent = 0;
+        bool FoundSeparator = false;
+        bool IsNegative = false;
+
+        foreach (char Character in number)
+        {
+            if (!IsNegative && (Character == NEGATION_SYMBOL))
+            {
+                IsNegative = true;
+            }
+            else if (char.IsAsciiDigit(Character))
+            {
+                int Digit = Character - '0';
+
+                if ((Mantissa == 0) && FoundSeparator)
+                {
+                    Exponent--;
+                }
+                else if ((Mantissa != 0) && !FoundSeparator)
+                {
+                    Exponent++;
+                }
+
+                if (MantissaDigitWeight != 0)
+                {
+                    Mantissa += MantissaDigitWeight * Digit;
+                    MantissaDigitWeight /= 10;
+                }
+            }
+            else if (!FoundSeparator && ((Character == DECIMAL_SEPARATOR_PERIOD) || (Character == DECIMAL_SEPARATOR_COMMA)))
+            {
+                FoundSeparator = true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        result = new(Mantissa * (IsNegative ? -1 : 1), Exponent);
+
         return true;
     }
 
@@ -322,7 +384,7 @@ internal readonly struct TwoIntDecimal
     private static string GetScientificNotationString(TwoIntDecimal dec)
     {
         return $"{(dec.Mantissa > 0 ? null : '-')}{Math.Abs(dec.Mantissa) / MANTISSA_DEFAULT_VALUE}" +
-                $".{Math.Abs(dec.Mantissa) % MANTISSA_DEFAULT_VALUE}e{dec.Exponent}";
+                $".{Math.Abs(dec.Mantissa).ToString().Substring(1)}e{dec.Exponent}";
     }
 
     private static string GetRegularString(TwoIntDecimal dec)
@@ -348,7 +410,7 @@ internal readonly struct TwoIntDecimal
             Builder.Append(Math.Abs(dec.Mantissa));
             if ((dec.Exponent < MANTISSA_EXPONENT) && dec.Mantissa != 0)
             {
-                Builder.Insert(dec.Exponent + 1, '.');
+                Builder.Insert(dec.Exponent + (dec.Mantissa < 0 ? 2 : 1), '.');
             }
             for (int i = MANTISSA_EXPONENT; i < dec.Exponent; i++)
             {
@@ -486,7 +548,7 @@ internal readonly struct TwoIntDecimal
 
     public static TwoIntDecimal operator /(TwoIntDecimal a, TwoIntDecimal b)
     {
-        // Implemented as in DataPacks (which is why it is so complex).
+        // Implemented as is in DataPacks (which is why it is so complex).
         if (IsNaN(a) || IsNaN(b))
         {
             return NaN;

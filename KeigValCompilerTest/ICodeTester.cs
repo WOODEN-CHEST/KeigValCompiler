@@ -4,10 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace KeigValCompiler.Semantician.Resolver;
+namespace KeigValCompilerTest;
 
-internal class PackResolvationContext
+public interface ICodeTester
 {
-    // Fields.
-    internal required 
+    TestResults Test();
 }

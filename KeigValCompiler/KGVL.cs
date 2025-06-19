@@ -2,19 +2,6 @@
 
 internal static class KGVL
 {
-    /* Types. */
-    public const string TYPE_BOOL_NAME = "Boolean";
-    public const string TYPE_BYTE_NAME = "Int8";
-    public const string TYPE_UBYTE_NAME = "UInt8";
-    public const string TYPE_SHORT_NAME = "Int16";
-    public const string TYPE_USHORT_NAME = "UInt16";
-    public const string TYPE_INT_NAME = "Int32";
-    public const string TYPE_UINT_NAME = "UInt32";
-    public const string TYPE_LONG_NAME = "Int64";
-    public const string TYPE_ULONG_NAME = "UInt64";
-    public const string TYPE_DECIMAL_NAME = "TwoIntDecimal";
-
-
     /* Syntax. */
     public const char SEMICOLON = ';';
     public const char COLON = ':';
@@ -46,6 +33,8 @@ internal static class KGVL
     public const string KEYWORD_USING = "using";
 
     public const string KEYWORD_CLASS = "class";
+    public const string KEYWORD_STRUCT = "struct";
+    public const string KEYWORD_RECORD = "record";
     public const string KEYWORD_STATIC = "static";
     public const string KEYWORD_PRIVATE = "private";
     public const string KEYWORD_PROTECTED = "protected";
@@ -99,6 +88,11 @@ internal static class KGVL
     public const string KEYWORD_PARAMS = "params";
     public const string KEYWORD_TRUE = "true";
     public const string KEYWORD_FALSE = "false";
+
+    public const string PREFIX_BINARY = "0b";
+    public const string PREFIX_HEX = "0x";
+    public const char SUFFIX_LONG = 'l';
+    public const char SUFFIX_UNSIGNED ='u';
 
 
     /* Internal. */

@@ -20,6 +20,9 @@ internal class BuiltInTypeRegistry
     internal PackStruct TypeUInt64 { get; set; }
     internal PackStruct TypeDecimal { get; set; }
     internal PackStruct TypeBool { get; set; }
+    internal PackStruct TypeChar { get; set; }
+    internal PackClass TypeString { get; set; }
+    internal PackStruct TypeNull { get; set; }
 
 
     // Private fields.

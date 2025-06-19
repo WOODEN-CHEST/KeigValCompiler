@@ -64,35 +64,24 @@ public static class Compiler
     // Private static methods.
     private static void CompilePack(CompilerOptions options)
     {
-        //PackParser Parser = new(options.SourceDirectory, options.DestinationDirectory);
-        //DataPack ObjectDataPack = Parser.ParsePack();
     }
 
     private static void Test()
     {
-        //TwoIntDecimal.TryParse("1.234", out var Dec);
-
-        //TwoIntDecimal Dec1 = TwoIntDecimal.Round(new(1.6d));
-        //Dec1 = TwoIntDecimal.Round(new(1.4d));
-        //Dec1 = TwoIntDecimal.Round(new(2d));
-
-        //Dec1 = TwoIntDecimal.Ceil(new(1.1d));
-        //Dec1 = TwoIntDecimal.Ceil(new(1.9d));
-        //Dec1 = TwoIntDecimal.Ceil(new(2d));
-
-        //Dec1 = TwoIntDecimal.Floor(new(1.1d));
-        //Dec1 = TwoIntDecimal.Floor(new(1.9d));
-        //Dec1 = TwoIntDecimal.Floor(new(2d));
-
-        //Dec1 = TwoIntDecimal.Truncate(new(1.4d));
-        //Dec1 = TwoIntDecimal.Truncate(new(-1.4d));
-
-
         DataPack Pack = new();
-
         IInternalContentProvider ContentProvider = new DefaultInternalContentProvider();
+        BuiltInTypeRegistry Registry = ContentProvider.AddInternalContent(Pack);
 
-        IPackResolver Resolver = new DefaultPackResolver();
-        Resolver.ResolvePack(Pack, ContentProvider.AddInternalContent(Pack));
+        IPackResolver Resolver = new FullPackResolver();
+
+        PackResolutionContext Context = new()
+        {
+            Registry = Registry,
+            Pack = Pack,
+            IdentifierSearcher = new DefaultIdentifierSearcher(),
+            PrimitiveResolver = new DefaultPrimitiveValueResolver()
+        };
+
+        Resolver.ResolvePack(Context);
     }
 }
