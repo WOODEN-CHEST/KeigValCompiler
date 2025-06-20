@@ -9,16 +9,32 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class OperatorStatement : Statement
 {
     // Fields.
-    internal Operator TargetOperator { get; private init; }
-    internal Statement LeftStatement { get; private init; }
-    internal Statement? RightStatement { get; private init; }
+    internal override IEnumerable<Statement> SubStatements
+    {
+        get
+        {
+            List<Statement> Statements = new() {  MainStatement  };
+            if (AdditionalStatement != null)
+            {
+                Statements.Add(AdditionalStatement);
+            }
+
+            return Statements;
+        }
+    }
+
+    internal StatementOperator TargetOperator { get; set; }
+    internal Statement MainStatement { get; set; }
+    internal Statement? AdditionalStatement { get; set; }
 
 
     // Constructors.
-    public OperatorStatement(Operator targetOperator, Statement leftStatement, Statement? rightStatement)
+    public OperatorStatement(StatementOperator targetOperator, 
+        Statement mainStatement, 
+        Statement? additionalStatement)
     {
         TargetOperator = targetOperator;
-        LeftStatement = leftStatement ?? throw new ArgumentNullException(nameof(leftStatement));
-        RightStatement = rightStatement;
+        MainStatement = mainStatement ?? throw new ArgumentNullException(nameof(mainStatement));
+        AdditionalStatement = additionalStatement;
     }
 }

@@ -10,21 +10,31 @@ namespace KeigValCompiler.Semantician.Resolver;
 
 internal class IdentifierResolver : IPackResolver
 {
+    // Private fields.
+    private readonly IdentifierGenerator _identifierGenerator;
+
+
+    // Constructors.
+    public IdentifierResolver(IdentifierGenerator identifierGenerator)
+    {
+        _identifierGenerator = identifierGenerator ?? throw new ArgumentNullException(nameof(identifierGenerator));
+    }
+
+
     // Private methods.
     /* Resolving types. */
     private void ResolveTypeIdentifiers(DataPack pack)
     {
         foreach (PackMember TypeMember in pack.Types)
         {
-            TypeMember.SelfIdentifier.ResolvedName = $"{TypeMember.NameSpace.SelfIdentifier.ResolvedName}" +
-                $"{KGVL.NAMESPACE_SEPARATOR}{TypeMember.SelfIdentifier.SourceCodeName}";
-            TypeMember.SelfIdentifier.SelfName = TypeMember.SelfIdentifier.SourceCodeName;
+            TypeMember.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullResolvedIdentifier(TypeMember);
+            TypeMember.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(TypeMember.SelfIdentifier);
             TypeMember.SelfIdentifier.Target = TypeMember;
         }
     }
 
 
-    /* Resolving Type identifiers. */
+    /* Resolving member type identifiers. */
     private void ResolveMemberTypeIdentifiers(PackResolutionContext context)
     {
         foreach (PackField Field in context.Pack.Fields)
@@ -62,7 +72,7 @@ internal class IdentifierResolver : IPackResolver
         {
             Builder.Append($"namespace {member.NameSpace.SelfIdentifier.ResolvedName}");
         }
-        Builder.Append($" in file \"{member.SourceFile.Path}\" on line {member.SourceFileOrigin.Line.ToString()}.");
+        Builder.Append($" in file \"{member.SourceFile.Path}\" on line {member.SourceFileOrigin.Line}.");
 
         return Builder.ToString();
     }
@@ -103,13 +113,9 @@ internal class IdentifierResolver : IPackResolver
 
         property.Type.ResolveFrom(TargetType.SelfIdentifier);
 
-        foreach (PackFunction? Function in new PackFunction?[] { property.GetFunction, property.SetFunction, property.InitFunction })
+        if (property.GetFunction != null)
         {
-            if (Function != null)
-            {
-                Function.ReturnType.ResolveFrom(TargetType.SelfIdentifier);
-                ResolveFunctionStatementTypes(Function, context);
-            }
+            property.GetFunction.ReturnType = new(TargetType.SelfIdentifier);
         }
     }
 
@@ -121,13 +127,9 @@ internal class IdentifierResolver : IPackResolver
 
         indexer.Type.ResolveFrom(TargetType.SelfIdentifier);
 
-        foreach (PackFunction? Function in new PackFunction?[] { indexer.GetFunction, indexer.SetFunction })
+        if (indexer.GetFunction != null)
         {
-            if (Function != null)
-            {
-                Function.ReturnType.ResolveFrom(TargetType.SelfIdentifier);
-                ResolveFunctionStatementTypes(Function, context);
-            }
+            indexer.GetFunction.ReturnType = new(TargetType.SelfIdentifier);
         }
     }
 
@@ -142,11 +144,47 @@ internal class IdentifierResolver : IPackResolver
 
     private void ResolveFunctionType(PackFunction function, PackResolutionContext context)
     {
-        PackMember TargetType = context.IdentifierSearcher.GetTypeFromCodeName(
+        if (function.ReturnType != null)
+        {
+            PackMember ReturnType = context.IdentifierSearcher.GetTypeFromCodeName(
             function.ReturnType.SourceCodeName, function.SourceFile, context.Registry)
             ?? throw new PackContentException(GetNoSuitableTypeMessage("function", function));
 
-        function.ReturnType.ResolveFrom(TargetType.SelfIdentifier);
+            function.ReturnType.ResolveFrom(ReturnType.SelfIdentifier);
+        }
+    }
+
+
+    /* Resolving field and property identifiers. */
+    private void ResolveFieldAndPropertydIdentifiers(PackResolutionContext context)
+    {
+        foreach (PackMember Member in Enumerable.Empty<PackMember>()
+            .Concat(context.Pack.Fields).Concat(context.Pack.Properties))
+        {
+            Member.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullResolvedIdentifier(Member);
+            Member.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(Member.SelfIdentifier);
+            Member.SelfIdentifier.Target = Member;
+        }
+    }
+
+
+    /* Resolving function identifiers. */
+    private void ResolveFunctionIdentifiers(PackResolutionContext context)
+    {
+        foreach (PackFunction Function in context.Pack.Functions)
+        {
+            Function.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullyResolvedFunctionIdentifier(Function);
+            Function.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(Function.SelfIdentifier);
+            Function.SelfIdentifier.Target = Function;
+        }
+        foreach ()
+    }
+
+
+    /* Code identifier resolving. */
+    private void ResolveCodeIdentifiers(PackResolutionContext context)
+    {
+
     }
 
     private void ResolveFunctionStatementTypes(PackFunction function, PackResolutionContext context)
@@ -157,12 +195,111 @@ internal class IdentifierResolver : IPackResolver
         }
     }
 
+
     private void ResolveTypeOfStatement(PackFunction function, Statement statement, PackResolutionContext context)
     {
-        if (statement is PrimitiveValueStatement ValueStatement)
+        // Woo!
+        if (statement is CastStatement TargetCastStatement)
         {
-            ResolvePrimitiveValueStatementType(function, ValueStatement, context);
+            ResolveCastStatementType(function, TargetCastStatement, context);
         }
+        else if (statement is ConstructorCallStatement TargetConstructorStatement)
+        {
+            ResolveConstructorCallStatement(function, TargetConstructorStatement, context);
+        }
+        else if (statement is ForStatement TargetForStatement)
+        {
+            ResolveForStatement(function, TargetForStatement, context);
+        }
+        else if (statement is IfStatement TargetIfStatement)
+        {
+            ResolveIfStatement(function, TargetIfStatement, context);
+        }
+        else if (statement is NamedFunctionCallStatement TargetFunctionCallStatement)
+        {
+            ResolveNamedFunctionCallStatement(function, TargetFunctionCallStatement, context);
+        }
+        else if (statement is PrimitiveValueStatement TargetValueStatement)
+        {
+            ResolvePrimitiveValueStatementType(function, TargetValueStatement, context);
+        }
+        else if (statement is OperatorStatement TargetOperatorStatement)
+        {
+            ResolveOperatorStatement(function, TargetOperatorStatement, context);
+        }
+        else if (statement is TernaryStatement TargetTernaryStatement)
+        {
+            ResolveTernaryStatement(function, TargetTernaryStatement, context);
+        }
+        else if (statement is VariableAssignmentStatement TargetAssignmentStatement)
+        {
+            ResolveVariableAssignmentStatement(function, TargetAssignmentStatement, context);
+        }
+        else if (statement is VariableRetrieveStatement TargetRetrieveStatement)
+        {
+            ResolveVariableRetrieveStatement(function, TargetRetrieveStatement, context);
+        }
+        else if (statement is WhileStatement TargetWhileStatement)
+        {
+            ResolveWhileStatement(function, TargetWhileStatement, context);
+        }
+        else
+        {
+            throw new PackContentException($"internal error, invalid statement type: \"{statement.GetType().FullName}\"");
+        }
+
+        foreach (Statement SubStatement in statement.SubStatements)
+        {
+            ResolveTypeOfStatement(function, SubStatement, context);
+        }
+    }
+
+    private void ResolveCastStatementType(PackFunction function,
+        CastStatement statement,
+        PackResolutionContext context)
+    {
+        PackMember ReturnType = context.IdentifierSearcher.GetTypeFromCodeName(
+                statement.TargetCastType.SelfName, function.SourceFile, context.Registry)
+                ?? throw new PackContentException(GetNoSuitableTypeMessage("cast statement", function));
+
+        statement.TargetCastType.ResolveFrom(ReturnType.SelfIdentifier);
+        statement.StatementReturnType = new(ReturnType.SelfIdentifier);
+    }
+
+    private void ResolveConstructorCallStatement(PackFunction function,
+        ConstructorCallStatement statement,
+        PackResolutionContext context)
+    {
+        PackMember ReturnType = context.IdentifierSearcher.GetTypeFromCodeName(
+            statement.ObjectType.SelfName, function.SourceFile, context.Registry)
+            ?? throw new PackContentException(GetNoSuitableTypeMessage("constructor statement", function));
+
+        statement.ObjectType.ResolveFrom(ReturnType.SelfIdentifier);
+        statement.StatementReturnType = new(ReturnType.SelfIdentifier);
+    }
+
+    private void ResolveForStatement(PackFunction function,
+        ForStatement statement,
+        PackResolutionContext context)
+    { }
+
+    private void ResolveIfStatement(PackFunction function,
+        IfStatement statement,
+        PackResolutionContext context)
+    { }
+
+    private void ResolveNamedFunctionCallStatement(PackFunction function,
+        NamedFunctionCallStatement statement,
+        PackResolutionContext context)
+    {
+
+    }
+
+    private void ResolveOperatorStatement(PackFunction function,
+        OperatorStatement statement,
+        PackResolutionContext context)
+    {
+
     }
 
     private void ResolvePrimitiveValueStatementType(PackFunction function,
@@ -177,45 +314,44 @@ internal class IdentifierResolver : IPackResolver
         statement.StatementReturnType = new(TargetType.SelfIdentifier);
     }
 
-
-    /* Resolving identifiers. */
-    private void ResolveMemberIdentifiers(DataPack pack)
+    private void ResolveTernaryStatement(PackFunction function,
+        TernaryStatement statement,
+        PackResolutionContext context)
     {
-        foreach (PackProperty Property in pack.Properties)
+
+    }
+
+    private void ResolveVariableAssignmentStatement(PackFunction function,
+        VariableAssignmentStatement statement,
+        PackResolutionContext context)
+    {
+
+    }
+
+    private void ResolveVariableRetrieveStatement(PackFunction function,
+        VariableRetrieveStatement statement,
+        PackResolutionContext context)
+    {
+
+    }
+
+    private void ResolveWhileStatement(PackFunction function,
+        WhileStatement statement,
+        PackResolutionContext context)
+    {
+
+    }
+
+    private void ResolveFunctionArgumentTypes(PackFunction function,
+        FunctionCallStatement statement,
+        PackResolutionContext context)
+    {
+        foreach (Statement ArgStatement in statement.Arguments)
         {
-            ResolvePropertyIdentifiers(Property);
-        }
-
-        foreach (PackMember Member in pack.Members)
-        {
-            if (Member is IPackType)
-            {
-                continue;
-            }
-
-
+            ResolveTypeOfStatement(function, statement, context);
         }
     }
 
-    private void ResolvePropertyIdentifiers(PackProperty Property)
-    {
-
-    }
-
-    private void ResolveIndexerIdentifiers(PackProperty Property)
-    {
-
-    }
-
-    private void ResolveFieldIdentifiers(PackProperty Property)
-    {
-
-    }
-
-    private void ResolveFunctionIdentifiers(PackProperty Property)
-    {
-
-    }
 
 
     // Inherited methods.
@@ -223,6 +359,8 @@ internal class IdentifierResolver : IPackResolver
     {
         ResolveTypeIdentifiers(context.Pack);
         ResolveMemberTypeIdentifiers(context);
-        ResolveMemberIdentifiers(context.Pack);
+        ResolveFieldAndPropertydIdentifiers(context);
+        ResolveFunctionIdentifiers(context);
+        ResolveCodeIdentifiers(context);
     }
 }

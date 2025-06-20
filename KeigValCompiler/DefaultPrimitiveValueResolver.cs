@@ -84,10 +84,7 @@ internal class DefaultPrimitiveValueResolver : IPrimitiveValueResolver
         {
             return registry.TypeUInt32;
         }
-        else
-        {
-            return registry.TypeInt32;
-        }
+         return registry.TypeInt32;
     }
 
 
@@ -100,7 +97,7 @@ internal class DefaultPrimitiveValueResolver : IPrimitiveValueResolver
         {
             return NumberInfo.NumberType;
         }
-        if (TwoIntDecimal.TryParse(value, out var _))
+        if (TwoIntDecimal.TryParse(value, out _))
         {
             return registry.TypeDecimal;
         }

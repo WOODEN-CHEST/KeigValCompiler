@@ -11,4 +11,8 @@ namespace KeigValCompiler;
 internal interface IIdentifierSearcher
 {
     PackMember? GetTypeFromCodeName(string codeName, PackSourceFile sourceFile, BuiltInTypeRegistry registry);
+    PackFunction? GetFunctionFromCodeName(string codeName,
+        IPackFunctionHolder primarySearchTarget,
+        bool isContextStatic,
+        PackSourceFile sourceFile);
 }

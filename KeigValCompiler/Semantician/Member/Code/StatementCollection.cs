@@ -5,9 +5,8 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class StatementCollection : IEnumerable<Statement>
 {
     // Fields.
-    public int Count => _statements.Count;
-    public Statement this[int index] => _statements[index];
-
+    internal int Count => _statements.Count;
+    internal Statement this[int index] => _statements[index];
 
     // Private fields.
     private readonly List<Statement> _statements;
@@ -43,14 +42,9 @@ internal class StatementCollection : IEnumerable<Statement>
         _statements.RemoveAt(index);
     }
 
-
-    // Inherited methods.
     public IEnumerator<Statement> GetEnumerator()
     {
-        foreach (Statement TargetStatement in _statements)
-        {
-            yield return TargetStatement;
-        }
+        return _statements.GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()

@@ -9,6 +9,25 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class ForStatement : Statement
 {
     // Internal fields.
+    internal override IEnumerable<Statement> SubStatements
+    {
+        get
+        {
+            foreach (Statement BodyStatement in Body)
+            {
+                yield return BodyStatement;
+            }
+            if (Condition != null)
+            {
+                yield return Condition;
+            }
+            if (Increment  != null)
+            {
+                yield return Increment;
+            }
+        }
+    }
+
     internal VariableAssignmentStatement? Assignment { get; set; }
     internal Statement? Condition { get; set; }
     internal VariableAssignmentStatement? Increment { get; set; }

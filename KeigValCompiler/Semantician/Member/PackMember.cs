@@ -2,6 +2,12 @@
 
 internal abstract class PackMember : IIdentifiable
 {
+    // Static fields.
+    public const int ACCESS_LEVEL_PRIVATE = 0;
+    public const int ACCESS_LEVEL_PROTECTED = 1;
+    public const int ACCESS_LEVEL_PUBLIC = 2;
+
+
     // Fields.
     public virtual Identifier SelfIdentifier { get; private init; }
 
@@ -26,7 +32,25 @@ internal abstract class PackMember : IIdentifiable
     }
 
 
-    // Internal static functions.
+    // Internal static methods.
+    internal static int GetAccessLevel(PackMemberModifiers modifiers)
+    {
+        int Level = ACCESS_LEVEL_PRIVATE;
+
+        if ((modifiers & PackMemberModifiers.Protected) > 0)
+        {
+            Level = ACCESS_LEVEL_PROTECTED;
+        }
+        else if ((modifiers & PackMemberModifiers.Public) > 0)
+        {
+            Level = ACCESS_LEVEL_PUBLIC;
+        }
+
+        return Level;
+    }
+
+
+    // Internal methods.
     internal int CountAccessModifiers()
     {
         return ((Modifiers & PackMemberModifiers.Private) > 0 ? 1 : 0)

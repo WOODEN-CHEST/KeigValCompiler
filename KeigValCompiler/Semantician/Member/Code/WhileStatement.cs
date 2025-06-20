@@ -9,6 +9,7 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class WhileStatement : Statement
 {
     // Internal fields.
+    internal override IEnumerable<Statement> SubStatements => Condition == null ? Body : Body.Append(Condition);
     internal Statement? Condition { get; set; }
     internal StatementCollection Body { get; } = new();
 

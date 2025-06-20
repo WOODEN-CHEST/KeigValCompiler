@@ -1,4 +1,6 @@
 ﻿using KeigValCompiler.Semantician;
+using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Member.Code;
 using KeigValCompiler.Semantician.Resolver;
 
 namespace KeigValCompiler.Main;
@@ -73,14 +75,38 @@ public static class Compiler
         BuiltInTypeRegistry Registry = ContentProvider.AddInternalContent(Pack);
 
         IPackResolver Resolver = new FullPackResolver();
+        IdentifierGenerator IdentifierGenerator = new();
 
         PackResolutionContext Context = new()
         {
             Registry = Registry,
             Pack = Pack,
-            IdentifierSearcher = new DefaultIdentifierSearcher(),
-            PrimitiveResolver = new DefaultPrimitiveValueResolver()
+            IdentifierSearcher = new DefaultIdentifierSearcher(IdentifierGenerator),
+            PrimitiveResolver = new DefaultPrimitiveValueResolver(),
+            IdentifierGenerator = IdentifierGenerator
         };
+
+        PackSourceFile TestSourceFile = new(Pack, "test");
+        PackNameSpace TestNameSpace = new(new("Test.Test2"));
+        PackClass TestClass = new(new("TestClass"), TestSourceFile);
+        PackFunction TestFunction = new(new("TestFunc"), TestSourceFile);
+
+        VariableAssignmentStatement TestStatement1 = new(new("TestClass"), true);
+        TestStatement1.Assignments.AddItem(
+            new VariableAssignment(new("A"),
+            new ConstructorCallStatement(new("TestClass"))));
+
+        VariableAssignmentStatement TestStatement2 = new(new("long"), true);
+        TestStatement1.Assignments.AddItem(
+            new VariableAssignment(new("B"),
+            new PrimitiveValueStatement("1234567890L")));
+
+        TestFunction.Statements.AddStatement(TestStatement1);
+        TestFunction.Statements.AddStatement(TestStatement2);
+
+        TestClass.AddFunction(TestFunction);
+        TestNameSpace.AddClass(TestClass);
+        TestSourceFile.AddNamespace(TestNameSpace);
 
         Resolver.ResolvePack(Context);
     }

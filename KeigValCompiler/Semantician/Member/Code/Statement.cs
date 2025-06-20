@@ -3,6 +3,7 @@
 internal abstract class Statement
 {
     // Fields.
+    internal virtual IEnumerable<Statement> SubStatements => Enumerable.Empty<Statement>();
     internal virtual Identifier? StatementReturnType { get; set; }
     internal virtual SourceFileOrigin Origin { get; set; }
 }

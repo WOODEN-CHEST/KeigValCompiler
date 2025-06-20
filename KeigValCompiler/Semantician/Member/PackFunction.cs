@@ -9,13 +9,9 @@ internal class PackFunction : PackMember, IGenericParameterHolder
 
 
     // Internal fields.
-    internal Identifier ReturnType { get; set; }
+    internal Identifier? ReturnType { get; set; }
     internal FunctionParameterCollection Parameters { get; private init; } = new();
     internal StatementCollection Statements { get; private init; } = new();
-    
-
-    // Private fields.
-    private Dictionary<string, FunctionParameter> _parameters = new();
 
 
     // Constructors.

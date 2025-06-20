@@ -6,6 +6,7 @@ internal class PackIndexer : PackMember
     internal Identifier Type { get; set; }
     internal PackFunction? GetFunction { get; set; }
     internal PackFunction? SetFunction { get; set; }
+    internal FunctionParameterCollection Parameters { get; } = new();
     internal override IEnumerable<PackMember> SubMembers
     {
         get

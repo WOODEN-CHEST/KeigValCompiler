@@ -9,16 +9,9 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class CastStatement : Statement
 {
     // Fields.
-    internal Identifier TargetCastType { get; }
-    internal Statement StatementToCast
-    {
-        get => _statementToCast;
-        set => _statementToCast = value ?? throw new ArgumentNullException(nameof(value));
-    }
-
-
-    // Private fields.
-    private Statement _statementToCast;
+    internal override IEnumerable<Statement> SubStatements => new Statement[] { StatementToCast };
+    internal Identifier TargetCastType { get; set; }
+    internal Statement StatementToCast { get; set; }
 
 
     // Constructors.
