@@ -3,12 +3,12 @@
 internal class OperatorOverload
 {
     // Internal fields.
-    internal Operator OverloadedOperator { get; private init; }
+    internal OverloadableOperator OverloadedOperator { get; private init; }
     internal PackFunction Function { get; private init; }
 
 
     // Constructors.
-    internal OperatorOverload(Operator operatorType, PackFunction function)
+    internal OperatorOverload(OverloadableOperator operatorType, PackFunction function)
     {
         OverloadedOperator = operatorType;
         Function = function ?? throw new ArgumentNullException(nameof(function));

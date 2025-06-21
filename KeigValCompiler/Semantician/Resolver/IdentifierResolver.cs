@@ -1,10 +1,11 @@
-﻿using KeigValCompiler.Semantician.Member.Code;
-using KeigValCompiler.Semantician.Member;
+﻿using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Member.Code;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
@@ -22,9 +23,17 @@ internal class IdentifierResolver : IPackResolver
 
 
     // Private methods.
-    /* Resolving types. */
-    private void ResolveTypeIdentifiers(DataPack pack)
+    /* First step is for all types to resolve their self identifiers. */
+    private void ResolveTypeSelfIdentifiers(DataPack pack)
     {
+        foreach (PackNameSpace NameSpace in pack.NameSpaces)
+        {
+            foreach (IPackType Type in NameSpace.Members)
+            {
+                ResolveIdentifiersForSingleType(Type);
+            }
+        }
+
         foreach (PackMember TypeMember in pack.Types)
         {
             TypeMember.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullResolvedIdentifier(TypeMember);
@@ -33,17 +42,33 @@ internal class IdentifierResolver : IPackResolver
         }
     }
 
+    private void ResolveIdentifiersForSingleType(IPackType type)
+    {
+        if (type is not PackMember Member)
+        {
+            return;
+        }
 
-    /* Resolving member type identifiers. */
+        Member.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullResolvedIdentifier(Member);
+        Member.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(Member.SelfIdentifier);
+        Member.SelfIdentifier.Target = Member;
+
+        if (Member is IPackTypeHolder TypeHolderMember)
+        {
+            foreach (PackMember SubType in TypeHolderMember.Types)
+            {
+                ResolveIdentifiersForSingleType((IPackType)SubType);
+            }
+        }
+    }
+
+
+    /* Second step is o resolve the identifiers for members which point to a type. */
     private void ResolveMemberTypeIdentifiers(PackResolutionContext context)
     {
         foreach (PackField Field in context.Pack.Fields)
         {
             ResolveFieldType(Field, context);
-        }
-        foreach (PackFunction Function in context.Pack.Functions)
-        {
-            ResolveFunctionType(Function, context);
         }
         foreach (PackProperty Property in context.Pack.Properties)
         {
@@ -56,6 +81,14 @@ internal class IdentifierResolver : IPackResolver
         foreach (PackEvent Event in context.Pack.Events)
         {
             ResolveEventType(Event, context);
+        }
+        foreach (PackFunction Function in context.Pack.Functions)
+        {
+            ResolveFunctionType(Function, context);
+        }
+        foreach (PackDelegate Delegate in  context.Pack.Delegates)
+        {
+            ResolveDelegateType(Delegate, context);
         }
     }
     private string GetNoSuitableTypeMessage(string memberTypeName, PackMember member)
@@ -117,6 +150,14 @@ internal class IdentifierResolver : IPackResolver
         {
             property.GetFunction.ReturnType = new(TargetType.SelfIdentifier);
         }
+        if (property.SetFunction != null)
+        {
+            property.SetFunction.ReturnType = null;
+        }
+        if (property.InitFunction != null)
+        {
+            property.InitFunction.ReturnType = null;
+        }
     }
 
     private void ResolveIndexerType(PackIndexer indexer, PackResolutionContext context)
@@ -127,9 +168,17 @@ internal class IdentifierResolver : IPackResolver
 
         indexer.Type.ResolveFrom(TargetType.SelfIdentifier);
 
+        ResolveParameterTypes(indexer.Parameters, indexer, "indexer parameter", context);
+
         if (indexer.GetFunction != null)
         {
             indexer.GetFunction.ReturnType = new(TargetType.SelfIdentifier);
+            indexer.GetFunction.Parameters.SetFrom(indexer.Parameters);
+        }
+        if (indexer.SetFunction != null)
+        {
+            indexer.SetFunction.ReturnType = null;
+            indexer.SetFunction.Parameters.SetFrom(indexer.Parameters);
         }
     }
 
@@ -147,19 +196,50 @@ internal class IdentifierResolver : IPackResolver
         if (function.ReturnType != null)
         {
             PackMember ReturnType = context.IdentifierSearcher.GetTypeFromCodeName(
-            function.ReturnType.SourceCodeName, function.SourceFile, context.Registry)
-            ?? throw new PackContentException(GetNoSuitableTypeMessage("function", function));
+                function.ReturnType.SourceCodeName, function.SourceFile, context.Registry)
+                ?? throw new PackContentException(GetNoSuitableTypeMessage("function", function));
 
             function.ReturnType.ResolveFrom(ReturnType.SelfIdentifier);
+        }
+
+        ResolveParameterTypes(function.Parameters, function, "function parameter", context);
+    }
+
+    private void ResolveDelegateType(PackDelegate targetDelegate, PackResolutionContext context)
+    {
+        if (targetDelegate.ReturnType != null)
+        {
+            PackMember ReturnType = context.IdentifierSearcher.GetTypeFromCodeName(
+                targetDelegate.ReturnType.SourceCodeName, targetDelegate.SourceFile, context.Registry)
+                ?? throw new PackContentException(GetNoSuitableTypeMessage("delegate", targetDelegate));
+
+            targetDelegate.ReturnType.ResolveFrom(ReturnType.SelfIdentifier);
+        }
+
+        ResolveParameterTypes(targetDelegate.Parameters, targetDelegate, "delegate parameter", context);
+    }
+
+    private void ResolveParameterTypes(FunctionParameterCollection parameters,
+        PackMember member,
+        string noSuitableTypeMessageName,
+        PackResolutionContext context)
+    {
+        foreach (FunctionParameter Parameter in parameters)
+        {
+            PackMember ParameterType = context.IdentifierSearcher.GetTypeFromCodeName(
+                Parameter.Type.SourceCodeName, member.SourceFile, context.Registry)
+                ?? throw new PackContentException(GetNoSuitableTypeMessage(noSuitableTypeMessageName, member));
+
+            Parameter.Type.ResolveFrom(ParameterType.SelfIdentifier);
         }
     }
 
 
-    /* Resolving field and property identifiers. */
-    private void ResolveFieldAndPropertydIdentifiers(PackResolutionContext context)
+    /* Resolving generic member identifiers. */
+    private void ResolveGenericMemberIdentifiers(PackResolutionContext context)
     {
         foreach (PackMember Member in Enumerable.Empty<PackMember>()
-            .Concat(context.Pack.Fields).Concat(context.Pack.Properties))
+            .Concat(context.Pack.Fields).Concat(context.Pack.Properties).Concat(context.Pack.Events))
         {
             Member.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullResolvedIdentifier(Member);
             Member.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(Member.SelfIdentifier);
@@ -176,8 +256,89 @@ internal class IdentifierResolver : IPackResolver
             Function.SelfIdentifier.ResolvedName = _identifierGenerator.GetFullyResolvedFunctionIdentifier(Function);
             Function.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(Function.SelfIdentifier);
             Function.SelfIdentifier.Target = Function;
+            ResolveParameterSelfIdentifiers(Function.Parameters);
         }
-        foreach ()
+
+        foreach (PackProperty Property in context.Pack.Properties)
+        {
+            foreach (PackFunction? Function in new PackFunction?[] 
+                { Property.GetFunction, Property.SetFunction, Property.InitFunction })
+            {
+                ResolvePropertyFunctionName(Property, Function);
+                ResolveParameterSelfIdentifiers(Function?.Parameters);
+            }
+        }
+
+        foreach (PackIndexer Indexer in context.Pack.Indexers)
+        {
+            foreach (PackFunction? Function in new PackFunction?[] { Indexer.GetFunction, Indexer.SetFunction })
+            {
+                ResolveIndexerFunctionName(Indexer, Function);
+                ResolveParameterSelfIdentifiers(Function?.Parameters);
+            }
+        }
+
+        foreach (PackMember Member in context.Pack.Members)
+        {
+            if (Member is not IOperatorOverloadHolder OverloadHolder)
+            {
+                continue;
+            }
+
+            ResolveOperatorOverloadFunctions(Member, OverloadHolder.OperatorOverloads);
+        }
+    }
+
+    private void ResolvePropertyFunctionName(PackProperty property, PackFunction? function)
+    {
+        if (function == null)
+        {
+            return;
+        }
+
+        function.SelfIdentifier.ResolvedName = _identifierGenerator.GetPropertyFunctionIdentifier(property, function);
+        function.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(function.SelfIdentifier);
+        function.SelfIdentifier.Target = function;
+    }
+
+    private void ResolveIndexerFunctionName(PackIndexer indexer, PackFunction? function)
+    {
+        if (function == null)
+        {
+            return;
+        }
+
+        function.SelfIdentifier.ResolvedName = _identifierGenerator.GetIndexerFunctionIdentifier(indexer, function);
+        function.SelfIdentifier.SelfName = _identifierGenerator.GetSelfName(function.SelfIdentifier);
+        function.SelfIdentifier.Target = function;
+    }
+
+    private void ResolveParameterSelfIdentifiers(FunctionParameterCollection? parameters)
+    {
+        if (parameters == null)
+        {
+            return;
+        }
+
+        foreach (FunctionParameter Parameter in parameters)
+        {
+            Parameter.SelfIdentifier.SelfName = Parameter.SelfIdentifier.SourceCodeName;
+            Parameter.SelfIdentifier.ResolvedName = Parameter.SelfIdentifier.SelfName;
+            Parameter.SelfIdentifier.Target = Parameter;
+        }
+    }
+
+    private void ResolveOperatorOverloadFunctions(PackMember member, OperatorOverloadCollection overloads)
+    {
+        foreach (OperatorOverload Overload in overloads)
+        {
+            Identifier FunctionIdentifier = Overload.Function.SelfIdentifier;
+
+            FunctionIdentifier.ResolvedName = _identifierGenerator
+                .GetOperatorOverloadFunctionName(Overload, member.SelfIdentifier);
+            FunctionIdentifier.SelfName = _identifierGenerator.GetSelfName(FunctionIdentifier);
+            FunctionIdentifier.Target = Overload.Function;
+        }
     }
 
 
@@ -357,10 +518,9 @@ internal class IdentifierResolver : IPackResolver
     // Inherited methods.
     public void ResolvePack(PackResolutionContext context)
     {
-        ResolveTypeIdentifiers(context.Pack);
+        ResolveTypeSelfIdentifiers(context.Pack);
         ResolveMemberTypeIdentifiers(context);
-        ResolveFieldAndPropertydIdentifiers(context);
+        ResolveGenericMemberIdentifiers(context);
         ResolveFunctionIdentifiers(context);
-        ResolveCodeIdentifiers(context);
     }
 }

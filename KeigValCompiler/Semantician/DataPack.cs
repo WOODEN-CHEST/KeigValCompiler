@@ -7,8 +7,7 @@ internal class DataPack
 {
     // Internal fields.
     internal IEnumerable<PackSourceFile> SourceFiles => _sourceFiles;
-    internal IEnumerable<PackNameSpace> NameSpaces => _sourceFiles.SelectMany(file => file.Namespaces).Distinct();
-
+    internal IEnumerable<PackNameSpace> NameSpaces => _sourceFiles.SelectMany(file => file.AllUsedNamespaces).Distinct();
     public IEnumerable<PackClass> Classes => NameSpaces.SelectMany(nameSpace => nameSpace.AllClasses);
     public IEnumerable<PackInterface> Interfaces => NameSpaces.SelectMany(nameSpace => nameSpace.AllInterfaces);
     public IEnumerable<PackStruct> Structs => NameSpaces.SelectMany(nameSpace => nameSpace.AllStructs);
@@ -31,5 +30,17 @@ internal class DataPack
     public void AddSourceFile(PackSourceFile sourceFile)
     {
         _sourceFiles.Add(sourceFile ?? throw new ArgumentNullException(nameof(sourceFile)));
+    }
+
+    public PackNameSpace? TryGetNamespace(string fullName)
+    {
+        foreach (PackNameSpace NameSpace in NameSpaces)
+        {
+            if ((NameSpace.SelfIdentifier.ResolvedName ?? NameSpace.SelfIdentifier.SourceCodeName) == fullName)
+            {
+                return NameSpace;
+            }
+        }
+        return null;
     }
 }

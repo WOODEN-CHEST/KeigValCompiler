@@ -17,9 +17,18 @@ internal class IdentifierGenerator
     // Methods.
     public string GetFullResolvedIdentifier(PackMember member)
     {
-        return member.ParentItem!.ResolvedName
-            + KGVL.NAMESPACE_SEPARATOR
-            + member.SelfIdentifier.SourceCodeName;
+        if (member.ParentItem != null)
+        {
+            return member.ParentItem.ResolvedName
+                + KGVL.NAMESPACE_SEPARATOR
+                + member.SelfIdentifier.SourceCodeName;
+        }
+        else
+        {
+            return member.NameSpace.SelfIdentifier.ResolvedName
+                + KGVL.NAMESPACE_SEPARATOR
+                + member.SelfIdentifier.SourceCodeName;
+        } 
     }
 
     public string GetFullyResolvedFunctionIdentifier(PackFunction function)
@@ -70,14 +79,14 @@ internal class IdentifierGenerator
 
     public string GetSelfName(Identifier identifier)
     {
-        int SeparatorIndex = identifier.SourceCodeName.LastIndexOf(KGVL.NAMESPACE_SEPARATOR);
+        int SeparatorIndex = identifier.ResolvedName!.LastIndexOf(KGVL.NAMESPACE_SEPARATOR);
         if (SeparatorIndex == -1)
         {
-            return identifier.SourceCodeName;
+            return identifier.ResolvedName;
         }
 
         // If the identifier ends with a separator, that is a programming bug and should crash the compiler.
-        return identifier.SourceCodeName[(SeparatorIndex + 1)..]; 
+        return identifier.ResolvedName[(SeparatorIndex + 1)..]; 
     }
 
     public string GetSemiResolvedIdentifier(PackMember member)
@@ -87,5 +96,14 @@ internal class IdentifierGenerator
         //Builder.Append(member.SelfIdentifier.SelfName);
 
         return Builder.ToString();
+    }
+
+    public string GetOperatorOverloadFunctionName(OperatorOverload overload, Identifier parentMemberIdentifier)
+    {
+        return parentMemberIdentifier.ResolvedName
+            + KGVL.IDENTIFIER_OPERATOR
+            + overload.OverloadedOperator.ToString()
+            + KGVL.IDENTIFIER_SEPARATOR_FUNCTION
+            + overload.Function.ToString();
     }
 }

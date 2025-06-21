@@ -36,5 +36,9 @@ internal class PackProperty : PackMember
 
 
     // Constructors.
-    internal PackProperty(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
+    internal PackProperty(Identifier identifier, Identifier type, PackSourceFile sourceFile)
+        : base(identifier, sourceFile)
+    {
+        Type = type;
+    }
 }

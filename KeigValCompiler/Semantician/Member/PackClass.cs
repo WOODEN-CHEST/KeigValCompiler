@@ -34,8 +34,10 @@ internal class PackClass : PackMember, IPackTypeHolder, IPackFieldHolder, IPackF
 
 
     // Internal fields.
-    internal override IEnumerable<PackMember> SubMembers => _members.Members;
-    internal override IEnumerable<PackMember> AllSubMembers => _members.AllMembers;
+    internal override IEnumerable<PackMember> SubMembers => _members.Members
+        .Concat(OperatorOverloads.Select(overload => overload.Function));
+    internal override IEnumerable<PackMember> AllSubMembers => _members.AllMembers
+        .Concat(OperatorOverloads.Select(overload => overload.Function));
 
 
 

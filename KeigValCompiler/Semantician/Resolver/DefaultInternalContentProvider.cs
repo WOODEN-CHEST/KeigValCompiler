@@ -50,13 +50,13 @@ internal class DefaultInternalContentProvider : IInternalContentProvider
         registry.AddShorthandType(KGVL.KEYWORD_BOOL, Struct);
         registry.TypeBool = Struct;
 
-        PackField FalseField = new(new(BOOLEAN_FALSE_CONST), sourceFile);
+        PackField FalseField = new(new(BOOLEAN_FALSE_CONST), new("bool"), sourceFile);
         FalseField.Modifiers |= (PackMemberModifiers.Readonly | PackMemberModifiers.Static);
         FalseField.Type = new(KGVL.KEYWORD_BOOL);
         FalseField.InitialValue = new PrimitiveValueStatement(KGVL.KEYWORD_FALSE);
         Struct.AddField(FalseField);
 
-        PackField TrueField = new(new(BOOLEAN_TRUE_CONST), sourceFile);
+        PackField TrueField = new(new(BOOLEAN_TRUE_CONST), new("bool"), sourceFile);
         TrueField.Modifiers |= (PackMemberModifiers.Readonly | PackMemberModifiers.Static);
         TrueField.Type = new(KGVL.KEYWORD_BOOL);
         TrueField.InitialValue = new PrimitiveValueStatement(KGVL.KEYWORD_TRUE);

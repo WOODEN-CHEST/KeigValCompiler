@@ -5,7 +5,7 @@ namespace KeigValCompiler.Semantician.Member;
 internal class OperatorOverloadCollection : IEnumerable<OperatorOverload>
 {
     // Internal fields.
-    internal IEnumerable<OperatorOverload> this[Operator targetOperator]
+    internal IEnumerable<OperatorOverload> this[OverloadableOperator targetOperator]
     {
         get
         {
@@ -16,13 +16,13 @@ internal class OperatorOverloadCollection : IEnumerable<OperatorOverload>
 
 
     // Private fields.
-    private readonly Dictionary<Operator, List<OperatorOverload>> _overloads = new();
+    private readonly Dictionary<OverloadableOperator, List<OperatorOverload>> _overloads = new();
 
 
     // Constructors.
     public OperatorOverloadCollection()
     {
-        foreach (Operator TargetOperator in Enum.GetValues(typeof(Operator)))
+        foreach (OverloadableOperator TargetOperator in Enum.GetValues(typeof(OverloadableOperator)))
         {
             _overloads.Add(TargetOperator, new());
         }

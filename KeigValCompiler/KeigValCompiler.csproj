@@ -10,17 +10,10 @@
   <ItemGroup>
     <Compile Remove="Finished\**" />
     <Compile Remove="Middle\**" />
-    <Compile Remove="Source\Parser\**" />
     <EmbeddedResource Remove="Finished\**" />
     <EmbeddedResource Remove="Middle\**" />
-    <EmbeddedResource Remove="Source\Parser\**" />
     <None Remove="Finished\**" />
     <None Remove="Middle\**" />
-    <None Remove="Source\Parser\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Source\" />
   </ItemGroup>
 
 </Project>

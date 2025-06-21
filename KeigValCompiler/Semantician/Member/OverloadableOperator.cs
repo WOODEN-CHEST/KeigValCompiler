@@ -1,6 +1,6 @@
 ﻿namespace KeigValCompiler.Semantician.Member;
 
-internal enum Operator
+internal enum OverloadableOperator
 {
     /* Overloadable. */
     Addition,
@@ -22,9 +22,5 @@ internal enum Operator
     LessThanOrEqual,
 
     ImplicitCast,
-    ExplicitCast,
-
-    Indexer,
-
-    /* Non-overloadable */
+    ExplicitCast
 }

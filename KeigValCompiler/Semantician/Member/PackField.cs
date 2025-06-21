@@ -10,5 +10,9 @@ internal class PackField : PackMember
 
 
     // Constructors.
-    public PackField(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
+    public PackField(Identifier identifier, Identifier fieldType, PackSourceFile sourceFile)
+        : base(identifier, sourceFile)
+    {
+        Type = fieldType;
+    }
 }

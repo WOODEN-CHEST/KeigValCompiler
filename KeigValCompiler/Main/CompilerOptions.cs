@@ -16,6 +16,10 @@ internal class CompilerOptions
         }
 
         SourceDirectory = args[0];
+        if (!Path.IsPathFullyQualified(SourceDirectory))
+        {
+            throw new CommandlineArgumentException($"Source path is not fully qualified: {SourceDirectory}");
+        }
         if (!Directory.Exists(SourceDirectory))
         {
             throw new CommandlineArgumentException($"Source directory \"{SourceDirectory}\" not found.");
@@ -26,6 +30,11 @@ internal class CompilerOptions
         if (args.Length >= 2)
         {
             DestinationDirectory = args[1];
+            if (!Path.IsPathFullyQualified(SourceDirectory))
+            {
+                throw new CommandlineArgumentException(
+                    $"Destination path is not fully qualified: {DestinationDirectory}");
+            }
             Directory.CreateDirectory(DestinationDirectory);
         }
     }
