@@ -128,7 +128,7 @@ public class SourceDataParser
         {
             if (exceptionMessage != null)
             {
-                throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+                throw new SourceFileReadException(this, exceptionMessage);
             }
             return string.Empty;
         }
@@ -157,13 +157,15 @@ public class SourceDataParser
         {
             if (exceptionMessage != null)
             {
-                throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+                throw new SourceFileReadException(this, exceptionMessage);
             }
             return string.Empty;
         }
         else if (char.IsDigit(Identifier[0]))
         {
-            throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+            throw new SourceFileReadException(this, $"Invalid identifier \"{Identifier.ToString()}\", " +
+                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit. " +
+                $"Nested error: {exceptionMessage}");
         }
 
         return Identifier.ToString();
@@ -231,7 +233,7 @@ public class SourceDataParser
 
         if (((ParsedText.Length == 0) || !charsToFind.Contains(GetCharAtDataIndex())) && (exceptionMessage != null))
         {
-            throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+            throw new SourceFileReadException(this, exceptionMessage);
         }
         return string.Empty;
     }
@@ -259,7 +261,7 @@ public class SourceDataParser
 
         if (((ParsedText.Length == 0) || (_dataIndex >= _data.Length)) && (exceptionMessage != null))
         {
-            throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+            throw new SourceFileReadException(this, exceptionMessage);
         }
         return string.Empty;
     }
@@ -282,7 +284,7 @@ public class SourceDataParser
 
         if (exceptionMessage != null)
         {
-            throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+            throw new SourceFileReadException(this, exceptionMessage);
         }
         return false;
     }
@@ -299,14 +301,14 @@ public class SourceDataParser
             }
             else if (!char.IsWhiteSpace(GetCharAtDataIndex()))
             {
-                throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+                throw new SourceFileReadException(this, exceptionMessage);
             }
             IncrementDataIndex();
         }
 
         if (exceptionMessage != null)
         {
-            throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+            throw new SourceFileReadException(this, exceptionMessage);
         }
         return false;
     }
@@ -322,7 +324,7 @@ public class SourceDataParser
         {
             if (exceptionMessage != null)
             {
-                throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+                throw new SourceFileReadException(this, exceptionMessage);
             }
             return false;
         }
@@ -348,7 +350,7 @@ public class SourceDataParser
 
         if (exceptionMessage != null)
         {
-            throw new SourceFileReadException(FilePath, Line, exceptionMessage);
+            throw new SourceFileReadException(this, exceptionMessage);
         }
         return false;
     }

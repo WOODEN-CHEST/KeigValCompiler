@@ -38,7 +38,7 @@ internal static class KGVL
     public const string KEYWORD_CLASS = "class";
     public const string KEYWORD_STRUCT = "struct";
     public const string KEYWORD_RECORD = "record";
-    public const string KEYWORD_DELEGATGE = "record";
+    public const string KEYWORD_DELEGATGE = "delegate";
     public const string KEYWORD_INTERFACE = "interface";
     public const string KEYWORD_ENUM = "enum";
     public const string KEYWORD_EVENT = "event";
@@ -98,6 +98,7 @@ internal static class KGVL
     public const string KEYWORD_PARAMS = "params";
     public const string KEYWORD_TRUE = "true";
     public const string KEYWORD_FALSE = "false";
+    public const string KEYWORD_VOID = "void";
 
     public const string PREFIX_BINARY = "0b";
     public const string PREFIX_HEX = "0x";

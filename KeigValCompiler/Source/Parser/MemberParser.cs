@@ -20,23 +20,24 @@ internal class MemberParser : AbstractParserBase
     {
         PackMemberModifiers Modifiers = ParseMemberModifiers();
         string FirstSegment = Parser.ReadIdentifier($"Expected {Utils.MemberHolderToString(memberHolder)} member.");
-        bool IsRecord = (Modifiers | PackMemberModifiers.Record) != PackMemberModifiers.None;
+        bool IsRecord = (Modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
 
-        if ((FirstSegment == KGVL.KEYWORD_CLASS) || IsRecord)
+        if (FirstSegment == KGVL.KEYWORD_CLASS)
         {
-            if (IsRecord)
-            {
-                Parser.ReverseUntilOneAfterWhitespace();
-            }
-            ParseClass(memberHolder!, Modifiers);
+            ParseClass(memberHolder, Modifiers);
+        }
+        else if (IsRecord)
+        {
+            Parser.ReverseUntilOneAfterWhitespace();
+            ParseClass(memberHolder, Modifiers);
         }
         else if (FirstSegment == KGVL.KEYWORD_STRUCT)
         {
-
+            ParseStruct(memberHolder, Modifiers);
         }
         else if (FirstSegment == KGVL.KEYWORD_DELEGATGE)
         {
-
+            ParseDelegate(memberHolder, Modifiers);
         }
         else if (FirstSegment == KGVL.KEYWORD_INTERFACE)
         {
@@ -52,7 +53,7 @@ internal class MemberParser : AbstractParserBase
         }
         else
         {
-            
+            ParseReturnTypedMember(memberHolder, Modifiers, FirstSegment);
         }
     }
 
@@ -62,7 +63,7 @@ internal class MemberParser : AbstractParserBase
     {
         if ((appliedModifiers & newModifier) != 0)
         {
-            throw new SourceFileReadException(Parser.FilePath, Parser.Line,
+            throw new SourceFileReadException(Parser,
                 $"Duplicate member modifier {newModifier.ToString().ToLower()}");
         }
 
@@ -84,7 +85,7 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
             KGVL.KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
             KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
-            KGVL.KEYWORD_BUILTIN => throw new SourceFileReadException(Parser.FilePath, Parser.Line,
+            KGVL.KEYWORD_BUILTIN => throw new SourceFileReadException(Parser,
                 $"keyword \"{KGVL.KEYWORD_BUILTIN}\" is reserved only for compiler's internal usage"),
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
             _ => PackMemberModifiers.None
@@ -113,18 +114,29 @@ internal class MemberParser : AbstractParserBase
         }
     }
 
+    private Identifier ParseMemberIdentifier(string exceptionMsg)
+    {
+        Parser.SkipUntilNonWhitespace(exceptionMsg);
+        return new(Parser.ReadIdentifier(exceptionMsg));
+    }
+
+    private Identifier? ParseReturnType(string exceptionMsg)
+    {
+        Parser.SkipUntilNonWhitespace(exceptionMsg);
+        string Identifier = Parser.ReadIdentifier(exceptionMsg);
+        return Identifier == KGVL.KEYWORD_VOID ? null : new(Identifier);
+    }
+
     private void ParseClass(object parentObject, PackMemberModifiers modifiers)
     {
-        const string EXCEPTION_MSG_EXPECTED_IDENTIFIER = "Expected class identifier";
         if (parentObject is not IPackTypeHolder ClassHolder)
         {
-            throw new SourceFileReadException(Parser.FilePath, Parser.Line,
+            throw new SourceFileReadException(Parser,
                 $"A member of type {Utils.MemberHolderToString(parentObject)} object cannot hold classes");
         }
 
-        Parser.SkipUntilNonWhitespace(EXCEPTION_MSG_EXPECTED_IDENTIFIER);
-        string Identifier = Parser.ReadIdentifier(EXCEPTION_MSG_EXPECTED_IDENTIFIER);
-        PackClass ParsedClass = new(new(Identifier), SourceFile) { Modifiers = modifiers };
+        Identifier Name = ParseMemberIdentifier("Expected class identifier");
+        PackClass ParsedClass = new(Name, SourceFile) { Modifiers = modifiers };
         ClassHolder.AddClass(ParsedClass);
 
         bool IsRecordClass = (modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
@@ -138,19 +150,20 @@ internal class MemberParser : AbstractParserBase
                 return;
             }
         }
-        Parser.SkipUntilNonWhitespace("Expected class body");
+        
+        ParseMemberExtensions(ParsedClass);
         Parser.IncrementDataIndex();
 
-        while (Parser.SkipUntilNonWhitespace("Expected class member or class body end")
+        while (Parser.SkipUntilNonWhitespace($"Expected class member or class body end")
             && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
-            && (Parser.IsMoreDataAvailable))
+            && Parser.IsMoreDataAvailable)
         {
             ParseMember(ParsedClass);
         }
 
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
         {
-            throw new SourceFileReadException(Parser.FilePath, Parser.Line, 
+            throw new SourceFileReadException(Parser, 
                 $"Expected end of class '{KGVL.CLOSE_CURLY_BRACKET}'");
         }
         Parser.IncrementDataIndex();
@@ -181,14 +194,72 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
     }
 
-    private void ParseStruct(PackMemberModifiers modifiers)
+    private void ParseStruct(object parentObject, PackMemberModifiers modifiers)
     {
-        throw new NotImplementedException();
+        if (parentObject is not IPackTypeHolder StructHolder)
+        {
+            throw new SourceFileReadException(Parser,
+                $"A member of type {Utils.MemberHolderToString(parentObject)} object cannot hold structures");
+        }
+
+        Identifier Name = ParseMemberIdentifier("Expected structure identifier");
+        PackStruct ParsedStruct = new(Name, SourceFile) { Modifiers = modifiers };
+        StructHolder.AddStruct(ParsedStruct);
+
+        ParseMemberExtensions(ParsedStruct);
+        Parser.IncrementDataIndex();
+
+        while (Parser.SkipUntilNonWhitespace($"Expected structure member or structure body end")
+            && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
+            && Parser.IsMoreDataAvailable)
+        {
+            ParseMember(ParsedStruct);
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser,
+                $"Expected end of struct '{KGVL.CLOSE_CURLY_BRACKET}'");
+        }
+        Parser.IncrementDataIndex();
     }
 
-    private void ParseDelegate(PackMemberModifiers modifiers)
+    private void ParseDelegate(object parentObject, PackMemberModifiers modifiers)
     {
-        throw new NotImplementedException();
+        if (parentObject is not IPackTypeHolder DelegateHolder)
+        {
+            throw new SourceFileReadException(Parser,
+                $"A member of type {Utils.MemberHolderToString(parentObject)} object cannot hold delegates");
+        }
+        
+        Identifier? ReturnType = ParseReturnType("Expected delegate return type identifier");
+        Identifier Name = ParseMemberIdentifier("Expected delegate identifier");
+
+        const string EXCEPTION_MSG_PARAM_LIST = "Expected delegate parameter list";
+        Parser.SkipUntilNonWhitespace(EXCEPTION_MSG_PARAM_LIST);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, EXCEPTION_MSG_PARAM_LIST);
+        }
+        Parser.IncrementDataIndex();
+        FunctionParameterCollection Parameters = ParseFunctionParameters(KGVL.CLOSE_PARENTHESIS);
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, "Expected end of delegate parameter list");
+        }
+        Parser.IncrementDataIndex();
+
+        string ExceptionMsgEnd = $"Expected end of delegate definition '{KGVL.SEMICOLON}'";
+        Parser.SkipUntilNonWhitespace(ExceptionMsgEnd);
+        if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+        {
+            throw new SourceFileReadException(Parser, ExceptionMsgEnd);
+        }
+        Parser.IncrementDataIndex();
+
+        PackDelegate Delegate = new(Name, ReturnType, SourceFile) { Modifiers = modifiers };
+        Delegate.Parameters.SetFrom(Parameters);
+        DelegateHolder.AddDelegate(Delegate);
     }
 
     private void ParseInterface(PackMemberModifiers modifiers)
@@ -248,12 +319,10 @@ internal class MemberParser : AbstractParserBase
         throw new NotImplementedException();
     }
 
-    internal Identifier[] ParseMemberExtensions()
+    internal void ParseMemberExtensions(IPackMemberExtender extender)
     {
         const string EXCEPTION_MSG_IDENTIFIER = "Expected member extension identifier.";
         char[] ExpectedChars = new char[] { KGVL.COLON, KGVL.OPEN_CURLY_BRACKET };
-
-        List<Identifier> ExtendedItems = new();
 
         Parser.SkipWhitespaceUntil("Expected member body or member extension.", ExpectedChars);
 
@@ -264,14 +333,12 @@ internal class MemberParser : AbstractParserBase
             Parser.IncrementDataIndex();
             Parser.SkipUntilNonWhitespace(EXCEPTION_MSG_IDENTIFIER);
             Identifier ExtendedMember = new(Parser.ReadIdentifier(EXCEPTION_MSG_IDENTIFIER));
-            ExtendedItems.Add(ExtendedMember);
+            extender.AddExtendedMember(ExtendedMember);
 
             Parser.SkipWhitespaceUntil("Expected class body, class extension or interface implementation",
                 ExpectedChars);
             IsAnExtensionExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
         }
-
-        return ExtendedItems.ToArray();
     }
 
     private FunctionParameterModifier StringToParamModifier(string value)

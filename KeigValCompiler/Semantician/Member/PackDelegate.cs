@@ -18,5 +18,6 @@ internal class PackDelegate : PackMember, IPackType
 
 
     // Constructors.
-    public PackDelegate(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
+    public PackDelegate(Identifier identifier, Identifier? returnType, PackSourceFile sourceFile)
+        : base(identifier, sourceFile) { }
 }

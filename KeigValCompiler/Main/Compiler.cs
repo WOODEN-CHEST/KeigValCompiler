@@ -67,63 +67,63 @@ public static class Compiler
 
     private static void Test()
     {
-        DataPack Pack = new();
-        IInternalContentProvider ContentProvider = new DefaultInternalContentProvider();
-        BuiltInTypeRegistry Registry = ContentProvider.AddInternalContent(Pack);
+        //DataPack Pack = new();
+        //IInternalContentProvider ContentProvider = new DefaultInternalContentProvider();
+        //BuiltInTypeRegistry Registry = ContentProvider.AddInternalContent(Pack);
 
-        IPackResolver Resolver = new FullPackResolver();
-        IdentifierGenerator IdentifierGenerator = new();
+        //IPackResolver Resolver = new FullPackResolver();
+        //IdentifierGenerator IdentifierGenerator = new();
 
-        PackResolutionContext Context = new()
-        {
-            Registry = Registry,
-            Pack = Pack,
-            IdentifierSearcher = new DefaultIdentifierSearcher(IdentifierGenerator),
-            PrimitiveResolver = new DefaultPrimitiveValueResolver(),
-            IdentifierGenerator = IdentifierGenerator
-        };
+        //PackResolutionContext Context = new()
+        //{
+        //    Registry = Registry,
+        //    Pack = Pack,
+        //    IdentifierSearcher = new DefaultIdentifierSearcher(IdentifierGenerator),
+        //    PrimitiveResolver = new DefaultPrimitiveValueResolver(),
+        //    IdentifierGenerator = IdentifierGenerator
+        //};
 
-        PackSourceFile TestSourceFile = new(Pack, "test");
-        PackNameSpace TestNameSpace = new(new("Test.Test2"));
-        PackClass TestClass = new(new("TestClass"), TestSourceFile);
-        PackFunction TestFunction = new(new("TestFunc"), TestSourceFile);
+        //PackSourceFile TestSourceFile = new(Pack, "test");
+        //PackNameSpace TestNameSpace = new(new("Test.Test2"));
+        //PackClass TestClass = new(new("TestClass"), TestSourceFile);
+        //PackFunction TestFunction = new(new("TestFunc"), TestSourceFile);
 
-        VariableAssignmentStatement TestStatement1 = new(new("TestClass"), true);
-        TestStatement1.Assignments.AddItem(
-            new VariableAssignment(new("A"),
-            new ConstructorCallStatement(new("TestClass"))));
+        //VariableAssignmentStatement TestStatement1 = new(new("TestClass"), true);
+        //TestStatement1.Assignments.AddItem(
+        //    new VariableAssignment(new("A"),
+        //    new ConstructorCallStatement(new("TestClass"))));
 
-        VariableAssignmentStatement TestStatement2 = new(new("long"), true);
-        TestStatement2.Assignments.AddItem(
-            new VariableAssignment(new("B"),
-            new PrimitiveValueStatement("1234567890L")));
+        //VariableAssignmentStatement TestStatement2 = new(new("long"), true);
+        //TestStatement2.Assignments.AddItem(
+        //    new VariableAssignment(new("B"),
+        //    new PrimitiveValueStatement("1234567890L")));
 
-        TestFunction.Statements.AddStatement(TestStatement1);
-        TestFunction.Statements.AddStatement(TestStatement2);
+        //TestFunction.Statements.AddStatement(TestStatement1);
+        //TestFunction.Statements.AddStatement(TestStatement2);
 
-        PackDelegate TestDelegate = new(new("Func"), TestSourceFile);
-        TestDelegate.ReturnType = new("TestClass");
-        TestDelegate.Parameters.AddItem(new(new("int"), new("x"), FunctionParameterModifier.None));
-        TestDelegate.Parameters.AddItem(new(new("decimal"), new("y"), FunctionParameterModifier.None));
-        TestDelegate.Parameters.AddItem(new(new("Test.Test2.TestClass"), new("z"), FunctionParameterModifier.None));
+        //PackDelegate TestDelegate = new(new("Func"), TestSourceFile);
+        //TestDelegate.ReturnType = new("TestClass");
+        //TestDelegate.Parameters.AddItem(new(new("int"), new("x"), FunctionParameterModifier.None));
+        //TestDelegate.Parameters.AddItem(new(new("decimal"), new("y"), FunctionParameterModifier.None));
+        //TestDelegate.Parameters.AddItem(new(new("Test.Test2.TestClass"), new("z"), FunctionParameterModifier.None));
 
-        PackEvent TestEvent = new(new("RandomEvent"), new("Func"), TestSourceFile);
+        //PackEvent TestEvent = new(new("RandomEvent"), new("Func"), TestSourceFile);
 
-        PackField TestField = new(new("TestField"), new("byte"), TestSourceFile);
+        //PackField TestField = new(new("TestField"), new("byte"), TestSourceFile);
 
-        PackProperty TestProperty = new(new("TestProperty"), new("ubyte"), TestSourceFile);
-        TestProperty.GetFunction = new(new(string.Empty), TestSourceFile);
+        //PackProperty TestProperty = new(new("TestProperty"), new("ubyte"), TestSourceFile);
+        //TestProperty.GetFunction = new(new(string.Empty), TestSourceFile);
 
-        TestClass.AddProperty(TestProperty);
-        TestClass.AddFunction(TestFunction);
-        TestClass.AddDelegate(TestDelegate);
-        TestClass.AddEvent(TestEvent);
-        TestClass.AddField(TestField);
-        TestNameSpace.AddClass(TestClass);
-        TestSourceFile.AddNamespace(TestNameSpace);
-        Pack.AddSourceFile(TestSourceFile);
+        //TestClass.AddProperty(TestProperty);
+        //TestClass.AddFunction(TestFunction);
+        //TestClass.AddDelegate(TestDelegate);
+        //TestClass.AddEvent(TestEvent);
+        //TestClass.AddField(TestField);
+        //TestNameSpace.AddClass(TestClass);
+        //TestSourceFile.AddNamespace(TestNameSpace);
+        //Pack.AddSourceFile(TestSourceFile);
 
-        Resolver.ResolvePack(Context);  
+        //Resolver.ResolvePack(Context);  
         
         Console.WriteLine("Test complete");
     }

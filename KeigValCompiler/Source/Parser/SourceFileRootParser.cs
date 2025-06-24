@@ -43,8 +43,7 @@ internal class SourceFileRootParser : AbstractParserBase
             }
             else if (_activeNamespace == null)
             {
-                throw new SourceFileReadException(Parser.FilePath,
-                    Parser.Line, "Expected namespace or using statement.");
+                throw new SourceFileReadException(Parser, "Expected namespace or using statement.");
             }
 
             Parser.ReverseUntilOneAfterWhitespace();
@@ -104,7 +103,7 @@ internal class SourceFileRootParser : AbstractParserBase
             }
             else
             {
-                throw new SourceFileReadException($"Expected '{KGVL.SEMICOLON}' " +
+                throw new SourceFileReadException(Parser, $"Expected '{KGVL.SEMICOLON}' " +
                     $"after namespace end, got '{CharAfterIdentifier}'");
             }
         }

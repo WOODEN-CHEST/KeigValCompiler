@@ -134,21 +134,21 @@ internal class PackNameSpace : IPackTypeHolder, IPackFieldHolder, IPackFunctionH
 
     public void AddDelegate(PackDelegate packDelegate)
     {
-        throw new NotImplementedException();
+        _members.AddDelegate(packDelegate);
     }
 
     public void RemoveDelegate(PackDelegate packDelegate)
     {
-        throw new NotImplementedException();
+        _members.RemoveDelegate(packDelegate);
     }
 
     public void AddEvent(PackEvent packEvent)
     {
-        throw new NotImplementedException();
+        _members.AddEvent(packEvent);
     }
 
     public void RemoveEvent(PackEvent packEvent)
     {
-        throw new NotImplementedException();
+        _members.RemoveEvent(packEvent);
     }
 }

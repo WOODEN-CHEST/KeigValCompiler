@@ -22,6 +22,19 @@ internal class PackEnumeration : PackMember, IEnumerable<KeyValuePair<string, in
     public PackEnumeration(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
 
 
+
+    // Methods.
+    public void SetConstant(string name, int value)
+    {
+        _values[name] = value;
+    }
+
+    public void RemoveConstant(string name)
+    {
+        _values.Remove(name);
+    }
+
+
     // Inherited methods.
     public IEnumerator<KeyValuePair<string, int>> GetEnumerator()
     {
