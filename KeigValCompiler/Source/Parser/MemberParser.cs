@@ -41,7 +41,7 @@ internal class MemberParser : AbstractParserBase
         }
         else if (FirstSegment == KGVL.KEYWORD_INTERFACE)
         {
-
+            ParseInterface(memberHolder, Modifiers);
         }
         else if (FirstSegment == KGVL.KEYWORD_EVENT)
         {
@@ -129,53 +129,18 @@ internal class MemberParser : AbstractParserBase
 
     private void ParseClass(object parentObject, PackMemberModifiers modifiers)
     {
-        if (parentObject is not IPackTypeHolder ClassHolder)
-        {
-            throw new SourceFileReadException(Parser,
-                $"A member of type {Utils.MemberHolderToString(parentObject)} object cannot hold classes");
-        }
-
-        Identifier Name = ParseMemberIdentifier("Expected class identifier");
-        PackClass ParsedClass = new(Name, SourceFile) { Modifiers = modifiers };
-        ClassHolder.AddClass(ParsedClass);
-
-        bool IsRecordClass = (modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
-        Parser.SkipUntilNonWhitespace(GetClassWrongStartExceptionMessage(IsRecordClass));
-        if (IsRecordClass)
-        {
-            ParseRecordPrimaryConstructor(ParsedClass);
-            if (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON)
-            {
-                Parser.IncrementDataIndex();
-                return;
-            }
-        }
-        
-        ParseMemberExtensions(ParsedClass);
-        Parser.IncrementDataIndex();
-
-        while (Parser.SkipUntilNonWhitespace($"Expected class member or class body end")
-            && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
-            && Parser.IsMoreDataAvailable)
-        {
-            ParseMember(ParsedClass);
-        }
-
-        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
-        {
-            throw new SourceFileReadException(Parser, 
-                $"Expected end of class '{KGVL.CLOSE_CURLY_BRACKET}'");
-        }
-        Parser.IncrementDataIndex();
+        ParseExtendableType(parentObject, modifiers, "class",
+            (identifier) => new PackClass(identifier, SourceFile),
+            (type, holder) => holder.AddClass(type));
     }
 
-    private string GetClassWrongStartExceptionMessage(bool isRecord)
+    private string GetClassWrongStartExceptionMessage(bool isRecord, string typeName)
     {
         if (isRecord)
         {
-            return "Expected record body start or record primary constructor or member extensions.";
+            return "Expected record body start or record primary constructor, or member extensions.";
         }
-        return "Expected class body start of member extensions.";
+        return $"Expected {typeName} body start or member extensions.";
     }
 
     private void ParseRecordPrimaryConstructor(PackClass recordClass)
@@ -196,30 +161,54 @@ internal class MemberParser : AbstractParserBase
 
     private void ParseStruct(object parentObject, PackMemberModifiers modifiers)
     {
-        if (parentObject is not IPackTypeHolder StructHolder)
+        ParseExtendableType(parentObject, modifiers, "structure",
+            (identifier) => new PackStruct(identifier, SourceFile),
+            (type, holder) => holder.AddStruct(type));
+    }
+
+    private void ParseExtendableType<T>(object parentObject,
+        PackMemberModifiers modifiers,
+        string typeName,
+        Func<Identifier, T> typeConstructor,
+        Action<T, IPackTypeHolder> addFunction) where T : PackMember
+    {
+        if (parentObject is not IPackTypeHolder TypeHolder)
         {
             throw new SourceFileReadException(Parser,
-                $"A member of type {Utils.MemberHolderToString(parentObject)} object cannot hold structures");
+                $"A member of type {Utils.MemberHolderToString(parentObject)} object cannot hold a {typeName}");
         }
 
-        Identifier Name = ParseMemberIdentifier("Expected structure identifier");
-        PackStruct ParsedStruct = new(Name, SourceFile) { Modifiers = modifiers };
-        StructHolder.AddStruct(ParsedStruct);
+        Identifier Name = ParseMemberIdentifier($"Expected {typeName} identifier");
+        T CreatedType = typeConstructor.Invoke(Name);
+        CreatedType.Modifiers = modifiers;
+        addFunction.Invoke(CreatedType, TypeHolder);
 
-        ParseMemberExtensions(ParsedStruct);
+        bool IsRecord = (modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
+        Parser.SkipUntilNonWhitespace(GetClassWrongStartExceptionMessage(IsRecord, typeName));
+        if ((CreatedType is PackClass ClassType) && IsRecord)
+        {
+            ParseRecordPrimaryConstructor(ClassType);
+            if (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON)
+            {
+                Parser.IncrementDataIndex();
+                return;
+            }
+        }
+
+        ParseMemberExtensions((IPackMemberExtender)CreatedType);
         Parser.IncrementDataIndex();
 
-        while (Parser.SkipUntilNonWhitespace($"Expected structure member or structure body end")
+        while (Parser.SkipUntilNonWhitespace($"Expected {typeName} member or {typeName} body end")
             && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
             && Parser.IsMoreDataAvailable)
         {
-            ParseMember(ParsedStruct);
+            ParseMember(CreatedType);
         }
 
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
         {
             throw new SourceFileReadException(Parser,
-                $"Expected end of struct '{KGVL.CLOSE_CURLY_BRACKET}'");
+                $"Expected end of {typeName} '{KGVL.CLOSE_CURLY_BRACKET}'");
         }
         Parser.IncrementDataIndex();
     }
@@ -262,9 +251,11 @@ internal class MemberParser : AbstractParserBase
         DelegateHolder.AddDelegate(Delegate);
     }
 
-    private void ParseInterface(PackMemberModifiers modifiers)
+    private void ParseInterface(object parentObject, PackMemberModifiers modifiers)
     {
-        throw new NotImplementedException();
+        ParseExtendableType(parentObject, modifiers, "interface",
+            (identifier) => new PackInterface(identifier, SourceFile),
+            (type, holder) => holder.AddInterface(type));
     }
 
     private void ParseEvent(PackMemberModifiers modifiers)
