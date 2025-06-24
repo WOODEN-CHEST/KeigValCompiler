@@ -40,5 +40,7 @@ public enum StatementOperator
     ContinueIfNotNull,
 
     EventSubscribe,
-    EventUnsubscribe
+    EventUnsubscribe,
+
+    IsCheck
 }

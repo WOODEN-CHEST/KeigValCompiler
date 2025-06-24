@@ -396,7 +396,7 @@ internal class IdentifierResolver : IPackResolver
         {
             ResolveVariableAssignmentStatement(function, TargetAssignmentStatement, context);
         }
-        else if (statement is VariableRetrieveStatement TargetRetrieveStatement)
+        else if (statement is MemberRetrieveStatement TargetRetrieveStatement)
         {
             ResolveVariableRetrieveStatement(function, TargetRetrieveStatement, context);
         }
@@ -490,7 +490,7 @@ internal class IdentifierResolver : IPackResolver
     }
 
     private void ResolveVariableRetrieveStatement(PackFunction function,
-        VariableRetrieveStatement statement,
+        MemberRetrieveStatement statement,
         PackResolutionContext context)
     {
 

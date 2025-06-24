@@ -6,15 +6,15 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Semantician.Member.Code;
 
-internal class VariableRetrieveStatement : Statement
+internal class MemberRetrieveStatement : Statement
 {
     // Fields.
-    internal Identifier VariableIdentifier { get; set; }
+    internal Identifier MemberIdentifier { get; set; }
 
 
     // Constructors.
-    internal VariableRetrieveStatement(string identifierName)
+    internal MemberRetrieveStatement(string identifierName)
     {
-        VariableIdentifier = new(identifierName);
+        MemberIdentifier = new(identifierName);
     }
 }

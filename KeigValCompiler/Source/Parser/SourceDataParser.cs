@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Source.Parser;
 
-public class TextParser
+public class SourceDataParser
 {
     // Fields.
     internal int Line { get; private set; } = 1;
@@ -30,7 +30,7 @@ public class TextParser
 
 
     // Constructors.
-    public TextParser(string data, string? filePath)
+    public SourceDataParser(string data, string? filePath)
     {
         _data = data;
         FilePath = filePath;
@@ -187,6 +187,20 @@ public class TextParser
             DecrementDataIndex();
         }
     }
+    public void ReverseUntilOneAfterIdentifier()
+    {
+        DecrementDataIndex();
+        while (_dataIndex > 0)
+        {
+            if (!IsIdentifierChar(GetCharAtDataIndex()))
+            {
+                IncrementDataIndex();
+                return;
+            }
+            DecrementDataIndex();
+        }
+    }
+
 
     /// <summary>
     /// Reads a string from the current data index position until any of the characters in the
@@ -364,5 +378,22 @@ public class TextParser
     public bool IsIdentifierChar(char character)
     {
         return char.IsAsciiLetterOrDigit(character) || (character == KGVL.UNDERSCORE);
+    }
+
+    public bool IsValidIdentifier(string identifier)
+    {
+        if ((identifier.Length <= 0) || char.IsAsciiDigit(identifier[0]))
+        {
+            return false;
+        }
+
+        foreach (char Character in identifier)
+        {
+            if (!IsIdentifierChar(Character))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -9,11 +9,11 @@ namespace KeigValCompiler.Source.Parser;
 public class CommentStripper
 {
     // Private fields.
-    private readonly TextParser _parser;
+    private readonly SourceDataParser _parser;
 
 
     // Constructors.
-    public CommentStripper(TextParser parser)
+    public CommentStripper(SourceDataParser parser)
     {
         _parser = parser ?? throw new ArgumentNullException(nameof(parser));
     }
@@ -39,12 +39,15 @@ public class CommentStripper
             else if (_parser.HasStringAtIndex(_parser.DataIndex, KGVL.SINGLE_LINE_COMMENT_START))
             {
                 _parser.SkipUntil(null, KGVL.NEWLINE);
-                StrippedData.Append(_parser.GetCharAtDataIndex());
+                StrippedData.Append(KGVL.NEWLINE);
                 _parser.IncrementDataIndex();
             }
             else if (_parser.HasStringAtIndex(_parser.DataIndex, KGVL.MULTI_LINE_COMMENT_START))
             {
+                int StartLine = _parser.Line;
                 _parser.SkipPastString("Multi-comment string wasn't terminated properly.", KGVL.MULTI_LINE_COMMENT_END);
+                int EndLine = _parser.Line;
+                StrippedData.Append(KGVL.NEWLINE, EndLine - StartLine);
                 continue;
             }
             else

@@ -12,6 +12,7 @@ internal class CastStatement : Statement
     internal override IEnumerable<Statement> SubStatements => new Statement[] { StatementToCast };
     internal Identifier TargetCastType { get; set; }
     internal Statement StatementToCast { get; set; }
+    internal bool IsStrict { get; set; } = true;
 
 
     // Constructors.

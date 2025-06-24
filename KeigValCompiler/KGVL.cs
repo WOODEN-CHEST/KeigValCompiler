@@ -28,6 +28,8 @@ internal static class KGVL
     public const char SINGLE_QUOTE = '\'';
     public const char DOUBLE_QUOTE = '"';
 
+    public const string QUICK_METHOD_BODY = "=>";
+
 
     /* Keywords. */
     public const string KEYWORD_NAMESPACE = "namespace";
@@ -36,6 +38,10 @@ internal static class KGVL
     public const string KEYWORD_CLASS = "class";
     public const string KEYWORD_STRUCT = "struct";
     public const string KEYWORD_RECORD = "record";
+    public const string KEYWORD_DELEGATGE = "record";
+    public const string KEYWORD_INTERFACE = "interface";
+    public const string KEYWORD_ENUM = "enum";
+    public const string KEYWORD_EVENT = "event";
     public const string KEYWORD_STATIC = "static";
     public const string KEYWORD_PRIVATE = "private";
     public const string KEYWORD_PROTECTED = "protected";
@@ -68,6 +74,9 @@ internal static class KGVL
     public const string KEYWORD_IS = "is";
     public const string KEYWORD_AS = "as";
     public const string KEYWORD_BASE = "base";
+    public const string KEYWORD_IN = "in";
+    public const string KEYWORD_OUT = "out";
+    public const string KEYWORD_REF = "ref";
 
     public const string KEYWORD_NAMEOF = "nameof";
     public const string KEYWORD_TYPEOF = "typeof";

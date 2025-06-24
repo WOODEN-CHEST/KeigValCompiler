@@ -47,11 +47,7 @@ public static class Compiler
             Console.WriteLine($"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
 
         }
-        catch (SourceFileReadException e)
-        {
-            Console.WriteLine(e.Message);
-        }
-        catch (PackContentException e)
+        catch (Exception e) when (e is PackContentException or SourceFileReadException)
         {
             Console.WriteLine(e.Message);
         }
