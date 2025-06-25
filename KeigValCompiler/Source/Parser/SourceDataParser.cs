@@ -28,6 +28,15 @@ public class SourceDataParser
     private string _data;
     private int _dataIndex = 0;
 
+    private char[] _numberCharsBase2 = new char[] 
+        { '0', '1' };
+
+    private char[] _numberCharsBase10 = new char[] 
+        { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' };
+
+    private char[] _numberCharsBase16 = new char[] 
+        { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
 
     // Constructors.
     public SourceDataParser(string data, string? filePath)
@@ -42,7 +51,7 @@ public class SourceDataParser
     /// <summary>
     /// Increments the data index, if possible.
     /// </summary>
-    public void IncrementDataIndex()
+    internal void IncrementDataIndex()
     {
         if (_dataIndex >= _data.Length)
         {
@@ -60,7 +69,7 @@ public class SourceDataParser
     /// Increments the data index N times, if possible.
     /// </summary>
     /// <param name="count">The amount of times to increment the data index.</param>
-    public void IncrementDatIndexNTimes(int count)
+    internal void IncrementDataIndexNTimes(int count)
     {
         for (int i = 0; (i < count) && (i < DataLength); i++)
         {
@@ -71,7 +80,7 @@ public class SourceDataParser
     /// <summary>
     /// Decrements the data index, if possible.
     /// </summary>
-    public void DecrementDataIndex()
+    internal void DecrementDataIndex()
     {
         if (_dataIndex <= 0)
         {
@@ -89,7 +98,7 @@ public class SourceDataParser
     /// Decrements the data index N times, if possible.
     /// </summary>
     /// <param name="count">The amount of times to decrement the data index.</param>
-    public void DecrementDataIndexNTimes(int count)
+    internal void DecrementDataIndexNTimes(int count)
     {
         for (int i = 0; i < count; i++) { DecrementDataIndex(); }
     }
@@ -98,14 +107,14 @@ public class SourceDataParser
     /// Gets the character at the current data index.
     /// </summary>
     /// <returns>The character at the current data index, or '\0' if the index is out of bounds.</returns>
-    public char GetCharAtDataIndex() => _dataIndex >= _data.Length ? KGVL.CHAR_NONE : _data[_dataIndex];
+    internal char GetCharAtDataIndex() => _dataIndex >= _data.Length ? KGVL.CHAR_NONE : _data[_dataIndex];
 
     /// <summary>
     /// Gets the character at the given data index.
     /// </summary>
     /// <param name="index">The index of the character to get.</param>
     /// <returns>The character at the current data index, or '\0' if the index is out of bounds.</returns>
-    public char GetCharAtDataIndex(int index) => index >= _data.Length ? KGVL.CHAR_NONE : _data[index];
+    internal char GetCharAtDataIndex(int index) => index >= _data.Length ? KGVL.CHAR_NONE : _data[index];
 
     /// <summary>
     /// Reads an ASCII word starting from the current data index.
@@ -114,7 +123,7 @@ public class SourceDataParser
     /// This may be <c>null</c> to prevent and exception from being thrown.</param>
     /// <returns>The read word.</returns>
     /// <exception cref="SourceFileReadException"></exception>
-    public string ReadWord(string? exceptionMessage)
+    internal string ReadWord(string? exceptionMessage)
     {
         StringBuilder Word = new();
 
@@ -143,7 +152,7 @@ public class SourceDataParser
     /// This may be <c>null</c> to prevent and exception from being thrown</param>
     /// <returns></returns>
     /// <exception cref="SourceFileReadException"></exception>
-    public string ReadIdentifier(string? exceptionMessage)
+    internal string ReadIdentifier(string? exceptionMessage)
     {
         StringBuilder Identifier = new();
 
@@ -165,7 +174,7 @@ public class SourceDataParser
         {
             throw new SourceFileReadException(this, $"Invalid identifier \"{Identifier.ToString()}\", " +
                 $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit. " +
-                $"Nested error: {exceptionMessage}");
+                $"Core error: {exceptionMessage}");
         }
 
         return Identifier.ToString();
@@ -176,7 +185,7 @@ public class SourceDataParser
     /// If the data index before this method call points to the first whitespace character after a word,
     /// then the data index is reversed to the first character of said word.
     /// </summary>
-    public void ReverseUntilOneAfterWhitespace()
+    internal void ReverseUntilOneAfterWhitespace()
     {
         DecrementDataIndex();
         while (_dataIndex > 0)
@@ -189,7 +198,7 @@ public class SourceDataParser
             DecrementDataIndex();
         }
     }
-    public void ReverseUntilOneAfterIdentifier()
+    internal void ReverseUntilOneAfterIdentifier()
     {
         DecrementDataIndex();
         while (_dataIndex > 0)
@@ -215,7 +224,7 @@ public class SourceDataParser
     /// <returns></returns>
     /// <exception cref="ArgumentNullException"></exception>
     /// <exception cref="SourceFileReadException"></exception>
-    public string ReadUntil(string? exceptionMessage, params char[] charsToFind)
+    internal string ReadUntil(string? exceptionMessage, params char[] charsToFind)
     {
         ArgumentNullException.ThrowIfNull(charsToFind, nameof(charsToFind));
 
@@ -233,7 +242,7 @@ public class SourceDataParser
 
         if (((ParsedText.Length == 0) || !charsToFind.Contains(GetCharAtDataIndex())) && (exceptionMessage != null))
         {
-            throw new SourceFileReadException(this, exceptionMessage);
+            throw new SourceFileReadException(this, GetNoTargetCharsFoundMessage(charsToFind, exceptionMessage));
         }
         return string.Empty;
     }
@@ -245,7 +254,7 @@ public class SourceDataParser
     /// no non-whitespace character is encountered.</param>
     /// <returns>The read whitespace.</returns>
     /// <exception cref="SourceFileReadException"></exception>
-    public string ReadUntilNonWhitespace(string? exceptionMessage)
+    internal string ReadUntilNonWhitespace(string? exceptionMessage)
     {
         StringBuilder ParsedText = new();
 
@@ -261,12 +270,13 @@ public class SourceDataParser
 
         if (((ParsedText.Length == 0) || (_dataIndex >= _data.Length)) && (exceptionMessage != null))
         {
-            throw new SourceFileReadException(this, exceptionMessage);
+            throw new SourceFileReadException(this, "Unexpected end of file while looking for next " +
+                $"non-whitespace characters. Core error: {exceptionMessage}");
         }
         return string.Empty;
     }
 
-    public bool SkipUntil(string? exceptionMessage, params char[] charsToFind)
+    internal bool SkipUntil(string? exceptionMessage, params char[] charsToFind)
     {
         if (charsToFind == null)
         {
@@ -284,12 +294,12 @@ public class SourceDataParser
 
         if (exceptionMessage != null)
         {
-            throw new SourceFileReadException(this, exceptionMessage);
+            throw new SourceFileReadException(this, GetNoTargetCharsFoundMessage(charsToFind, exceptionMessage));
         }
         return false;
     }
 
-    public bool SkipWhitespaceUntil(string? exceptionMessage, params char[] charsToFind)
+    internal bool SkipWhitespaceUntil(string? exceptionMessage, params char[] charsToFind)
     {
         ArgumentNullException.ThrowIfNull(charsToFind, nameof(charsToFind));
 
@@ -301,19 +311,20 @@ public class SourceDataParser
             }
             else if (!char.IsWhiteSpace(GetCharAtDataIndex()))
             {
-                throw new SourceFileReadException(this, exceptionMessage);
+                throw new SourceFileReadException(this, $"Invalid character '{GetCharAtDataIndex()}' found, " +
+                    $"allowed characters include [{string.Join(", ", charsToFind)}]. Core error: {exceptionMessage}");
             }
             IncrementDataIndex();
         }
 
         if (exceptionMessage != null)
         {
-            throw new SourceFileReadException(this, exceptionMessage);
+            throw new SourceFileReadException(this, GetNoTargetCharsFoundMessage(charsToFind, exceptionMessage));
         }
         return false;
     }
 
-    public bool SkipUntilNonWhitespace(string? exceptionMessage)
+    internal bool SkipUntilNonWhitespace(string? exceptionMessage)
     {
         while ((_dataIndex < _data.Length) && char.IsWhiteSpace(_data[_dataIndex]))
         {
@@ -324,14 +335,15 @@ public class SourceDataParser
         {
             if (exceptionMessage != null)
             {
-                throw new SourceFileReadException(this, exceptionMessage);
+                throw new SourceFileReadException(this, "Unexpected end of file while skipping whitespace. " +
+                    $"Core error: {exceptionMessage}");
             }
             return false;
         }
         return true;
     }
 
-    public bool SkipPastString(string? exceptionMessage, params string[] stringsToFind)
+    internal bool SkipPastString(string? exceptionMessage, params string[] stringsToFind)
     {
         ArgumentNullException.ThrowIfNull(stringsToFind, nameof(stringsToFind));
 
@@ -341,7 +353,7 @@ public class SourceDataParser
             {
                 if (HasStringAtIndex(_dataIndex, stringsToFind[i]))
                 {
-                    IncrementDatIndexNTimes(stringsToFind[i].Length);
+                    IncrementDataIndexNTimes(stringsToFind[i].Length);
                     return true;
                 }
             }
@@ -355,7 +367,7 @@ public class SourceDataParser
         return false;
     }
 
-    public bool HasStringAtIndex(int index, string stringToFind)
+    internal bool HasStringAtIndex(int index, string stringToFind)
     {
         if (index < 0)
         {
@@ -377,12 +389,12 @@ public class SourceDataParser
         return true;
     }
 
-    public bool IsIdentifierChar(char character)
+    internal bool IsIdentifierChar(char character)
     {
         return char.IsAsciiLetterOrDigit(character) || (character == KGVL.UNDERSCORE);
     }
 
-    public bool IsValidIdentifier(string identifier)
+    internal bool IsValidIdentifier(string identifier)
     {
         if ((identifier.Length <= 0) || char.IsAsciiDigit(identifier[0]))
         {
@@ -397,5 +409,118 @@ public class SourceDataParser
             }
         }
         return true;
+    }
+
+    internal GenericNumber ReadInteger(string? exceptionMessage)
+    {
+        StringBuilder Number = new();
+
+        (char[] AllowedChars, NumberBase Base) = GetNumberBase();
+        char CharAtIndex = GetCharAtDataIndex();
+        while (AllowedChars.Contains(CharAtIndex) || (CharAtIndex == KGVL.UNDERSCORE))
+        {
+            if (CharAtIndex != KGVL.UNDERSCORE)
+            {
+                Number.Append(GetCharAtDataIndex());
+            }
+            IncrementDataIndex();
+            CharAtIndex = GetCharAtDataIndex();
+        }
+
+        (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), exceptionMessage);
+
+        if (Number.Length <= 0)
+        {
+            throw new SourceFileReadException(this, exceptionMessage);
+        }
+
+        return new(Number.ToString(), Base, IsLong, IsUnsigned);
+    }
+
+
+    // Private methods.
+    private (char[] characters, NumberBase numberBase) GetNumberBase()
+    {
+        string BaseIndicator = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}";
+        if (BaseIndicator == KGVL.PREFIX_BINARY)
+        {
+            IncrementDataIndexNTimes(KGVL.PREFIX_BINARY.Length);
+            return (_numberCharsBase2, NumberBase.Binary);
+        }
+        else if (BaseIndicator == KGVL.PREFIX_HEX)
+        {
+            IncrementDataIndexNTimes(KGVL.PREFIX_HEX.Length);
+            return (_numberCharsBase16, NumberBase.Hexadecimal);
+        }
+        else
+        {
+            return (_numberCharsBase10, NumberBase.Decimal);
+        }
+    }
+
+    private (bool IsLong, bool IsUnsigned) ReadNumberTypeSpecifier(string numberValue, string? exceptionMessage)
+    {
+        string Suffix = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}";
+
+        bool HasLongSpecifier = false;
+        bool HasUnsignedSpecifier = false;
+
+        foreach (char Character in Suffix)
+        {
+            if (Character == KGVL.SUFFIX_LONG)
+            {
+                if (HasLongSpecifier)
+                {
+                    throw new SourceFileReadException(this,
+                        $"Duplicate long specifier '{KGVL.SUFFIX_LONG}' for integer {numberValue} " +
+                        $"Core error: {exceptionMessage}");
+                }
+                HasLongSpecifier = true;
+                IncrementDataIndex();
+            }
+            else if (Character == KGVL.SUFFIX_UNSIGNED)
+            {
+                if (HasUnsignedSpecifier)
+                {
+                    throw new SourceFileReadException(this,
+                        $"Duplicate unsigned specifier '{KGVL.SUFFIX_UNSIGNED}' for integer {numberValue} " +
+                        $"Core error: {exceptionMessage ?? "unknown"}");
+                }
+                HasUnsignedSpecifier = true;
+                IncrementDataIndex();
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        int SpecifierLength = (HasLongSpecifier ? 1 : 0) + (HasUnsignedSpecifier ? 1 : 0);
+        IncrementDataIndexNTimes(SpecifierLength);
+        (bool IsValueLong, bool IsValueUnsigned) = GetNumberSpecifiersBasedOnValue(numberValue);
+        return (HasLongSpecifier || IsValueLong, HasUnsignedSpecifier || IsValueUnsigned);
+    }
+
+    private (bool IsLong, bool IsUnsigned) GetNumberSpecifiersBasedOnValue(string numberValue)
+    {
+        if (int.TryParse(numberValue, out _))
+        {
+            return (false, false);
+        }
+        if (uint.TryParse(numberValue, out _))
+        {
+            return (false, true);
+        }
+        if (long.TryParse(numberValue, out _))
+        {
+            return (true, false);
+        }
+        return (true, true);
+    }
+
+    private string GetNoTargetCharsFoundMessage(char[] characters, string exceptionMessage)
+    {
+        return $"Unexpected end of file while looking for one of these characters: " +
+                $"[{string.Join(", ", characters)}]. Core error: {exceptionMessage}";
     }
 }

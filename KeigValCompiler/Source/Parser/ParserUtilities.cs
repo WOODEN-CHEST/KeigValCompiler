@@ -10,6 +10,10 @@ namespace KeigValCompiler.Source.Parser;
 
 internal class ParserUtilities
 {
+    // Private fields.
+    private readonly IPrimitiveValueResolver _primitiveResolver = new DefaultPrimitiveValueResolver();
+
+
     // Methods.
     internal string MemberHolderToString(object holder)
     {
@@ -27,5 +31,12 @@ internal class ParserUtilities
             PackEvent => "event",
             _ => "(internal error evaluating member type, invalid type)"
         };
+    }
+
+
+    // Inherited methods.
+    public PackMember? GetTypeOfValue(string value, DataPack pack, BuiltInTypeRegistry registry)
+    {
+        return _primitiveResolver.GetTypeOfValue(value, pack, registry);
     }
 }

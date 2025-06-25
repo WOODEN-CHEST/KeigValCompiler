@@ -10,5 +10,5 @@ namespace KeigValCompiler;
 
 internal interface IPrimitiveValueResolver
 {
-    PackMember? GetTypeOfValue(string value, DataPack pack, BuiltInTypeRegistry registry);
+    PackMember? GetTypeOfValue(object value, DataPack pack, BuiltInTypeRegistry registry);
 }

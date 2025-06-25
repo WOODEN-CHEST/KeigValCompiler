@@ -467,12 +467,12 @@ internal class IdentifierResolver : IPackResolver
         PrimitiveValueStatement statement,
         PackResolutionContext context)
     {
-        PackMember? TargetType = context.PrimitiveResolver.GetTypeOfValue(statement.Value, context.Pack, context.Registry);
-        if (TargetType == null)
-        {
-            throw new PackContentException(GetNoPrimitiveStatementTypeMessage(function, statement.Origin));
-        }
-        statement.StatementReturnType = new(TargetType.SelfIdentifier);
+        //PackMember? TargetType = context.PrimitiveResolver.GetTypeOfValue(statement.Value, context.Pack, context.Registry);
+        //if (TargetType == null)
+        //{
+        //    throw new PackContentException(GetNoPrimitiveStatementTypeMessage(function, statement.Origin));
+        //}
+        //statement.StatementReturnType = new(TargetType.SelfIdentifier);
     }
 
     private void ResolveTernaryStatement(PackFunction function,

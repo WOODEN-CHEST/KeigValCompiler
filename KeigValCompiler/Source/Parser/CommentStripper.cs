@@ -21,6 +21,7 @@ public class CommentStripper
     // Methods.
     public string StripCommentsFromCode(string code)
     {
+        /* IMPROTANT: as of now there's a bug where interpolated strings do not correctly get parsed here. */
         _parser.DataIndex = 0;
         StringBuilder StrippedData = new(_parser.DataLength);
 
@@ -62,8 +63,6 @@ public class CommentStripper
 
 
     // Private methods.
-
-    /* For not comments are not allowed in interpolated strings. */
 
     //private string ReadInterpolatedStringInclSyntax()
     //{

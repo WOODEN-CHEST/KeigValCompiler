@@ -16,6 +16,7 @@ internal static class KGVL
     public const char STRING_INTERPOLATION_OPERATOR = '$';
     public const char ESCAPE_CHAR = '\\';
     public const char CHAR_NONE = '\0';
+    public const char DASH = '-';
 
     public const char LINE_COMMENT_INDICATOR1 = '/';
     public const char LINE_COMMENT_INDICATOR2 = '*';

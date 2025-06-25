@@ -9,7 +9,7 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class PrimitiveValueStatement : Statement
 {
     // Internal fields.
-    internal string Value
+    internal object Value
     {
         get => _value;
         set => _value = value ?? throw new ArgumentNullException(nameof(value));
@@ -19,11 +19,11 @@ internal class PrimitiveValueStatement : Statement
 
 
     // Private fields.
-    private string _value;
+    private object _value;
 
     
     // Constructors.
-    internal PrimitiveValueStatement(string value)
+    internal PrimitiveValueStatement(object value)
     {
         Value = value;
     }
