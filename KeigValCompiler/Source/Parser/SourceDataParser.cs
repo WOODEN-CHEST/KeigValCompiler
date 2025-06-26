@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KeigValCompiler.Error;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -47,10 +48,6 @@ public class SourceDataParser
 
 
     // Methods.
-
-    /// <summary>
-    /// Increments the data index, if possible.
-    /// </summary>
     internal void IncrementDataIndex()
     {
         if (_dataIndex >= _data.Length)
@@ -65,10 +62,6 @@ public class SourceDataParser
         _dataIndex++;
     }
 
-    /// <summary>
-    /// Increments the data index N times, if possible.
-    /// </summary>
-    /// <param name="count">The amount of times to increment the data index.</param>
     internal void IncrementDataIndexNTimes(int count)
     {
         for (int i = 0; (i < count) && (i < DataLength); i++)
@@ -77,9 +70,6 @@ public class SourceDataParser
         }
     }
 
-    /// <summary>
-    /// Decrements the data index, if possible.
-    /// </summary>
     internal void DecrementDataIndex()
     {
         if (_dataIndex <= 0)
@@ -94,36 +84,16 @@ public class SourceDataParser
         }
     }
 
-    /// <summary>
-    /// Decrements the data index N times, if possible.
-    /// </summary>
-    /// <param name="count">The amount of times to decrement the data index.</param>
     internal void DecrementDataIndexNTimes(int count)
     {
         for (int i = 0; i < count; i++) { DecrementDataIndex(); }
     }
 
-    /// <summary>
-    /// Gets the character at the current data index.
-    /// </summary>
-    /// <returns>The character at the current data index, or '\0' if the index is out of bounds.</returns>
     internal char GetCharAtDataIndex() => _dataIndex >= _data.Length ? KGVL.CHAR_NONE : _data[_dataIndex];
 
-    /// <summary>
-    /// Gets the character at the given data index.
-    /// </summary>
-    /// <param name="index">The index of the character to get.</param>
-    /// <returns>The character at the current data index, or '\0' if the index is out of bounds.</returns>
     internal char GetCharAtDataIndex(int index) => index >= _data.Length ? KGVL.CHAR_NONE : _data[index];
 
-    /// <summary>
-    /// Reads an ASCII word starting from the current data index.
-    /// </summary>
-    /// <param name="exceptionMessage">The message in the exception thrown if the resulting word's length is 0.
-    /// This may be <c>null</c> to prevent and exception from being thrown.</param>
-    /// <returns>The read word.</returns>
-    /// <exception cref="SourceFileReadException"></exception>
-    internal string ReadWord(string? exceptionMessage)
+    internal string ReadWord(ErrorCreateOptions? error)
     {
         StringBuilder Word = new();
 
@@ -135,24 +105,16 @@ public class SourceDataParser
 
         if (Word.Length == 0)
         {
-            if (exceptionMessage != null)
+            if (error.HasValue)
             {
-                throw new SourceFileReadException(this, exceptionMessage);
+                throw new SourceFileReadException(this, error);
             }
             return string.Empty;
         }
         return Word.ToString();
     }
 
-    /// <summary>
-    /// Reads an identifier starting from the current data index.
-    /// </summary>
-    /// <param name="exceptionMessage"> The message in the exception thrown if the resulting identifier's length is 0
-    /// or the identifier is invalid (starts with a number).
-    /// This may be <c>null</c> to prevent and exception from being thrown</param>
-    /// <returns></returns>
-    /// <exception cref="SourceFileReadException"></exception>
-    internal string ReadIdentifier(string? exceptionMessage)
+    internal string ReadIdentifier(ErrorCreateOptions? error)
     {
         StringBuilder Identifier = new();
 
@@ -164,27 +126,21 @@ public class SourceDataParser
 
         if (Identifier.Length == 0)
         {
-            if (exceptionMessage != null)
+            if (error.HasValue)
             {
-                throw new SourceFileReadException(this, exceptionMessage);
+                throw new SourceFileReadException(this, error);
             }
             return string.Empty;
         }
         else if (char.IsDigit(Identifier[0]))
         {
-            throw new SourceFileReadException(this, $"Invalid identifier \"{Identifier.ToString()}\", " +
-                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit. " +
-                $"Core error: {exceptionMessage}");
+            throw new SourceFileReadException(this, error, $"Invalid identifier \"{Identifier.ToString()}\", " +
+                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit.");
         }
 
         return Identifier.ToString();
     }
 
-    /// <summary>
-    /// Reversed the current data index to point to the first non-whitespace character in the current word.
-    /// If the data index before this method call points to the first whitespace character after a word,
-    /// then the data index is reversed to the first character of said word.
-    /// </summary>
     internal void ReverseUntilOneAfterWhitespace()
     {
         DecrementDataIndex();
@@ -212,19 +168,7 @@ public class SourceDataParser
         }
     }
 
-
-    /// <summary>
-    /// Reads a string from the current data index position until any of the characters in the
-    /// <paramref name="charsToFind"/> array is encountered.
-    /// </summary>
-    /// <param name="exceptionMessage">The message to use in the exception which is thrown if the
-    /// read text's length is 0 or no character specified in the <paramref name="charsToFind"/> array is found
-    /// in the data. May be <c>null</c> for no exception to be thrown.</param>
-    /// <param name="charsToFind">The array of characters to look for when detecting a stop.</param>
-    /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
-    /// <exception cref="SourceFileReadException"></exception>
-    internal string ReadUntil(string? exceptionMessage, params char[] charsToFind)
+    internal string ReadUntil(ErrorCreateOptions? error, params char[] charsToFind)
     {
         ArgumentNullException.ThrowIfNull(charsToFind, nameof(charsToFind));
 
@@ -240,21 +184,14 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if (((ParsedText.Length == 0) || !charsToFind.Contains(GetCharAtDataIndex())) && (exceptionMessage != null))
+        if (((ParsedText.Length == 0) || !charsToFind.Contains(GetCharAtDataIndex())) && (error.HasValue))
         {
-            throw new SourceFileReadException(this, GetNoTargetCharsFoundMessage(charsToFind, exceptionMessage));
+            throw new SourceFileReadException(this, error, GetNoTargetCharsFoundNote(charsToFind));
         }
         return string.Empty;
     }
 
-    /// <summary>
-    /// Reads whitespace until a non-whitespace character is encountered.
-    /// </summary>
-    /// <param name="exceptionMessage">The message to use in the exception which is thrown if
-    /// no non-whitespace character is encountered.</param>
-    /// <returns>The read whitespace.</returns>
-    /// <exception cref="SourceFileReadException"></exception>
-    internal string ReadUntilNonWhitespace(string? exceptionMessage)
+    internal string ReadUntilNonWhitespace(ErrorCreateOptions? error)
     {
         StringBuilder ParsedText = new();
 
@@ -268,15 +205,15 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if (((ParsedText.Length == 0) || (_dataIndex >= _data.Length)) && (exceptionMessage != null))
+        if (((ParsedText.Length == 0) || (_dataIndex >= _data.Length)) && (error.HasValue))
         {
-            throw new SourceFileReadException(this, "Unexpected end of file while looking for next " +
-                $"non-whitespace characters. Core error: {exceptionMessage}");
+            throw new SourceFileReadException(this, error, "Unexpected end of file while looking for next " +
+                $"non-whitespace characters.");
         }
         return string.Empty;
     }
 
-    internal bool SkipUntil(string? exceptionMessage, params char[] charsToFind)
+    internal bool SkipUntil(ErrorCreateOptions? error, params char[] charsToFind)
     {
         if (charsToFind == null)
         {
@@ -292,14 +229,14 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if (exceptionMessage != null)
+        if (error.HasValue)
         {
-            throw new SourceFileReadException(this, GetNoTargetCharsFoundMessage(charsToFind, exceptionMessage));
+            throw new SourceFileReadException(this, error, GetNoTargetCharsFoundNote(charsToFind));
         }
         return false;
     }
 
-    internal bool SkipWhitespaceUntil(string? exceptionMessage, params char[] charsToFind)
+    internal bool SkipWhitespaceUntil(ErrorCreateOptions? error, params char[] charsToFind)
     {
         ArgumentNullException.ThrowIfNull(charsToFind, nameof(charsToFind));
 
@@ -311,20 +248,20 @@ public class SourceDataParser
             }
             else if (!char.IsWhiteSpace(GetCharAtDataIndex()))
             {
-                throw new SourceFileReadException(this, $"Invalid character '{GetCharAtDataIndex()}' found, " +
-                    $"allowed characters include [{string.Join(", ", charsToFind)}]. Core error: {exceptionMessage}");
+                throw new SourceFileReadException(this, error, $"Invalid character '{GetCharAtDataIndex()}' found, " +
+                    $"allowed characters include [{string.Join(", ", charsToFind)}].");
             }
             IncrementDataIndex();
         }
 
-        if (exceptionMessage != null)
+        if (error.HasValue)
         {
-            throw new SourceFileReadException(this, GetNoTargetCharsFoundMessage(charsToFind, exceptionMessage));
+            throw new SourceFileReadException(this, error, GetNoTargetCharsFoundNote(charsToFind));
         }
         return false;
     }
 
-    internal bool SkipUntilNonWhitespace(string? exceptionMessage)
+    internal bool SkipUntilNonWhitespace(ErrorCreateOptions? error)
     {
         while ((_dataIndex < _data.Length) && char.IsWhiteSpace(_data[_dataIndex]))
         {
@@ -333,17 +270,16 @@ public class SourceDataParser
 
         if (_dataIndex >= _data.Length)
         {
-            if (exceptionMessage != null)
+            if (error.HasValue)
             {
-                throw new SourceFileReadException(this, "Unexpected end of file while skipping whitespace. " +
-                    $"Core error: {exceptionMessage}");
+                throw new SourceFileReadException(this, error, "Unexpected end of file while skipping whitespace.");
             }
             return false;
         }
         return true;
     }
 
-    internal bool SkipPastString(string? exceptionMessage, params string[] stringsToFind)
+    internal bool SkipPastString(ErrorCreateOptions? error, params string[] stringsToFind)
     {
         ArgumentNullException.ThrowIfNull(stringsToFind, nameof(stringsToFind));
 
@@ -360,9 +296,9 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if (exceptionMessage != null)
+        if (error.HasValue)
         {
-            throw new SourceFileReadException(this, exceptionMessage);
+            throw new SourceFileReadException(this, error);
         }
         return false;
     }
@@ -411,7 +347,7 @@ public class SourceDataParser
         return true;
     }
 
-    internal GenericNumber ReadInteger(string? exceptionMessage)
+    internal GenericNumber ReadInteger(ErrorCreateOptions? error)
     {
         StringBuilder Number = new();
 
@@ -427,11 +363,11 @@ public class SourceDataParser
             CharAtIndex = GetCharAtDataIndex();
         }
 
-        (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), exceptionMessage);
+        (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), error);
 
         if (Number.Length <= 0)
         {
-            throw new SourceFileReadException(this, exceptionMessage);
+            throw new SourceFileReadException(this, error);
         }
 
         return new(Number.ToString(), Base, IsLong, IsUnsigned);
@@ -458,7 +394,7 @@ public class SourceDataParser
         }
     }
 
-    private (bool IsLong, bool IsUnsigned) ReadNumberTypeSpecifier(string numberValue, string? exceptionMessage)
+    private (bool IsLong, bool IsUnsigned) ReadNumberTypeSpecifier(string numberValue, ErrorCreateOptions? error)
     {
         string Suffix = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}";
 
@@ -471,9 +407,8 @@ public class SourceDataParser
             {
                 if (HasLongSpecifier)
                 {
-                    throw new SourceFileReadException(this,
-                        $"Duplicate long specifier '{KGVL.SUFFIX_LONG}' for integer {numberValue} " +
-                        $"Core error: {exceptionMessage}");
+                    throw new SourceFileReadException(this, error,
+                        $"Duplicate long specifier '{KGVL.SUFFIX_LONG}' for integer {numberValue} ");
                 }
                 HasLongSpecifier = true;
                 IncrementDataIndex();
@@ -482,9 +417,8 @@ public class SourceDataParser
             {
                 if (HasUnsignedSpecifier)
                 {
-                    throw new SourceFileReadException(this,
-                        $"Duplicate unsigned specifier '{KGVL.SUFFIX_UNSIGNED}' for integer {numberValue} " +
-                        $"Core error: {exceptionMessage ?? "unknown"}");
+                    throw new SourceFileReadException(this, error,
+                        $"Duplicate unsigned specifier '{KGVL.SUFFIX_UNSIGNED}' for integer {numberValue}");
                 }
                 HasUnsignedSpecifier = true;
                 IncrementDataIndex();
@@ -518,9 +452,9 @@ public class SourceDataParser
         return (true, true);
     }
 
-    private string GetNoTargetCharsFoundMessage(char[] characters, string exceptionMessage)
+    private string GetNoTargetCharsFoundNote(char[] characters)
     {
         return $"Unexpected end of file while looking for one of these characters: " +
-                $"[{string.Join(", ", characters)}]. Core error: {exceptionMessage}";
+                $"[{string.Join(", ", characters)}].";
     }
 }

@@ -1,14 +1,24 @@
-﻿namespace KeigValCompiler.Source.Parser;
+﻿using KeigValCompiler.Error;
+
+namespace KeigValCompiler.Source.Parser;
 
 internal class SourceFileReadException : Exception
 {
     // Constructors.
-    internal SourceFileReadException(string? filePath, int line, string? message)
-        : base($"Failed to read file \"{filePath ?? string.Empty}\" " +
-            $"on line: {line}. Reason: {message}") { }
+    internal SourceFileReadException(SourceDataParser parser, ErrorCreateOptions? error)
+        : this(parser, error, null) { }
 
-    internal SourceFileReadException(SourceDataParser parser, string? message)
-        : this(parser.FilePath, parser.Line, message) { }
+    internal SourceFileReadException(SourceDataParser parser, ErrorCreateOptions? error, string? notes)
+        : this(CreateErrorMessage(parser, error, notes)) { }
 
     internal SourceFileReadException(string message) : base(message) { }
+
+
+    // Private static methods.
+    private static string CreateErrorMessage(SourceDataParser parser, ErrorCreateOptions? error, string? notes)
+    {
+        string Notes = notes != null ? $"Notes: {notes}" : string.Empty;
+        return $"Failed to read file \"{parser.FilePath}\" on line {parser.Line}. " +
+            $"{error?.CreateMessage() ?? string.Empty}. {Notes}";
+    }
 }

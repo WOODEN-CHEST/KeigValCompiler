@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Member.Code;
 using KeigValCompiler.Semantician.Resolver;
@@ -62,7 +63,9 @@ public static class Compiler
     // Private static methods.
     private static void CompilePack(CompilerOptions options)
     {
-        DataPack Pack = new PackParser(options.SourceDirectory).ParsePack();
+        ErrorRepository ErrorCreator = new();
+        ParserUtilities ParserUtilities = new();
+        DataPack Pack = new PackParser(options.SourceDirectory, ErrorCreator, ParserUtilities).ParsePack();
     }
 
     private static void Test()

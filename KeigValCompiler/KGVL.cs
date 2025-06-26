@@ -111,4 +111,20 @@ internal static class KGVL
     public const char IDENTIFIER_SEPARATOR_FUNCTION = '!';
     public const char IDENTIFIER_ACCESSOR = '&';
     public const char IDENTIFIER_OPERATOR = '%';
+
+    public const string NAME_CLASS = "class";
+    public const string NAME_STRUCT = "structure";
+    public const string NAME_INTERFACE = "interface";
+    public const string NAME_DELEGATE = "delegate";
+    public const string NAME_ENUM = "enum";
+    public const string NAME_FIELD = "field";
+    public const string NAME_PROPERTY = "property";
+    public const string NAME_FUNCTION = "function";
+    public const string NAME_INDEXER = "indexer";
+    public const string NAME_NAMESPACE = "namespace";
+    public const string NAME_RECORD_CLASS = "record class";
+    public const string NAME_EVENT = "event";
+
+    public const string DOUBLE_CURLY_OPEN = "{{";
+    public const string DOUBLE_CURLY_CLOSE = "}}";
 }

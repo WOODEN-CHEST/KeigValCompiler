@@ -10,33 +10,23 @@ namespace KeigValCompiler.Source.Parser;
 
 internal class ParserUtilities
 {
-    // Private fields.
-    private readonly IPrimitiveValueResolver _primitiveResolver = new DefaultPrimitiveValueResolver();
-
-
     // Methods.
     internal string MemberHolderToString(object holder)
     {
         return holder switch
         {
-            PackNameSpace => "namespace",
-            PackClass ClassHolder => ClassHolder.HasModifier(PackMemberModifiers.Record) ? "record class" : "class",
-            PackStruct => "struct",
-            PackInterface => "interface",
-            PackEnumeration => "enum",
-            PackDelegate => "delegate",
-            PackField => "field",
-            PackProperty => "property",
-            PackIndexer => "indexer",
-            PackEvent => "event",
+            PackNameSpace => KGVL.NAME_NAMESPACE,
+            PackClass ClassHolder => ClassHolder.HasModifier(PackMemberModifiers.Record)
+                ? KGVL.NAME_RECORD_CLASS : KGVL.NAME_CLASS,
+            PackStruct => KGVL.NAME_STRUCT,
+            PackInterface => KGVL.NAME_INTERFACE,
+            PackEnumeration => KGVL.NAME_ENUM,
+            PackDelegate => KGVL.NAME_DELEGATE,
+            PackField => KGVL.NAME_FIELD,
+            PackProperty => KGVL.NAME_PROPERTY,
+            PackIndexer => KGVL.NAME_INDEXER,
+            PackEvent => KGVL.NAME_EVENT,
             _ => "(internal error evaluating member type, invalid type)"
         };
-    }
-
-
-    // Inherited methods.
-    public PackMember? GetTypeOfValue(string value, DataPack pack, BuiltInTypeRegistry registry)
-    {
-        return _primitiveResolver.GetTypeOfValue(value, pack, registry);
     }
 }

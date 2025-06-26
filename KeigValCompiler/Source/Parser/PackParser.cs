@@ -1,4 +1,6 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
+using KeigValCompiler.Source.Parser;
 
 namespace KeigValCompiler.Source;
 
@@ -10,13 +12,20 @@ internal class PackParser
 
     // Private fields.
     private readonly string _sourceDirPath;
+    private readonly ErrorRepository _errorRepository;
+    private readonly ParserUtilities _parsingUtilities;
 
 
     // Constructors.
-    internal PackParser(string sourceDirectory)
+    internal PackParser(string sourceDirectory, ErrorRepository errorRepository, ParserUtilities parserUtilities)
     {
         ArgumentNullException.ThrowIfNull(sourceDirectory, nameof(sourceDirectory));
+        ArgumentNullException.ThrowIfNull(errorRepository, nameof(errorRepository));
+        ArgumentNullException.ThrowIfNull(errorRepository, nameof(parserUtilities));
+
         _sourceDirPath = sourceDirectory;
+        _errorRepository = errorRepository;
+        _parsingUtilities = parserUtilities;
     }
 
 
@@ -34,7 +43,7 @@ internal class PackParser
             _sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
             SourceFileParser FileParser = new(sourceFile, Pack);
-            FileParser.ParseFile(Pack);
+            FileParser.ParseFile(Pack, _errorRepository, _parsingUtilities);
         }
 
         return Pack;

@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician.Member;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician.Member;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
@@ -10,4 +11,5 @@ internal class PackResolutionContext
     internal required BuiltInTypeRegistry Registry { get; init; }
     internal required DataPack Pack { get; init; }
     internal required IdentifierGenerator IdentifierGenerator { get; init; }
+    internal required ErrorRepository ErrorCreator { get; init; }
 }

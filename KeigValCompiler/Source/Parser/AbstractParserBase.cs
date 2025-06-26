@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,17 +10,17 @@ namespace KeigValCompiler.Source.Parser;
 
 internal abstract class AbstractParserBase
 {
-    // Fields.
-    protected SourceDataParser Parser { get; private init; }
-    protected ParserUtilities Utils { get; private init; }
-    protected PackSourceFile SourceFile { get; private init; }
+    // Protected fields.
+    protected SourceDataParser Parser => Context.Parser;
+    protected ParserUtilities Utils => Context.Utilities;
+    protected PackSourceFile SourceFile => Context.SourceFile;
+    protected ErrorRepository ErrorCreator => Context.ErrorCreator;
+    protected virtual PackParsingContext Context { get; private init; }
 
 
     // Constructors.
-    internal AbstractParserBase(SourceDataParser parser, ParserUtilities utils, PackSourceFile sourceFile)
+    internal AbstractParserBase(PackParsingContext context)
     {
-        Parser = parser ?? throw new ArgumentNullException(nameof(parser));
-        Utils = utils ?? throw new ArgumentNullException(nameof(utils));
-        SourceFile = sourceFile ?? throw new ArgumentNullException(nameof(sourceFile));
+        Context = context ?? throw new ArgumentNullException(nameof(context));
     }
 }

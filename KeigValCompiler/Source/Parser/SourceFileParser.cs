@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using KeigValCompiler.Source.Parser;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -22,19 +23,29 @@ internal class SourceFileParser
 
 
     // Internal methods.
-    internal void ParseFile(DataPack parentPack)
+    internal void ParseFile(DataPack parentPack, ErrorRepository errorRepository, ParserUtilities utilities)
     {
         try
         {
-            string FileData = File.ReadAllText(FilePath);
+            string FileData = File.ReadAllText(FilePath, Encoding.UTF8);
 
             SourceDataParser OriginalFileParser = new(FileData, FilePath);
-            string StrippedFileData = new CommentStripper(OriginalFileParser).StripCommentsFromCode(FileData);
+            string StrippedFileData = new CommentStripper(OriginalFileParser, errorRepository)
+                .StripCommentsFromCode(FileData);
 
             SourceDataParser SourceParser = new(StrippedFileData, FilePath);
             PackSourceFile SourceFile = new(Pack, FilePath);
             Pack.AddSourceFile(SourceFile);
-            new SourceFileRootParser(SourceParser, new(), SourceFile).ParseBase();
+
+            PackParsingContext Context = new()
+            {
+                ErrorCreator = errorRepository,
+                SourceFile = SourceFile,
+                Parser = SourceParser,
+                Utilities = utilities
+            };
+
+            new SourceFileRootParser(Context).ParseBase();
         }
         catch (PackContentException e)
         {

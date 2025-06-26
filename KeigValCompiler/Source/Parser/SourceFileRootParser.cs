@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,10 +17,9 @@ internal class SourceFileRootParser : AbstractParserBase
 
 
     // Constructors.
-    public SourceFileRootParser(SourceDataParser parser, ParserUtilities utils, PackSourceFile sourceFile)
-        : base(parser, utils, sourceFile)
+    public SourceFileRootParser(PackParsingContext context) : base(context)
     {
-        _memberParser = new(parser, utils, sourceFile);
+        _memberParser = new(context);
     }
 
 
@@ -28,8 +28,7 @@ internal class SourceFileRootParser : AbstractParserBase
     {
         while (Parser.SkipUntilNonWhitespace(null))
         {
-            string Keyword = Parser.ReadWord(
-                $"Expected keyword '{KGVL.KEYWORD_NAMESPACE}' or '{KGVL.KEYWORD_USING}'.");
+            string Keyword = Parser.ReadWord(ErrorCreator.RootExpectedKeyword.CreateOptions());
 
             if (Keyword == KGVL.KEYWORD_NAMESPACE)
             {
@@ -43,7 +42,8 @@ internal class SourceFileRootParser : AbstractParserBase
             }
             else if (_activeNamespace == null)
             {
-                throw new SourceFileReadException(Parser, "Expected namespace or using statement.");
+                throw new SourceFileReadException(Parser,
+                    ErrorCreator.RootNonActiveNamespace.CreateOptions(Keyword));
             }
 
             Parser.ReverseUntilOneAfterWhitespace();
@@ -77,17 +77,16 @@ internal class SourceFileRootParser : AbstractParserBase
 
     private string ParseNamespaceName()
     {
-        const string EXCEPTION_MSG_NAMESPACE_NAME = "Expected namespace name.";
-        Parser.SkipUntilNonWhitespace(EXCEPTION_MSG_NAMESPACE_NAME);
+        Parser.SkipUntilNonWhitespace(ErrorCreator.RootInvalidNamespace.CreateOptions());
 
         StringBuilder NamespaceBuilder = new();
         bool IsMoreNamespaceExpected = true;
 
         while ((Parser.GetCharAtDataIndex() != KGVL.SEMICOLON) || IsMoreNamespaceExpected)
         {
-            NamespaceBuilder.Append(Parser.ReadIdentifier(EXCEPTION_MSG_NAMESPACE_NAME));
-            Parser.SkipUntilNonWhitespace($"Expected '{KGVL.NAMESPACE_SEPARATOR}' or '{KGVL.SEMICOLON}' " +
-                "(Namespace continuation or end)");
+            NamespaceBuilder.Append(Parser.ReadIdentifier(ErrorCreator.RootInvalidNamespace.CreateOptions()));
+            Parser.SkipUntilNonWhitespace(ErrorCreator.NamespaceEndOrContinuation
+                .CreateOptions(NamespaceBuilder.ToString()));
 
             char CharAfterIdentifier = Parser.GetCharAtDataIndex();
             if (CharAfterIdentifier == KGVL.NAMESPACE_SEPARATOR)
@@ -95,7 +94,7 @@ internal class SourceFileRootParser : AbstractParserBase
                 NamespaceBuilder.Append(KGVL.NAMESPACE_SEPARATOR);
                 Parser.IncrementDataIndex();
                 IsMoreNamespaceExpected = true;
-                Parser.SkipUntilNonWhitespace(EXCEPTION_MSG_NAMESPACE_NAME);
+                Parser.SkipUntilNonWhitespace(ErrorCreator.RootInvalidNamespace.CreateOptions());
             }
             else if (CharAfterIdentifier == KGVL.SEMICOLON)
             {
@@ -103,8 +102,8 @@ internal class SourceFileRootParser : AbstractParserBase
             }
             else
             {
-                throw new SourceFileReadException(Parser, $"Expected '{KGVL.SEMICOLON}' " +
-                    $"after namespace end, got '{CharAfterIdentifier}'");
+                throw new SourceFileReadException(Parser, ErrorCreator.NamespaceEndOrContinuation
+                    .CreateOptions(NamespaceBuilder.ToString()));
             }
         }
 
