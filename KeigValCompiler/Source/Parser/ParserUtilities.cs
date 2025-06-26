@@ -62,6 +62,7 @@ internal class ParserUtilities
             throw new SourceFileReadException(parser, error, 
                 $"Expected generic type end '{KGVL.GENERIC_TYPE_END}'");
         }
+        parser.IncrementDataIndex();
 
         return new(new(BaseName), SubTypes.ToArray());
     }

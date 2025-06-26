@@ -10,10 +10,13 @@
   <ItemGroup>
     <Compile Remove="Finished\**" />
     <Compile Remove="Middle\**" />
+    <Compile Remove="Semantician\Resolver\**" />
     <EmbeddedResource Remove="Finished\**" />
     <EmbeddedResource Remove="Middle\**" />
+    <EmbeddedResource Remove="Semantician\Resolver\**" />
     <None Remove="Finished\**" />
     <None Remove="Middle\**" />
+    <None Remove="Semantician\Resolver\**" />
   </ItemGroup>
 
 </Project>

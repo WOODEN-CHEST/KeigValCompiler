@@ -82,7 +82,7 @@ internal abstract class PackMember : IIdentifiable
         return (CombinedModifiers | Modifiers) != CombinedModifiers;
     }
 
-    internal bool HasModifier(PackMemberModifiers modifier) => (Modifiers | modifier) > 0;
+    internal bool HasModifier(PackMemberModifiers modifier) => (Modifiers & modifier) != PackMemberModifiers.None;
 
 
     // Inherited methods.

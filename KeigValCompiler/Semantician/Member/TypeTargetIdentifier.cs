@@ -14,7 +14,11 @@ internal class TypeTargetIdentifier
 
 
     // Constructors.
-    public TypeTargetIdentifier(Identifier mainTarget,  TypeTargetIdentifier[]? typeArguments)
+    internal TypeTargetIdentifier(string sourceCodeName) : this(new Identifier(sourceCodeName)) { }
+
+    internal TypeTargetIdentifier(Identifier mainTarget) : this(mainTarget, null) { }
+
+    internal TypeTargetIdentifier(Identifier mainTarget,  TypeTargetIdentifier[]? typeArguments)
     {
         MainTarget = mainTarget;
         TypeArguments = typeArguments ?? Array.Empty<TypeTargetIdentifier>();

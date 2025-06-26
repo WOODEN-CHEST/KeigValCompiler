@@ -120,12 +120,12 @@ internal class MemberParser : AbstractParserBase
         return new(Parser.ReadIdentifier(ErrorOptions));
     }
 
-    private Identifier? ParseReturnType(string holderTypeName)
+    private TypeTargetIdentifier? ParseReturnType(string holderTypeName)
     {
         ErrorCreateOptions ErrorOptions = ErrorCreator.ExpectedReturnTypeIdentifier.CreateOptions(holderTypeName);
         Parser.SkipUntilNonWhitespace(ErrorOptions);
-        string Identifier = Parser.ReadIdentifier(ErrorOptions);
-        return Identifier == KGVL.KEYWORD_VOID ? null : new(Identifier);
+        TypeTargetIdentifier Name = Utils.ParseTypeTargetIdentifier(Parser, ErrorOptions);
+        return Name.MainTarget!.SourceCodeName == KGVL.KEYWORD_VOID ? null : Name;
     }
 
     private void ParseClass(object parentObject, PackMemberModifiers modifiers)
@@ -172,6 +172,7 @@ internal class MemberParser : AbstractParserBase
             (type, holder) => holder.AddStruct(type));
     }
 
+    /* This insane function disparately needs to be broken down. */
     private void ParseExtendableType<T>(object parentObject,
         PackMemberModifiers modifiers,
         string typeName,
@@ -190,19 +191,37 @@ internal class MemberParser : AbstractParserBase
         addFunction.Invoke(CreatedType, TypeHolder);
         CreatedType.SourceFileOrigin = Origin;
 
+        Parser.SkipUntilNonWhitespace(null);
+        IGenericParameterHolder? GenericsHolder = CreatedType as IGenericParameterHolder;
+        if (GenericsHolder != null)
+        {
+            ParseGenericParameters(Name, GenericsHolder.GenericParameters);
+        }
+
         bool IsRecord = (modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
         Parser.SkipUntilNonWhitespace(GetClassWrongStartExceptionMessage(CreatedType, IsRecord, typeName));
         if ((CreatedType is PackClass ClassType) && IsRecord)
         {
             ParseRecordPrimaryConstructor(ClassType);
-            if (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON)
-            {
-                Parser.IncrementDataIndex();
-                return;
-            }
         }
 
         ParseMemberExtensions((IPackMemberExtender)CreatedType, CreatedType.SelfIdentifier);
+        if (GenericsHolder != null)
+        {
+            ParseGenericConstraints(Name, GenericsHolder.GenericParameters, GetExtendableTypeLimitChars(IsRecord));
+        }
+
+        if (IsRecord && (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON))
+        {
+            Parser.IncrementDataIndex();
+            return;
+        }
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedMemberBodyStart
+                .CreateOptions(Name.SourceCodeName));
+        }
+
         Parser.IncrementDataIndex();
 
         while (Parser.SkipUntilNonWhitespace(ErrorCreator.EOFWhileParsingMembers
@@ -221,6 +240,21 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
     }
 
+    private char[] GetExtendableTypeLimitChars(bool isRecord)
+    {
+        List<char> Chars = new()
+        {
+            KGVL.OPEN_CURLY_BRACKET
+        };
+
+        if (isRecord)
+        {
+            Chars.Add(KGVL.SEMICOLON);
+        }
+
+        return Chars.ToArray();
+    }
+
     private void ParseDelegate(object parentObject, PackMemberModifiers modifiers)
     {
         if (parentObject is not IPackTypeHolder DelegateHolder)
@@ -228,7 +262,7 @@ internal class MemberParser : AbstractParserBase
             throw CreateInvalidHolderException(parentObject, KGVL.NAME_DELEGATE);
         }
         
-        Identifier? ReturnType = ParseReturnType(KGVL.NAME_DELEGATE);
+        TypeTargetIdentifier? ReturnType = ParseReturnType(KGVL.NAME_DELEGATE);
         Identifier Name = ParseTypeMemberIdentifier(KGVL.NAME_DELEGATE);
         SourceFileOrigin Origin = new(Parser.Line);
 
@@ -429,7 +463,7 @@ internal class MemberParser : AbstractParserBase
 
     internal void ParseMemberExtensions(IPackMemberExtender extender, Identifier extenderName)
     {
-        char[] ExpectedChars = new char[] { KGVL.COLON, KGVL.OPEN_CURLY_BRACKET };
+        char[] ExpectedChars = new char[] { KGVL.COLON, KGVL.OPEN_CURLY_BRACKET, KGVL.KEYWORD_WHEN[0], KGVL.SEMICOLON };
 
         ErrorCreateOptions ExtendOrBodyError = ErrorCreator.ExpectedMemberExtensionOrBody
             .CreateOptions(extenderName.SourceCodeName);
@@ -463,11 +497,6 @@ internal class MemberParser : AbstractParserBase
         };
     }
 
-    void DoStuff<T1, T2>()
-    {
-
-    }
-
     private FunctionParameterCollection ParseFunctionParameters(char paramListEndChar, Identifier funcHolderName)
     {
         ErrorCreateOptions ExpectTypeOrModifierError = ErrorCreator.ExpectedParameterTypeOrModifier
@@ -485,7 +514,7 @@ internal class MemberParser : AbstractParserBase
 
         while (IsParameterExpected)
         {
-            string FirstWord = Parser.ReadIdentifier(ExpectTypeOrModifierError);
+            string FirstWord = Parser.ReadIdentifier(null);
             FunctionParameterModifier Modifier = StringToParamModifier(FirstWord);
 
             if (Modifier != FunctionParameterModifier.None)
@@ -497,11 +526,11 @@ internal class MemberParser : AbstractParserBase
                 Parser.ReverseUntilOneAfterIdentifier();
             }
 
-            string ParamType = Parser.ReadIdentifier(ExpectTypeError);
+            TypeTargetIdentifier ParamType = Utils.ParseTypeTargetIdentifier(Parser, ExpectTypeError);
             Parser.SkipUntilNonWhitespace(ExpectIdentifierError);
             string ParamName = Parser.ReadIdentifier(ExpectIdentifierError);
             Parser.SkipUntilNonWhitespace(ExpectTypeOrEndError);
-            Params.AddItem(new(new(ParamType), new(ParamName), Modifier));
+            Params.AddItem(new(ParamType, new(ParamName), Modifier));
 
             char NextChar = Parser.GetCharAtDataIndex();
             IsParameterExpected = NextChar == KGVL.COMMA;
@@ -515,48 +544,67 @@ internal class MemberParser : AbstractParserBase
         return Params;
     }
 
-    private void ParsGenericConstraints(
+    private void ParseGenericConstraints(
+        Identifier memberName,
         GenericTypeParameterCollection parameters, 
         params char[] endCharacters)
     {
         Parser.SkipUntilNonWhitespace(null);
 
-        string Word = Parser.ReadWord(null);
-        while (Word == KGVL.KEYWORD_WHEN)
+        while (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.KEYWORD_WHEN))
         {
+            Parser.IncrementDataIndexNTimes(KGVL.KEYWORD_WHEN.Length);
+            Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericTypeConstraint
+                .CreateOptions(memberName.SourceCodeName));
+            ParseSingleGenericParameterConstraints(memberName, parameters, endCharacters);
+
             Parser.SkipUntilNonWhitespace(null);
-            ParseSingleGenericParameterConstraints(parameters, endCharacters);
         }
     }
 
     private void ParseSingleGenericParameterConstraints(
+        Identifier memberName,
         GenericTypeParameterCollection parameters,
-        char[] endCharacters)
+        params char[] endCharacters)
     {
-        string TypeName = Parser.ReadIdentifier(null);
+        string TypeName = Parser.ReadIdentifier(ErrorCreator.ExpectedGenericTypeConstraint
+            .CreateOptions(memberName.SourceCodeName));
         GenericTypeParameter? Parameter = parameters.GetBySourceCodeName(TypeName);
         if (Parameter == null)
         {
-            throw new SourceFileReadException(Parser, null);
+            throw new SourceFileReadException(Parser, ErrorCreator.GenericParameterNotFound
+                .CreateOptions(TypeName, memberName.SourceCodeName));
         }
 
-        Parser.SkipUntilNonWhitespace(null);
+        ErrorCreateOptions ExpectStartError = ErrorCreator.GenericParameterConstraintStartNotFound
+            .CreateOptions(TypeName, memberName.SourceCodeName);
+        Parser.SkipUntilNonWhitespace(ExpectStartError);
         if (Parser.GetCharAtDataIndex() != KGVL.COLON)
         {
-            throw new SourceFileReadException(Parser, null);
+            throw new SourceFileReadException(Parser, ExpectStartError);
         }
         Parser.IncrementDataIndex();
 
+        ErrorCreateOptions ExpectedConstraintError = ErrorCreator.ExpectedGenericConstraintIdentifier
+            .CreateOptions(Parameter.SelfIdentifier.SourceCodeName);
         List<GenericConstraint> Constraints = new();
         bool IsConstraintExpected = true;
         while (IsConstraintExpected)
         {
-            TypeTargetIdentifier ConstraintType = Utils.ParseTypeTargetIdentifier(Parser, null);
+            Parser.SkipUntilNonWhitespace(ExpectedConstraintError);
+            TypeTargetIdentifier ConstraintType = Utils.ParseTypeTargetIdentifier(Parser, ExpectedConstraintError);
             SpecialGenericConstraint? SpecialConstraint = TryGetSpecialConstraint(
                 ConstraintType.MainTarget!.SourceCodeName);
             GenericConstraint Constraint = SpecialConstraint != null
                 ? new(SpecialConstraint.Value) : new(ConstraintType);
             Constraints.Add(Constraint);
+
+            Parser.SkipUntilNonWhitespace(null);
+            IsConstraintExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
+            if (IsConstraintExpected)
+            {
+                Parser.IncrementDataIndex();
+            }
         }
 
         Parameter.Constraints = Constraints.ToArray();
@@ -571,5 +619,39 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_NOTNULL => SpecialGenericConstraint.NotNull,
             _ => null
         };
+    }
+
+    private void ParseGenericParameters(Identifier memberName, GenericTypeParameterCollection parameters)
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
+        {
+            return;
+        }
+        Parser.IncrementDataIndex();
+
+        bool IsParameterExpected = true;
+        while (IsParameterExpected)
+        {
+            Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericParameterCommaOrEnd
+                    .CreateOptions(memberName.SourceCodeName));
+            string Identifier = Parser.ReadIdentifier(ErrorCreator.ExpectedGenericParameterIdentifier
+                .CreateOptions(memberName.SourceCodeName));
+            parameters.AddItem(new(new(Identifier), null));
+            IsParameterExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
+            if (IsParameterExpected)
+            {
+                Parser.IncrementDataIndex();
+            }
+        }
+
+        ErrorCreateOptions ErrorExpectedParameterEnd = ErrorCreator.ExpectedGenericParameterEnd
+                .CreateOptions(memberName.SourceCodeName);
+        Parser.SkipUntilNonWhitespace(ErrorExpectedParameterEnd);
+        if (Parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END)
+        {
+            throw new SourceFileReadException(Parser, ErrorExpectedParameterEnd);
+        }
+        Parser.IncrementDataIndex();    
     }
 }

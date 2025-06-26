@@ -249,7 +249,8 @@ public class SourceDataParser
             else if (!char.IsWhiteSpace(GetCharAtDataIndex()))
             {
                 throw new SourceFileReadException(this, error, $"Invalid character '{GetCharAtDataIndex()}' found, " +
-                    $"allowed characters include [{string.Join(", ", charsToFind)}].");
+                    $"allowed characters include " +
+                    $"{string.Join(", ", charsToFind.Select(value => $"'{value}'"))}.");
             }
             IncrementDataIndex();
         }

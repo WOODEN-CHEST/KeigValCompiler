@@ -82,7 +82,7 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedMemberExtensionOrBody { get; } = new(22,
         $"Expected member \"{{0}}\" body '{KGVL.DOUBLE_CURLY_OPEN}' " +
-        $"or member extension {{0}} {KGVL.COLON} T2{KGVL.COMMA} T12{KGVL.COMMA} ... Tn");
+        $"or member extension {{0}} {KGVL.COLON} T1{KGVL.COMMA} T2{KGVL.COMMA} ... Tn");
 
     internal virtual ErrorDefinition ExpectedMemberExtension { get; } = new(23,
         "Expected extended member identifier for member \"{0}\"");
@@ -128,4 +128,33 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedMultiLineCommentEnd { get; } = new(35,
         "Multi-line comment started on line {0} wasn't terminated properly");
+
+    internal virtual ErrorDefinition ExpectedGenericTypeConstraint { get; } = new(36,
+        "Expected identifier of a generic type parameter to apply constraints to " +
+        "for the type \"{0}\"");
+
+    internal virtual ErrorDefinition GenericParameterNotFound { get; } = new(37,
+        "No generic parameter with the name \"{0}\" was found for the type \"{1}\" " +
+        "as listed in the generic type parameter constraint.");
+
+    internal virtual ErrorDefinition GenericParameterConstraintStartNotFound { get; } = new(38,
+        $"Expected '{KGVL.COLON}' to denote the start of constraints for the " +
+        "type parameter \"{0}\" in member \"{1}\"");
+
+    internal virtual ErrorDefinition ExpectedGenericConstraintIdentifier { get; } = new(39,
+        "Expected generic constraint value (identifier or special constraint) for the " +
+        "type parameter \"{0}\"");
+
+    internal virtual ErrorDefinition ExpectedGenericParameterEnd { get; } = new(40,
+        $"Expected generic parameter list end '{KGVL.GENERIC_TYPE_END}' for member \"{{0}}\"");
+
+    internal virtual ErrorDefinition ExpectedGenericParameterIdentifier { get; } = new(41,
+        "Expected generic parameter identifier for member \"{0}\"");
+
+    internal virtual ErrorDefinition ExpectedGenericParameterCommaOrEnd { get; } = new(42,
+        $"Expected comma '{KGVL.COMMA}' for next generic parameter identifier " +
+        $"or generic parameter list end '{KGVL.GENERIC_TYPE_END}' for member \"{{0}}\"");
+
+    internal virtual ErrorDefinition ExpectedMemberBodyStart { get; } = new(43,
+        $"Expected member \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}'");
 }
