@@ -7,19 +7,10 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Error;
 
-internal class ErrorDefinition
+internal class ErrorDefinition : CompilerMessageDefinition
 {
-    // Fields.
-    public int Code { get; init; }
-    public string RawMessage { get; init; }
-
-
     // Constructors.
-    public ErrorDefinition(int code, string rawMessage)
-    {
-        Code = code;
-        RawMessage = rawMessage ?? throw new ArgumentNullException(nameof(rawMessage));
-    }
+    public ErrorDefinition(int code, string rawMessage) : base(code, rawMessage) { }
 
 
     // Methods.

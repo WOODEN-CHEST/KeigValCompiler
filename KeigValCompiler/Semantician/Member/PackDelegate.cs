@@ -13,7 +13,7 @@ internal class PackDelegate : PackMember, IPackType
 
 
     // Internal fields.
-    internal Identifier? ReturnType { get; set; }
+    internal TypeTargetIdentifier? ReturnType { get; set; } = null;
     internal FunctionParameterCollection Parameters { get; } = new();
 
 

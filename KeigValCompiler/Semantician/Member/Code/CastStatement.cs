@@ -10,13 +10,13 @@ internal class CastStatement : Statement
 {
     // Fields.
     internal override IEnumerable<Statement> SubStatements => new Statement[] { StatementToCast };
-    internal Identifier TargetCastType { get; set; }
+    internal TypeTargetIdentifier TargetCastType { get; set; }
     internal Statement StatementToCast { get; set; }
     internal bool IsStrict { get; set; } = true;
 
 
     // Constructors.
-    internal CastStatement(Identifier targetCastType, Statement statementToCast)
+    internal CastStatement(TypeTargetIdentifier targetCastType, Statement statementToCast)
     {
         TargetCastType = targetCastType ?? throw new ArgumentNullException(nameof(targetCastType));
         StatementToCast = statementToCast;

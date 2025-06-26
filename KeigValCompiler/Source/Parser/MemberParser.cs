@@ -463,6 +463,11 @@ internal class MemberParser : AbstractParserBase
         };
     }
 
+    void DoStuff<T1, T2>()
+    {
+
+    }
+
     private FunctionParameterCollection ParseFunctionParameters(char paramListEndChar, Identifier funcHolderName)
     {
         ErrorCreateOptions ExpectTypeOrModifierError = ErrorCreator.ExpectedParameterTypeOrModifier
@@ -508,5 +513,63 @@ internal class MemberParser : AbstractParserBase
         }
 
         return Params;
+    }
+
+    private void ParsGenericConstraints(
+        GenericTypeParameterCollection parameters, 
+        params char[] endCharacters)
+    {
+        Parser.SkipUntilNonWhitespace(null);
+
+        string Word = Parser.ReadWord(null);
+        while (Word == KGVL.KEYWORD_WHEN)
+        {
+            Parser.SkipUntilNonWhitespace(null);
+            ParseSingleGenericParameterConstraints(parameters, endCharacters);
+        }
+    }
+
+    private void ParseSingleGenericParameterConstraints(
+        GenericTypeParameterCollection parameters,
+        char[] endCharacters)
+    {
+        string TypeName = Parser.ReadIdentifier(null);
+        GenericTypeParameter? Parameter = parameters.GetBySourceCodeName(TypeName);
+        if (Parameter == null)
+        {
+            throw new SourceFileReadException(Parser, null);
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.COLON)
+        {
+            throw new SourceFileReadException(Parser, null);
+        }
+        Parser.IncrementDataIndex();
+
+        List<GenericConstraint> Constraints = new();
+        bool IsConstraintExpected = true;
+        while (IsConstraintExpected)
+        {
+            TypeTargetIdentifier ConstraintType = Utils.ParseTypeTargetIdentifier(Parser, null);
+            SpecialGenericConstraint? SpecialConstraint = TryGetSpecialConstraint(
+                ConstraintType.MainTarget!.SourceCodeName);
+            GenericConstraint Constraint = SpecialConstraint != null
+                ? new(SpecialConstraint.Value) : new(ConstraintType);
+            Constraints.Add(Constraint);
+        }
+
+        Parameter.Constraints = Constraints.ToArray();
+    }
+
+    private SpecialGenericConstraint? TryGetSpecialConstraint(string constraintName)
+    {
+        return constraintName switch
+        {
+            KGVL.KEYWORD_CLASS => SpecialGenericConstraint.Class,
+            KGVL.KEYWORD_STRUCT => SpecialGenericConstraint.Struct,
+            KGVL.KEYWORD_NOTNULL => SpecialGenericConstraint.NotNull,
+            _ => null
+        };
     }
 }

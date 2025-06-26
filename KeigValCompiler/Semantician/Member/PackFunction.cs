@@ -9,11 +9,11 @@ internal class PackFunction : PackMember, IGenericParameterHolder
 
 
     // Internal fields.
-    internal Identifier? ReturnType { get; set; }
+    internal TypeTargetIdentifier? ReturnType { get; set; } = null;
     internal FunctionParameterCollection Parameters { get; private init; } = new();
     internal StatementCollection Statements { get; private init; } = new();
 
 
     // Constructors.
-    internal PackFunction(Identifier identifier,  PackSourceFile sourceFile) : base(identifier, sourceFile) { }
+    internal PackFunction(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
 }

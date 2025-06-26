@@ -23,7 +23,10 @@ internal class SourceFileParser
 
 
     // Internal methods.
-    internal void ParseFile(DataPack parentPack, ErrorRepository errorRepository, ParserUtilities utilities)
+    internal void ParseFile(DataPack parentPack,
+        ErrorRepository errorRepository,
+        ParserUtilities utilities,
+        WarningCollection warnings)
     {
         try
         {
@@ -42,7 +45,8 @@ internal class SourceFileParser
                 ErrorCreator = errorRepository,
                 SourceFile = SourceFile,
                 Parser = SourceParser,
-                Utilities = utilities
+                Utilities = utilities,
+                Warnings = warnings
             };
 
             new SourceFileRootParser(Context).ParseBase();

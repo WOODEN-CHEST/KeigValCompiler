@@ -14,18 +14,24 @@ internal class PackParser
     private readonly string _sourceDirPath;
     private readonly ErrorRepository _errorRepository;
     private readonly ParserUtilities _parsingUtilities;
+    private readonly WarningCollection _warnings;
 
 
     // Constructors.
-    internal PackParser(string sourceDirectory, ErrorRepository errorRepository, ParserUtilities parserUtilities)
+    internal PackParser(string sourceDirectory, 
+        ErrorRepository errorRepository,
+        ParserUtilities parserUtilities,
+        WarningCollection warnings)
     {
         ArgumentNullException.ThrowIfNull(sourceDirectory, nameof(sourceDirectory));
         ArgumentNullException.ThrowIfNull(errorRepository, nameof(errorRepository));
         ArgumentNullException.ThrowIfNull(errorRepository, nameof(parserUtilities));
+        ArgumentNullException.ThrowIfNull(warnings, nameof(warnings));
 
         _sourceDirPath = sourceDirectory;
         _errorRepository = errorRepository;
         _parsingUtilities = parserUtilities;
+        _warnings = warnings;
     }
 
 
@@ -43,7 +49,7 @@ internal class PackParser
             _sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
             SourceFileParser FileParser = new(sourceFile, Pack);
-            FileParser.ParseFile(Pack, _errorRepository, _parsingUtilities);
+            FileParser.ParseFile(Pack, _errorRepository, _parsingUtilities, _warnings);
         }
 
         return Pack;

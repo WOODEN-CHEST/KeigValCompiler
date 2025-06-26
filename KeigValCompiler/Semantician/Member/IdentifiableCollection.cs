@@ -36,6 +36,27 @@ internal class IdentifiableCollection<T> : IEnumerable<T> where T : IIdentifiabl
         _items.Clear();
     }
 
+    public void SetFrom(IEnumerable<T> items)
+    {
+        ClearItems();
+        foreach (var Item in items)
+        {
+            AddItem(Item);
+        }
+    }
+
+    public T? GetBySourceCodeName(string name)
+    {
+        foreach (var Item in _items)
+        {
+            if (Item.SelfIdentifier.SourceCodeName == name)
+            {
+                return Item;
+            }
+        }
+        return default;
+    }
+
 
     // Inherited methods.
     public IEnumerator<T> GetEnumerator()

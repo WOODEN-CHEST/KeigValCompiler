@@ -9,12 +9,12 @@ namespace KeigValCompiler.Semantician.Member;
 internal class PackEvent : PackMember
 {
     // Internal fields.
-    internal Identifier Type { get; set; }
+    internal TypeTargetIdentifier Type { get; set; }
 
 
     // Constructors.
-    public PackEvent(Identifier identifier, 
-        Identifier delegateIdentifier,
+    public PackEvent(Identifier identifier,
+        TypeTargetIdentifier delegateIdentifier,
         PackSourceFile sourceFile) 
         : base(identifier, sourceFile)
     {

@@ -5,12 +5,12 @@ namespace KeigValCompiler.Semantician.Member;
 internal class PackField : PackMember
 {
     // Internal fields.
-    internal Identifier Type { get; set; }
+    internal TypeTargetIdentifier Type { get; set; }
     internal Statement? InitialValue { get; set; }
 
 
     // Constructors.
-    public PackField(Identifier identifier, Identifier fieldType, PackSourceFile sourceFile)
+    public PackField(Identifier identifier, TypeTargetIdentifier fieldType, PackSourceFile sourceFile)
         : base(identifier, sourceFile)
     {
         Type = fieldType;

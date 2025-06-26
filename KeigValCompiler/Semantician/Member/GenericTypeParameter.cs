@@ -3,19 +3,15 @@
 internal class GenericTypeParameter : IIdentifiable
 {
     // Fields.
-    public Identifier SelfIdentifier { get; }
-    public GenericConstraint[] Constraints => _constraints.ToArray();
-
-
-    // Private fields.
-    private readonly GenericConstraint[] _constraints;
+    public Identifier SelfIdentifier { get; set; }
+    public GenericConstraint[] Constraints { get; set; }
 
 
     // Constructors.
-    internal GenericTypeParameter(Identifier identifier, GenericConstraint[] constraints)
+    internal GenericTypeParameter(Identifier identifier, GenericConstraint[]? constraints)
     {
-        SelfIdentifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
-        _constraints = constraints?.ToArray() ?? throw new ArgumentNullException(nameof(constraints));
+        SelfIdentifier = identifier;
+        Constraints = constraints?.ToArray() ?? Array.Empty<GenericConstraint>();
     }
 
 

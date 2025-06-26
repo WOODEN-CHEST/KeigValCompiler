@@ -5,7 +5,7 @@ namespace KeigValCompiler.Semantician.Member;
 internal class PackProperty : PackMember
 {
     // Internal fields.
-    internal Identifier Type { get; set; }
+    internal TypeTargetIdentifier Type { get; set; }
     internal Statement? InitialValue { get; set; }
     internal PackFunction? GetFunction { get;set; }
     internal PackFunction? SetFunction { get; set; }
@@ -36,7 +36,7 @@ internal class PackProperty : PackMember
 
 
     // Constructors.
-    internal PackProperty(Identifier identifier, Identifier type, PackSourceFile sourceFile)
+    internal PackProperty(Identifier identifier, TypeTargetIdentifier type, PackSourceFile sourceFile)
         : base(identifier, sourceFile)
     {
         Type = type;

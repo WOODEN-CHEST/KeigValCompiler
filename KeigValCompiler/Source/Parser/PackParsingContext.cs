@@ -14,4 +14,5 @@ internal class PackParsingContext
     internal required ParserUtilities Utilities { get; init; }
     internal required SourceDataParser Parser { get; init; }
     internal required PackSourceFile SourceFile { get; init; }
+    internal required WarningCollection Warnings { get; init; }
 }

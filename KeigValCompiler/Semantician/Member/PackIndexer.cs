@@ -3,7 +3,7 @@
 internal class PackIndexer : PackMember
 {
     // Internal fields.
-    internal Identifier Type { get; set; }
+    internal TypeTargetIdentifier Type { get; set; }
     internal PackFunction? GetFunction { get; set; }
     internal PackFunction? SetFunction { get; set; }
     internal FunctionParameterCollection Parameters { get; } = new();
@@ -29,5 +29,10 @@ internal class PackIndexer : PackMember
 
 
     // Constructors.
-    public PackIndexer(Identifier identifier, PackSourceFile sourceFile) : base(identifier, sourceFile) { }
+    public PackIndexer(Identifier identifier, 
+        TypeTargetIdentifier type,
+        PackSourceFile sourceFile) : base(identifier, sourceFile)
+    {
+        Type = type;
+    }
 }

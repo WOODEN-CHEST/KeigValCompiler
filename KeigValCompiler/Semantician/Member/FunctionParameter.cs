@@ -7,12 +7,12 @@ internal class FunctionParameter : IIdentifiable
 
 
     // Internal fields.
-    internal Identifier Type { get; private init; }
+    internal TypeTargetIdentifier Type { get; private init; }
     internal FunctionParameterModifier Modifiers { get; private init; }
 
 
     // Constructors.
-    internal FunctionParameter(Identifier type, Identifier selfIdentifier, FunctionParameterModifier modifier)
+    internal FunctionParameter(TypeTargetIdentifier type, Identifier selfIdentifier, FunctionParameterModifier modifier)
     {
         Type = type ?? throw new ArgumentNullException(nameof(type));
         SelfIdentifier = selfIdentifier ?? throw new ArgumentNullException(nameof(selfIdentifier));
@@ -23,7 +23,7 @@ internal class FunctionParameter : IIdentifiable
     // Inherited methods.
     public override string ToString()
     {
-        return $"{SelfIdentifier.ToString()} (Type {Type.ToString()})";
+        return $"{SelfIdentifier} (Type {Type})";
     }
 
     public override bool Equals(object? obj)

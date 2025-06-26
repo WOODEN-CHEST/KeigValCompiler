@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
 using System;
 using System.Collections.Generic;
@@ -29,4 +30,43 @@ internal class ParserUtilities
             _ => "(internal error evaluating member type, invalid type)"
         };
     }
+
+    internal TypeTargetIdentifier ParseTypeTargetIdentifier(SourceDataParser parser, ErrorCreateOptions? error)
+    {
+        string BaseName = parser.ReadIdentifier(error);
+        parser.SkipUntilNonWhitespace(null);
+        if (parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
+        {
+            return new TypeTargetIdentifier(new(BaseName), null);
+        }
+
+        parser.IncrementDataIndex();
+        List<TypeTargetIdentifier> SubTypes = new();
+        bool IsTypeNameExpected = true;
+
+        while (IsTypeNameExpected)
+        {
+            parser.SkipUntilNonWhitespace(error);
+            TypeTargetIdentifier SubType = ParseTypeTargetIdentifier(parser, error);
+            SubTypes.Add(SubType);
+            parser.SkipUntilNonWhitespace(error);
+            IsTypeNameExpected = parser.GetCharAtDataIndex() == KGVL.COMMA;
+            if (IsTypeNameExpected)
+            {
+                parser.IncrementDataIndex();
+            }
+        }
+
+        if (parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END)
+        {
+            throw new SourceFileReadException(parser, error, 
+                $"Expected generic type end '{KGVL.GENERIC_TYPE_END}'");
+        }
+
+        return new(new(BaseName), SubTypes.ToArray());
+    }
+
+
+    // Private methods.
+
 }

@@ -3,13 +3,19 @@
 internal class GenericConstraint
 {
     // Fields.
-    internal Identifier ContrainedItemName { get; private init; }
+    internal TypeTargetIdentifier? ConstrainedItemName { get; set; }
+    internal SpecialGenericConstraint SpecialConstraint { get; set; } = SpecialGenericConstraint.None;
 
 
     // Constructors.
-    internal GenericConstraint(Identifier constraintIdentifier)
+    internal GenericConstraint(TypeTargetIdentifier constrainedItemName)
     {
-        ContrainedItemName = constraintIdentifier ?? throw new ArgumentNullException(nameof(constraintIdentifier));
+        ConstrainedItemName = constrainedItemName ?? throw new ArgumentNullException(nameof(constrainedItemName));
+    }
+
+    internal GenericConstraint(SpecialGenericConstraint constraint)
+    {
+        SpecialConstraint = constraint;
     }
 
 
@@ -20,16 +26,17 @@ internal class GenericConstraint
         {
             return false;
         }
-        return Constraint.ContrainedItemName.Equals(Constraint);
+        return Constraint.ConstrainedItemName?.Equals(Constraint) 
+            ?? (Constraint.SpecialConstraint == SpecialConstraint);
     }
 
     public override int GetHashCode()
     {
-        return ContrainedItemName.GetHashCode();
+        return ConstrainedItemName?.GetHashCode() ?? SpecialConstraint.GetHashCode();
     }
 
     public override string ToString()
     {
-        return ContrainedItemName.ToString();
+        return ConstrainedItemName?.ToString() ?? SpecialConstraint.ToString();
     }
 }
