@@ -114,7 +114,7 @@ internal class MemberParser : AbstractParserBase
         }
     }
 
-    private Identifier ParseTypeMemberIdentifier(string typeName)
+    private Identifier ParseMemberSelfIdentifier(string typeName)
     {
         ErrorCreateOptions ErrorOptions = ErrorCreator.ExpectedTypeMemberIdentifier.CreateOptions(typeName);
         Parser.SkipUntilNonWhitespace(ErrorOptions);
@@ -185,7 +185,7 @@ internal class MemberParser : AbstractParserBase
             throw CreateInvalidHolderException(parentObject, typeName);
         }
 
-        Identifier Name = ParseTypeMemberIdentifier(typeName);
+        Identifier Name = ParseMemberSelfIdentifier(typeName);
         SourceFileOrigin Origin = new(Parser.Line);
         T CreatedType = typeConstructor.Invoke(Name);
         CreatedType.Modifiers = modifiers;
@@ -265,7 +265,7 @@ internal class MemberParser : AbstractParserBase
         }
         
         TypeTargetIdentifier? ReturnType = ParseReturnType(KGVL.NAME_DELEGATE);
-        Identifier Name = ParseTypeMemberIdentifier(KGVL.NAME_DELEGATE);
+        Identifier Name = ParseMemberSelfIdentifier(KGVL.NAME_DELEGATE);
         SourceFileOrigin Origin = new(Parser.Line);
 
         ErrorCreateOptions ParamError = ErrorCreator.ExpectedDelegateParamList.CreateOptions(Name.SourceCodeName);
@@ -307,9 +307,25 @@ internal class MemberParser : AbstractParserBase
             (type, holder) => holder.AddInterface(type));
     }
 
-    private void ParseEvent(object? parentObject, PackMemberModifiers modifiers)
+    private void ParseEvent(object parentObject, PackMemberModifiers modifiers)
     {
+        if (parentObject is not IPackEventHolder EventHolder)
+        {
+            throw CreateInvalidHolderException(parentObject, KGVL.NAME_EVENT);
+        }
 
+        ErrorCreateOptions ExpectedDelegateError = ErrorCreator.ExpectedEventDelegateType.CreateOptions();
+        Parser.SkipUntilNonWhitespace(ExpectedDelegateError);
+        TypeTargetIdentifier EventDelegateType = Utils.ParseTypeTargetIdentifier(Parser, ExpectedDelegateError);
+        Identifier Name = ParseMemberSelfIdentifier(KGVL.NAME_EVENT);
+
+        ErrorCreateOptions ExpectedEndError = ErrorCreator.ExpectedEventEnd.CreateOptions(Name.SourceCodeName);
+        Parser.SkipUntilNonWhitespace(ExpectedEndError);
+        if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+        {
+            throw new SourceFileReadException(Parser, ExpectedEndError);
+        }
+        Parser.IncrementDataIndex();
     }
 
     private void ParseEnumeration(object parentObject, PackMemberModifiers modifiers)
@@ -319,7 +335,7 @@ internal class MemberParser : AbstractParserBase
             throw CreateInvalidHolderException(parentObject, KGVL.NAME_ENUM);
         }
 
-        Identifier Name = ParseTypeMemberIdentifier(KGVL.NAME_ENUM);
+        Identifier Name = ParseMemberSelfIdentifier(KGVL.NAME_ENUM);
         SourceFileOrigin Origin = new(Parser.Line);
         PackEnumeration Enum = new(Name, SourceFile)
         {

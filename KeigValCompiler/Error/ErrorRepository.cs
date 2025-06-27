@@ -163,4 +163,10 @@ internal class ErrorRepository
         "Expected member \"{0}\" generic parameters " +
         $"({{0}}{KGVL.GENERIC_TYPE_START}T1, T2 ... Tn{KGVL.GENERIC_TYPE_END}) " +
         $"or member extension ({{0}} {KGVL.COLON} T1, T2 ... Tn)");
+
+    internal virtual ErrorDefinition ExpectedEventDelegateType { get; } = new(45,
+        "Expected event delegate type identifier.");
+
+    internal virtual ErrorDefinition ExpectedEventEnd { get; } = new(45,
+        $"Expected event \"{{0}}\" definition end '{KGVL.SEMICOLON}'");
 }
