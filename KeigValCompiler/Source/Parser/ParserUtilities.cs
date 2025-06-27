@@ -37,7 +37,7 @@ internal class ParserUtilities
         parser.SkipUntilNonWhitespace(null);
         if (parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
         {
-            return new TypeTargetIdentifier(new(BaseName), null);
+            return new TypeTargetIdentifier(new(BaseName), null) { IsNullable = GetIsNullable(parser) };
         }
 
         parser.IncrementDataIndex();
@@ -63,11 +63,20 @@ internal class ParserUtilities
                 $"Expected generic type end '{KGVL.GENERIC_TYPE_END}'");
         }
         parser.IncrementDataIndex();
+        parser.SkipUntilNonWhitespace(null);
 
-        return new(new(BaseName), SubTypes.ToArray());
+        return new(new(BaseName), SubTypes.ToArray()) { IsNullable = GetIsNullable(parser) };
     }
 
 
     // Private methods.
-
+    private bool GetIsNullable(SourceDataParser parser)
+    {
+        if (parser.GetCharAtDataIndex() == KGVL.TYPE_NULLABLE_INDICATOR)
+        {
+            parser.IncrementDataIndex();
+            return true;
+        }
+        return false;
+    }
 }

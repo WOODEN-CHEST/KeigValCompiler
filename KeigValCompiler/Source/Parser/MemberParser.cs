@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace KeigValCompiler.Source.Parser;
 
@@ -191,7 +192,8 @@ internal class MemberParser : AbstractParserBase
         addFunction.Invoke(CreatedType, TypeHolder);
         CreatedType.SourceFileOrigin = Origin;
 
-        Parser.SkipUntilNonWhitespace(null);
+        Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericParmsOrExtension
+            .CreateOptions(Name.SourceCodeName));
         IGenericParameterHolder? GenericsHolder = CreatedType as IGenericParameterHolder;
         if (GenericsHolder != null)
         {
@@ -461,11 +463,12 @@ internal class MemberParser : AbstractParserBase
         throw new NotImplementedException();
     }
 
-    internal void ParseMemberExtensions(IPackMemberExtender extender, Identifier extenderName)
+    internal void ParseMemberExtensions(IPackMemberExtender extender, 
+        Identifier extenderName)
     {
         char[] ExpectedChars = new char[] { KGVL.COLON, KGVL.OPEN_CURLY_BRACKET, KGVL.KEYWORD_WHEN[0], KGVL.SEMICOLON };
 
-        ErrorCreateOptions ExtendOrBodyError = ErrorCreator.ExpectedMemberExtensionOrBody
+        ErrorCreateOptions ExtendOrBodyError = ErrorCreator.ExpectedMemberExtensionOrBodyOrConstraints
             .CreateOptions(extenderName.SourceCodeName);
         ErrorCreateOptions ExtendError = ErrorCreator.ExpectedMemberExtension
             .CreateOptions(extenderName.SourceCodeName);
@@ -623,7 +626,8 @@ internal class MemberParser : AbstractParserBase
 
     private void ParseGenericParameters(Identifier memberName, GenericTypeParameterCollection parameters)
     {
-        Parser.SkipUntilNonWhitespace(null);
+        Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericParmsOrExtension
+            .CreateOptions(memberName.SourceCodeName));
         if (Parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
         {
             return;

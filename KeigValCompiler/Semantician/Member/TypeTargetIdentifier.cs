@@ -11,6 +11,7 @@ internal class TypeTargetIdentifier
     // Fields.
     internal Identifier? MainTarget { get; set; }
     internal TypeTargetIdentifier[] TypeArguments { get; set; }
+    internal bool IsNullable { get; set; } = false;
 
 
     // Constructors.

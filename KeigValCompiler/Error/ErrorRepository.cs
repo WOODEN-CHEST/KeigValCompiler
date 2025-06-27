@@ -49,12 +49,12 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition EOFWhileParsingRecord { get; } = new(12,
         $"Expected record \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}', primary constructor " +
-        $"{{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS}; " +
-        $"or member extension, got end of file");
+        $"({{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS};) " +
+        $"or member extension, or generic constraints ({{0}} {KGVL.KEYWORD_WHEN} T1 {KGVL.COLON} ... )");
 
     internal virtual ErrorDefinition EOFWhileParsingType { get; } = new(13,
         $"Expected {{0}} \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}' " +
-        $"or member extension, got end of file");
+        $"or member extension, or generic constraints ({{1}} {KGVL.KEYWORD_WHEN} T1 {KGVL.COLON} ... )");
 
     internal virtual ErrorDefinition EOFWhileParsingMembers { get; } = new(14,
         $"Expected {{0}} \"{{1}}\" body end '{KGVL.DOUBLE_CURLY_CLOSE}' or {{0}} member, got end of file");
@@ -80,9 +80,10 @@ internal class ErrorRepository
     internal virtual ErrorDefinition CannotHoldMemberInUnknown { get; } = new(21,
        "The parent member cannot hold a member of type {0}");
 
-    internal virtual ErrorDefinition ExpectedMemberExtensionOrBody { get; } = new(22,
+    internal virtual ErrorDefinition ExpectedMemberExtensionOrBodyOrConstraints { get; } = new(22,
         $"Expected member \"{{0}}\" body '{KGVL.DOUBLE_CURLY_OPEN}' " +
-        $"or member extension {{0}} {KGVL.COLON} T1{KGVL.COMMA} T2{KGVL.COMMA} ... Tn");
+        $"or member extension ({{0}} {KGVL.COLON} T1{KGVL.COMMA} T2{KGVL.COMMA} ... Tn), " +
+        $"or member generic type constraints ({{0}} {KGVL.KEYWORD_WHEN} {KGVL.COLON} ... )");
 
     internal virtual ErrorDefinition ExpectedMemberExtension { get; } = new(23,
         "Expected extended member identifier for member \"{0}\"");
@@ -157,4 +158,9 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedMemberBodyStart { get; } = new(43,
         $"Expected member \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}'");
+
+    internal virtual ErrorDefinition ExpectedGenericParmsOrExtension { get; } = new(44,
+        "Expected member \"{0}\" generic parameters " +
+        $"({{0}}{KGVL.GENERIC_TYPE_START}T1, T2 ... Tn{KGVL.GENERIC_TYPE_END}) " +
+        $"or member extension ({{0}} {KGVL.COLON} T1, T2 ... Tn)");
 }

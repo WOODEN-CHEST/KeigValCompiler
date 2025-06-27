@@ -34,6 +34,8 @@ internal static class KGVL
     public const char GENERIC_TYPE_START = '<';
     public const char GENERIC_TYPE_END = '>';
 
+    public const char TYPE_NULLABLE_INDICATOR = '?';
+
 
     /* Keywords. */
     public const string KEYWORD_NAMESPACE = "namespace";
