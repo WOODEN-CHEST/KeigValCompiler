@@ -19,6 +19,6 @@ internal class SourceFileReadException : Exception
     {
         string Notes = notes != null ? $"Notes: {notes}" : string.Empty;
         return $"Failed to read file \"{parser.FilePath}\" on line {parser.Line}. " +
-            $"{error?.CreateMessage() ?? string.Empty}. {Notes}";
+            $"{error?.CreateMessage() ?? string.Empty}. {Notes}.";
     }
 }

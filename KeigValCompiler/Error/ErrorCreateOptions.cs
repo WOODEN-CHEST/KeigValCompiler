@@ -25,7 +25,7 @@ internal readonly struct ErrorCreateOptions
     // Methods.
     public string CreateMessage()
     {
-        return $"KGVL Error {Definition.Code}: " 
+        return $"KGVL {Definition.Category.Prefix} Error {Definition.Code}: " 
             + string.Format(CultureInfo.InvariantCulture, Definition.RawMessage, Arguments);
     }
 }

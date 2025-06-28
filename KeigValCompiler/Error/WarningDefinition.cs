@@ -14,8 +14,11 @@ internal class WarningDefinition : CompilerMessageDefinition
 
 
     // Constructors.
-    public WarningDefinition(int code, WarningSeverity severity, string rawMessage)
-        : base(code, rawMessage)
+    public WarningDefinition(int code,
+        WarningSeverity severity, 
+        string rawMessage, 
+        CompilerMessageCategory category)
+        : base(code, rawMessage, category)
     {
         Severity = severity;
     }

@@ -10,7 +10,8 @@ namespace KeigValCompiler.Error;
 internal class ErrorDefinition : CompilerMessageDefinition
 {
     // Constructors.
-    public ErrorDefinition(int code, string rawMessage) : base(code, rawMessage) { }
+    public ErrorDefinition(int code, CompilerMessageCategory category, string rawMessage) 
+        : base(code, rawMessage, category) { }
 
 
     // Methods.

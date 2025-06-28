@@ -1,6 +1,8 @@
 ﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician.Member;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -15,7 +17,21 @@ public class SourceDataParser
     internal int DataIndex
     {
         get => _dataIndex;
-        set => _dataIndex = Math.Clamp(value, 0, _data.Length);
+        set
+        {
+            /* Done this way so current line number doesn't get screwed up,
+            * though I agree that this is a bad solution. Better to track lines in a way that they 
+            * can be indexed by the data index so that this doesn't need to be done. */
+            int TargetValue = Math.Clamp(value, 0, _data.Length);
+            if (TargetValue > DataIndex)
+            {
+                IncrementDataIndexNTimes(TargetValue - DataIndex);
+            }
+            else
+            {
+                DecrementDataIndexNTimes(DataIndex - TargetValue);
+            }
+        }
     }
     internal string? FilePath { get; set; } = null;
     internal int DataLength => _data.Length;
@@ -124,18 +140,12 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if (Identifier.Length == 0)
+        if ((Identifier.Length == 0) || char.IsDigit(Identifier[0]))
         {
-            if (error.HasValue)
-            {
-                throw new SourceFileReadException(this, error);
-            }
-            return string.Empty;
-        }
-        else if (char.IsDigit(Identifier[0]))
-        {
+            string IdentifierName = Identifier.Length != 0 ? $"\"{Identifier.ToString()}\"" : "with empty name"
             throw new SourceFileReadException(this, error, $"Invalid identifier \"{Identifier.ToString()}\", " +
-                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit.");
+                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit, " +
+                $"and their length must be >= 1 character");
         }
 
         return Identifier.ToString();
@@ -147,19 +157,6 @@ public class SourceDataParser
         while (_dataIndex > 0)
         {
             if (char.IsWhiteSpace(GetCharAtDataIndex()))
-            {
-                IncrementDataIndex();
-                return;
-            }
-            DecrementDataIndex();
-        }
-    }
-    internal void ReverseUntilOneAfterIdentifier()
-    {
-        DecrementDataIndex();
-        while (_dataIndex > 0)
-        {
-            if (!IsIdentifierChar(GetCharAtDataIndex()))
             {
                 IncrementDataIndex();
                 return;
@@ -374,6 +371,40 @@ public class SourceDataParser
         return new(Number.ToString(), Base, IsLong, IsUnsigned);
     }
 
+    internal TypeTargetIdentifier ReadTypeTargetIdentifier(ErrorCreateOptions? error)
+    {
+        string BaseName = ReadIdentifier(error);
+        if (GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
+        {
+            return new TypeTargetIdentifier(new(BaseName), null) { IsNullable = GetIsNullable() };
+        }
+
+        IncrementDataIndex();
+        List<TypeTargetIdentifier> SubTypes = new();
+        bool IsTypeNameExpected = true;
+
+        while (IsTypeNameExpected)
+        {
+            SkipUntilNonWhitespace(error);
+            TypeTargetIdentifier SubType = ReadTypeTargetIdentifier(error);
+            SubTypes.Add(SubType);
+            SkipUntilNonWhitespace(error);
+            IsTypeNameExpected = GetCharAtDataIndex() == KGVL.COMMA;
+            if (IsTypeNameExpected)
+            {
+                IncrementDataIndex();
+            }
+        }
+
+        if (GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END)
+        {
+            throw new SourceFileReadException(this, error,
+                $"Expected generic type end '{KGVL.GENERIC_TYPE_END}'");
+        }
+        IncrementDataIndex();
+
+        return new(new(BaseName), SubTypes.ToArray()) { IsNullable = GetIsNullable() };
+    }
 
     // Private methods.
     private (char[] characters, NumberBase numberBase) GetNumberBase()
@@ -404,7 +435,8 @@ public class SourceDataParser
 
         foreach (char Character in Suffix)
         {
-            if (Character == KGVL.SUFFIX_LONG)
+            char LowerChar = char.ToLower(Character, CultureInfo.InvariantCulture);
+            if (LowerChar == KGVL.SUFFIX_LONG)
             {
                 if (HasLongSpecifier)
                 {
@@ -414,7 +446,7 @@ public class SourceDataParser
                 HasLongSpecifier = true;
                 IncrementDataIndex();
             }
-            else if (Character == KGVL.SUFFIX_UNSIGNED)
+            else if (LowerChar == KGVL.SUFFIX_UNSIGNED)
             {
                 if (HasUnsignedSpecifier)
                 {
@@ -458,4 +490,18 @@ public class SourceDataParser
         return $"Unexpected end of file while looking for one of these characters: " +
                 $"[{string.Join(", ", characters)}].";
     }
+
+    private bool GetIsNullable()
+    {
+        int EndIndex = DataIndex;
+        SkipUntilNonWhitespace(null);
+        if (GetCharAtDataIndex() == KGVL.TYPE_NULLABLE_INDICATOR)
+        {
+            IncrementDataIndex();
+            return true;
+        }
+        DataIndex = EndIndex;
+        return false;
+    }
+
 }

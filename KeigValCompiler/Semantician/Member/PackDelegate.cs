@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Semantician.Member;
 
-internal class PackDelegate : PackMember, IPackType
+internal class PackDelegate : PackMember, IPackType, IGenericParameterHolder
 {
     // Fields.
     public IEnumerable<PackFunction> Constructors => Enumerable.Empty<PackFunction>();
@@ -15,6 +15,7 @@ internal class PackDelegate : PackMember, IPackType
     // Internal fields.
     internal TypeTargetIdentifier? ReturnType { get; set; } = null;
     internal FunctionParameterCollection Parameters { get; } = new();
+    public GenericTypeParameterCollection GenericParameters { get; } = new();
 
 
     // Constructors.

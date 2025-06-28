@@ -1,5 +1,6 @@
 ﻿using KeigValCompiler.Error;
 using KeigValCompiler.Semantician;
+using KeigValCompiler.Semantician.Member;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,14 +29,16 @@ internal class SourceFileRootParser : AbstractParserBase
     {
         while (Parser.SkipUntilNonWhitespace(null))
         {
-            string Keyword = Parser.ReadWord(ErrorCreator.RootExpectedKeyword.CreateOptions());
+            int PreWordIndex = Parser.DataIndex;
+            TypeTargetIdentifier Word = Parser.ReadTypeTargetIdentifier(ErrorCreator.RootExpectedKeyword.CreateOptions());
+            string ExtractedKeyword = Word.MainTarget!.SourceCodeName;
 
-            if (Keyword == KGVL.KEYWORD_NAMESPACE)
+            if (ExtractedKeyword == KGVL.KEYWORD_NAMESPACE)
             {
-                _activeNamespace = GetOrCreateNamespace(ParseNamespaceName(), false);
+                _activeNamespace = GetOrCreateNamespace(ParseNamespaceName(false), false);
                 continue;
             }
-            else if (Keyword == KGVL.KEYWORD_USING)
+            else if (ExtractedKeyword == KGVL.KEYWORD_USING)
             {
                 ParseUsingStatement();
                 continue;
@@ -43,16 +46,34 @@ internal class SourceFileRootParser : AbstractParserBase
             else if (_activeNamespace == null)
             {
                 throw new SourceFileReadException(Parser,
-                    ErrorCreator.RootNonActiveNamespace.CreateOptions(Keyword));
+                    ErrorCreator.RootNonActiveNamespace.CreateOptions(ExtractedKeyword));
             }
 
-            Parser.ReverseUntilOneAfterWhitespace();
+            Parser.DataIndex = PreWordIndex;
             _memberParser.ParseMember(_activeNamespace);
         }
     }
 
 
     // Private methods.
+    private ErrorCreateOptions GetRootKeywordError()
+    {
+        if (_activeNamespace == null)
+        {
+            return ErrorCreator.RootExpectedKeyword.CreateOptions();
+        }
+        return ErrorCreator.RootExpectedKeywordOrMember.CreateOptions(_activeNamespace.SelfIdentifier.SourceCodeName);
+    }
+
+    private ErrorCreateOptions GetExpectedNamespaceError(bool isUsingDirective)
+    {
+        if (isUsingDirective)
+        {
+            return ErrorCreator.ExpectedNamespaceForUsingDirective.CreateOptions();
+        }
+        return ErrorCreator.ExpectedNamespaceForSet.CreateOptions();
+    }
+
     private PackNameSpace GetOrCreateNamespace(string fullName, bool isImport)
     {
         PackNameSpace? NameSpace = SourceFile.Pack.TryGetNamespace(fullName);
@@ -75,18 +96,21 @@ internal class SourceFileRootParser : AbstractParserBase
         return NameSpace;
     }
 
-    private string ParseNamespaceName()
+    private string ParseNamespaceName(bool isUsingDirective)
     {
-        Parser.SkipUntilNonWhitespace(ErrorCreator.RootInvalidNamespace.CreateOptions());
+        Parser.SkipUntilNonWhitespace(GetExpectedNamespaceError(isUsingDirective));
 
         StringBuilder NamespaceBuilder = new();
         bool IsMoreNamespaceExpected = true;
 
         while ((Parser.GetCharAtDataIndex() != KGVL.SEMICOLON) || IsMoreNamespaceExpected)
         {
-            NamespaceBuilder.Append(Parser.ReadIdentifier(ErrorCreator.RootInvalidNamespace.CreateOptions()));
-            Parser.SkipUntilNonWhitespace(ErrorCreator.NamespaceEndOrContinuation
-                .CreateOptions(NamespaceBuilder.ToString()));
+            NamespaceBuilder.Append(Parser.ReadIdentifier(ErrorCreator.ExpectedNamespaceSectionIdentifier
+                .CreateOptions(NamespaceBuilder.ToString())));
+
+            string IncompleteNamespaceName = NamespaceBuilder.ToString();
+            Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedNamespaceEndOrContinuation
+                .CreateOptions(IncompleteNamespaceName));
 
             char CharAfterIdentifier = Parser.GetCharAtDataIndex();
             if (CharAfterIdentifier == KGVL.NAMESPACE_SEPARATOR)
@@ -94,7 +118,8 @@ internal class SourceFileRootParser : AbstractParserBase
                 NamespaceBuilder.Append(KGVL.NAMESPACE_SEPARATOR);
                 Parser.IncrementDataIndex();
                 IsMoreNamespaceExpected = true;
-                Parser.SkipUntilNonWhitespace(ErrorCreator.RootInvalidNamespace.CreateOptions());
+                Parser.SkipUntilNonWhitespace(ErrorCreator.NamespaceEOFTrailingContinuation
+                    .CreateOptions(IncompleteNamespaceName));
             }
             else if (CharAfterIdentifier == KGVL.SEMICOLON)
             {
@@ -102,8 +127,8 @@ internal class SourceFileRootParser : AbstractParserBase
             }
             else
             {
-                throw new SourceFileReadException(Parser, ErrorCreator.NamespaceEndOrContinuation
-                    .CreateOptions(NamespaceBuilder.ToString()));
+                throw new SourceFileReadException(Parser, ErrorCreator.NamespaceUnexpectedChar
+                    .CreateOptions(IncompleteNamespaceName));
             }
         }
 
@@ -113,6 +138,6 @@ internal class SourceFileRootParser : AbstractParserBase
 
     private void ParseUsingStatement()
     {
-        SourceFile.AddNamespaceImport(GetOrCreateNamespace(ParseNamespaceName(), true));
+        SourceFile.AddNamespaceImport(GetOrCreateNamespace(ParseNamespaceName(true), true));
     }
 }
