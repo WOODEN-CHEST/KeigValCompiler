@@ -22,7 +22,7 @@ public class SourceDataParser
             /* Done this way so current line number doesn't get screwed up,
             * though I agree that this is a bad solution. Better to track lines in a way that they 
             * can be indexed by the data index so that this doesn't need to be done. */
-            int TargetValue = Math.Clamp(value, 0, _data.Length);
+            int TargetValue = Math.Clamp(value, 0, DataLength);
             if (TargetValue > DataIndex)
             {
                 IncrementDataIndexNTimes(TargetValue - DataIndex);
@@ -34,11 +34,8 @@ public class SourceDataParser
         }
     }
     internal string? FilePath { get; set; } = null;
-    internal int DataLength => _data.Length;
+    internal int DataLength => DataLength;
     internal bool IsMoreDataAvailable => DataIndex < DataLength;
-
-
-    // Private static fields.
 
 
     // Private fields.
@@ -66,7 +63,7 @@ public class SourceDataParser
     // Methods.
     internal void IncrementDataIndex()
     {
-        if (_dataIndex >= _data.Length)
+        if (_dataIndex >= DataLength)
         {
             return;
         }
@@ -75,6 +72,7 @@ public class SourceDataParser
         {
             Line++;
         }
+
         _dataIndex++;
     }
 
@@ -105,15 +103,15 @@ public class SourceDataParser
         for (int i = 0; i < count; i++) { DecrementDataIndex(); }
     }
 
-    internal char GetCharAtDataIndex() => _dataIndex >= _data.Length ? KGVL.CHAR_NONE : _data[_dataIndex];
+    internal char GetCharAtDataIndex() => _dataIndex >= DataLength ? KGVL.CHAR_NONE : _data[_dataIndex];
 
-    internal char GetCharAtDataIndex(int index) => index >= _data.Length ? KGVL.CHAR_NONE : _data[index];
+    internal char GetCharAtDataIndex(int index) => index >= DataLength ? KGVL.CHAR_NONE : _data[index];
 
     internal string ReadWord(ErrorCreateOptions? error)
     {
         StringBuilder Word = new();
 
-        while ((_dataIndex < _data.Length) && char.IsAsciiLetter(GetCharAtDataIndex()))
+        while ((_dataIndex < DataLength) && char.IsAsciiLetter(GetCharAtDataIndex()))
         {
             Word.Append(GetCharAtDataIndex());
             IncrementDataIndex();
@@ -134,7 +132,7 @@ public class SourceDataParser
     {
         StringBuilder Identifier = new();
 
-        while ((_dataIndex < _data.Length) && IsIdentifierChar(GetCharAtDataIndex()))
+        while ((_dataIndex < DataLength) && IsIdentifierChar(GetCharAtDataIndex()))
         {
             Identifier.Append(GetCharAtDataIndex());
             IncrementDataIndex();
@@ -142,10 +140,10 @@ public class SourceDataParser
 
         if ((Identifier.Length == 0) || char.IsDigit(Identifier[0]))
         {
-            string IdentifierName = Identifier.Length != 0 ? $"\"{Identifier.ToString()}\"" : "with empty name"
-            throw new SourceFileReadException(this, error, $"Invalid identifier \"{Identifier.ToString()}\", " +
-                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and must not start with a digit, " +
-                $"and their length must be >= 1 character");
+            string IdentifierName = Identifier.Length != 0 ? $"\"{Identifier.ToString()}\"" : "with empty name";
+            throw new SourceFileReadException(this, error, $"Invalid identifier {IdentifierName}. " +
+                $"Identifiers must only use ASCII a-z A-Z letters and digits 0-9, and the character '{KGVL.UNDERSCORE}'. " +
+                $"They must not start with a digit and their length must be >= 1 character");
         }
 
         return Identifier.ToString();
@@ -171,7 +169,7 @@ public class SourceDataParser
 
         StringBuilder ParsedText = new();
 
-        while (_dataIndex < _data.Length)
+        while (_dataIndex < DataLength)
         {
             if (charsToFind.Contains(GetCharAtDataIndex()))
             {
@@ -192,7 +190,7 @@ public class SourceDataParser
     {
         StringBuilder ParsedText = new();
 
-        while (_dataIndex < _data.Length)
+        while (_dataIndex < DataLength)
         {
             if (!char.IsWhiteSpace(GetCharAtDataIndex()))
             {
@@ -202,7 +200,7 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if (((ParsedText.Length == 0) || (_dataIndex >= _data.Length)) && (error.HasValue))
+        if (((ParsedText.Length == 0) || (_dataIndex >= DataLength)) && (error.HasValue))
         {
             throw new SourceFileReadException(this, error, "Unexpected end of file while looking for next " +
                 $"non-whitespace characters.");
@@ -217,7 +215,7 @@ public class SourceDataParser
             throw new ArgumentNullException(nameof(charsToFind));
         }
 
-        while (_dataIndex < _data.Length)
+        while (_dataIndex < DataLength)
         {
             if (charsToFind.Contains(GetCharAtDataIndex()))
             {
@@ -237,7 +235,7 @@ public class SourceDataParser
     {
         ArgumentNullException.ThrowIfNull(charsToFind, nameof(charsToFind));
 
-        while (_dataIndex < _data.Length)
+        while (_dataIndex < DataLength)
         {
             if (charsToFind.Contains(GetCharAtDataIndex()))
             {
@@ -261,12 +259,12 @@ public class SourceDataParser
 
     internal bool SkipUntilNonWhitespace(ErrorCreateOptions? error)
     {
-        while ((_dataIndex < _data.Length) && char.IsWhiteSpace(_data[_dataIndex]))
+        while ((_dataIndex < DataLength) && char.IsWhiteSpace(_data[_dataIndex]))
         {
             IncrementDataIndex();
         }
 
-        if (_dataIndex >= _data.Length)
+        if (_dataIndex >= DataLength)
         {
             if (error.HasValue)
             {
@@ -281,7 +279,7 @@ public class SourceDataParser
     {
         ArgumentNullException.ThrowIfNull(stringsToFind, nameof(stringsToFind));
 
-        while (_dataIndex < _data.Length)
+        while (_dataIndex < DataLength)
         {
             for (int i = 0; i < stringsToFind.Length; i++)
             {
@@ -307,7 +305,7 @@ public class SourceDataParser
         {
             throw new ArgumentOutOfRangeException(nameof(index));
         }
-        if (_data.Length - index < stringToFind.Length)
+        if (DataLength - index < stringToFind.Length)
         {
             return false;
         }
@@ -326,6 +324,11 @@ public class SourceDataParser
     internal bool IsIdentifierChar(char character)
     {
         return char.IsAsciiLetterOrDigit(character) || (character == KGVL.UNDERSCORE);
+    }
+
+    internal bool IsIdentifierFirstChar(char character)
+    {
+        return char.IsAsciiLetter(character) || (character == KGVL.UNDERSCORE);
     }
 
     internal bool IsValidIdentifier(string identifier)
@@ -350,7 +353,7 @@ public class SourceDataParser
         StringBuilder Number = new();
 
         (char[] AllowedChars, NumberBase Base) = GetNumberBase();
-        char CharAtIndex = GetCharAtDataIndex();
+        char CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
         while (AllowedChars.Contains(CharAtIndex) || (CharAtIndex == KGVL.UNDERSCORE))
         {
             if (CharAtIndex != KGVL.UNDERSCORE)
@@ -358,7 +361,7 @@ public class SourceDataParser
                 Number.Append(GetCharAtDataIndex());
             }
             IncrementDataIndex();
-            CharAtIndex = GetCharAtDataIndex();
+            CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
         }
 
         (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), error);
@@ -409,7 +412,7 @@ public class SourceDataParser
     // Private methods.
     private (char[] characters, NumberBase numberBase) GetNumberBase()
     {
-        string BaseIndicator = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}";
+        string BaseIndicator = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}".ToLowerInvariant();
         if (BaseIndicator == KGVL.PREFIX_BINARY)
         {
             IncrementDataIndexNTimes(KGVL.PREFIX_BINARY.Length);
@@ -435,7 +438,7 @@ public class SourceDataParser
 
         foreach (char Character in Suffix)
         {
-            char LowerChar = char.ToLower(Character, CultureInfo.InvariantCulture);
+            char LowerChar = char.ToLowerInvariant(Character);
             if (LowerChar == KGVL.SUFFIX_LONG)
             {
                 if (HasLongSpecifier)

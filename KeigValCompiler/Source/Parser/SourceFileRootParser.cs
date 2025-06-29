@@ -30,7 +30,7 @@ internal class SourceFileRootParser : AbstractParserBase
         while (Parser.SkipUntilNonWhitespace(null))
         {
             int PreWordIndex = Parser.DataIndex;
-            TypeTargetIdentifier Word = Parser.ReadTypeTargetIdentifier(ErrorCreator.RootExpectedKeyword.CreateOptions());
+            TypeTargetIdentifier Word = Parser.ReadTypeTargetIdentifier(GetRootKeywordError());
             string ExtractedKeyword = Word.MainTarget!.SourceCodeName;
 
             if (ExtractedKeyword == KGVL.KEYWORD_NAMESPACE)
@@ -50,7 +50,8 @@ internal class SourceFileRootParser : AbstractParserBase
             }
 
             Parser.DataIndex = PreWordIndex;
-            _memberParser.ParseMember(_activeNamespace);
+            _memberParser.ParseMember(_activeNamespace, KGVL.NAME_NAMESPACE,
+                _activeNamespace.SelfIdentifier.SourceCodeName);
         }
     }
 

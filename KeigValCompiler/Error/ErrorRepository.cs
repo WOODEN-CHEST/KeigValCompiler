@@ -7,6 +7,9 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KeigValCompiler.Error;
 
+/* This class contains all errors and warning that the compiler has.
+ * They're marked as virtual to that a derived class can replace them if needed, though that 
+ * is pretty much only for testing purposes. */
 internal class ErrorRepository
 {
     // Fields.
@@ -35,11 +38,11 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedNamespaceForSet { get; } = new(5,
         CompilerMessageCategory.SourceFileRoot,
-        $"Expected namespace identifier (e.g \"X.Y.Z\") setting the active namespace");
+        $"Expected a namespace identifier (e.g \"X.Y.Z\") to set the active namespace");
 
     internal virtual ErrorDefinition ExpectedNamespaceSectionIdentifier { get; } = new(6,
         CompilerMessageCategory.SourceFileRoot,
-        "Expected namespace section identifier in incomplete namespace \"{0}\"." +
+        "Expected namespace section identifier in incomplete namespace \"{0}\". " +
         "A section is a single identifier in a namespace's full name, " +
         "like the part \"X\" or \"Y\", or \"Z\" in the namespace \"X.Y.Z\"");
 
@@ -59,14 +62,28 @@ internal class ErrorRepository
         $"Unexpected character '{{0}}' in namespace \"{{1}}\", expected namespace end with '{KGVL.SEMICOLON}' " +
         $"or namespace continuation indicated by '{KGVL.NAMESPACE_SEPARATOR}'");
 
-    /* Member root. */
+
+    /* Member generic. */
     internal virtual ErrorDefinition ExpectedMemberModifierOrKeyword { get; } = new(1,
-        CompilerMessageCategory.MemberRoot,
-        "Expected member modifier or keyword, or ");
+        CompilerMessageCategory.MemberGeneric,
+        $"Expected member modifier (like {KGVL.KEYWORD_PUBLIC} or {KGVL.KEYWORD_PROTECTED}, " +
+        $"or {KGVL.KEYWORD_PRIVATE}) or a member in the {{0}} \"{{1}}\".");
 
     internal virtual ErrorDefinition ExpectedMember { get; } = new(2,
-        CompilerMessageCategory.MemberRoot,
+        CompilerMessageCategory.MemberGeneric,
         "Expected {0} member");
+
+    internal virtual ErrorDefinition CannotHoldMemberInNamespace { get; } = new(3,
+        CompilerMessageCategory.MemberGeneric,
+        "A namespace \"{0}\" cannot hold a member of type {1}");
+
+    internal virtual ErrorDefinition CannotHoldMemberInMember { get; } = new(4,
+        CompilerMessageCategory.MemberGeneric,
+        "A member of type {0} \"{1}\" cannot hold a member of type {2}");
+
+    internal virtual ErrorDefinition CannotHoldMemberInUnknown { get; } = new(5,
+        CompilerMessageCategory.MemberGeneric,
+       "The parent member cannot hold a member of type {0}");
 
 
     /* Member modifier. */
@@ -82,11 +99,15 @@ internal class ErrorRepository
     /* Identifiers. */
     internal virtual ErrorDefinition ExpectedTypeMemberIdentifier { get; } = new(1,
         CompilerMessageCategory.Identifiers,
-        "Expected {0} identifier");
+        "Expected {0} member identifier");
 
     internal virtual ErrorDefinition ExpectedReturnTypeIdentifier { get; } = new(2,
         CompilerMessageCategory.Identifiers,
-        "Expected {0} return type identifier");
+        "Expected {0} member return type identifier");
+
+    internal virtual ErrorDefinition VoidCantHaveGenericArguments { get; } = new(3,
+        CompilerMessageCategory.Identifiers,
+        $"The return type \"{KGVL.KEYWORD_VOID}\" cannot have generic type arguments.");
 
 
     /* Type member common. */
@@ -102,6 +123,12 @@ internal class ErrorRepository
     internal virtual ErrorDefinition ExpectedCurlyTypeEnd { get; } = new(3,
         CompilerMessageCategory.TypeMemberCommon,
         $"Expected {{0}} \"{{1}}\" end '{KGVL.DOUBLE_CURLY_CLOSE}'");
+
+    internal virtual ErrorDefinition ExpectedGenericParamsOrExtension { get; } = new(4,
+        CompilerMessageCategory.TypeMemberCommon,
+        "Expected {0} member \"{1}\" generic parameters " +
+        $"({{1}}{KGVL.GENERIC_TYPE_START}T1, T2 ... Tn{KGVL.GENERIC_TYPE_END}) " +
+        $"or member extension ({{1}} {KGVL.COLON} T1, T2 ... Tn)");
 
 
     /* Delegate. */
@@ -136,21 +163,32 @@ internal class ErrorRepository
         $"or member extension, or generic constraints ({{0}} {KGVL.KEYWORD_WHERE} T1 {KGVL.COLON} ... )");
 
 
+    /* Generics. */
+    internal virtual ErrorDefinition ExpectedGenericParameterEnd { get; } = new(1,
+        CompilerMessageCategory.Generics,
+        $"Expected generic parameter list end '{KGVL.GENERIC_TYPE_END}' for {{0}} \"{{1}}\"");
+
+    internal virtual ErrorDefinition ExpectedGenericParameterIdentifier { get; } = new(2,
+        CompilerMessageCategory.Generics,
+        "Expected generic parameter identifier for {0} \"{1}\" (for example \"T\")");
+
+    internal virtual ErrorDefinition ExpectedGenericParameterCommaOrEnd { get; } = new(3,
+        CompilerMessageCategory.Generics,
+        $"Expected comma '{KGVL.COMMA}' for next generic parameter identifier " +
+        $"or generic parameter list end '{KGVL.GENERIC_TYPE_END}' for {{0}} \"{{1}}\"");
+
+    internal virtual ErrorDefinition GenericParametersUnexpectedEnd { get; } = new(4,
+        CompilerMessageCategory.Generics,
+        $"Unexpected end of generic parameters in {{0}} \"{{1}}\". A previously placed comma '{KGVL.COMMA}' " +
+        "indicated that more generic type parameters would follow, but the end of the parameter list was " +
+        $"met instead '{KGVL.GENERIC_TYPE_END}'");
+
+
     /* Return typed members common. */
 
 
 
 
-
-
-    internal virtual ErrorDefinition CannotHoldMemberInNamespace { get; } = new(19,
-        "A namespace \"{0}\" cannot hold a member of type {1}");
-
-    internal virtual ErrorDefinition CannotHoldMemberInMember { get; } = new(20,
-        "A member of type {0} \"{1}\" cannot hold a member of type {2}");
-
-    internal virtual ErrorDefinition CannotHoldMemberInUnknown { get; } = new(21,
-       "The parent member cannot hold a member of type {0}");
 
     internal virtual ErrorDefinition ExpectedMemberExtensionOrBodyOrConstraints { get; } = new(22,
         $"Expected member \"{{0}}\" body '{KGVL.DOUBLE_CURLY_OPEN}' " +
@@ -218,23 +256,12 @@ internal class ErrorRepository
         "Expected generic constraint value (identifier or special constraint) for the " +
         "type parameter \"{0}\"");
 
-    internal virtual ErrorDefinition ExpectedGenericParameterEnd { get; } = new(40,
-        $"Expected generic parameter list end '{KGVL.GENERIC_TYPE_END}' for member \"{{0}}\"");
 
-    internal virtual ErrorDefinition ExpectedGenericParameterIdentifier { get; } = new(41,
-        "Expected generic parameter identifier for member \"{0}\"");
-
-    internal virtual ErrorDefinition ExpectedGenericParameterCommaOrEnd { get; } = new(42,
-        $"Expected comma '{KGVL.COMMA}' for next generic parameter identifier " +
-        $"or generic parameter list end '{KGVL.GENERIC_TYPE_END}' for member \"{{0}}\"");
 
     internal virtual ErrorDefinition ExpectedMemberBodyStart { get; } = new(43,
         $"Expected member \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}'");
 
-    internal virtual ErrorDefinition ExpectedGenericParamsOrExtension { get; } = new(44,
-        "Expected member \"{0}\" generic parameters " +
-        $"({{0}}{KGVL.GENERIC_TYPE_START}T1, T2 ... Tn{KGVL.GENERIC_TYPE_END}) " +
-        $"or member extension ({{0}} {KGVL.COLON} T1, T2 ... Tn)");
+
 
     internal virtual ErrorDefinition ExpectedEventDelegateType { get; } = new(45,
         "Expected event delegate type identifier.");

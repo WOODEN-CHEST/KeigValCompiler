@@ -81,9 +81,12 @@ internal static class KGVL
     public const string KEYWORD_IS = "is";
     public const string KEYWORD_AS = "as";
     public const string KEYWORD_BASE = "base";
+    public const string KEYWORD_THIS = "this";
+
     public const string KEYWORD_IN = "in";
     public const string KEYWORD_OUT = "out";
     public const string KEYWORD_REF = "ref";
+    
 
     public const string KEYWORD_WHERE = "where";
     public const string KEYWORD_NOTNULL = "notnull";
