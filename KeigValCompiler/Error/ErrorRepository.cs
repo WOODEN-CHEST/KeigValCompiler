@@ -158,6 +158,42 @@ internal class ErrorRepository
 
 
     /* Enum. */
+    internal virtual ErrorDefinition EnumConstantOutOfRange { get; } = new(1,
+        CompilerMessageCategory.Enum,
+        "Enum constant \"{0}\" in enum type " +
+        "\"{1}\" is out of the valid range " +
+        $"{int.MinValue} to {int.MaxValue}, it has a value of {{2}}");
+
+    internal virtual ErrorDefinition ExpectedEnumBodyStart { get; } = new(2,
+        CompilerMessageCategory.Enum,
+        $"Expected enum body start '{KGVL.DOUBLE_CURLY_OPEN}' for enum \"{{0}}\"");
+
+    internal virtual ErrorDefinition ExpectedEnumBodyEnd { get; } = new(3,
+        CompilerMessageCategory.Enum,
+        $"Expected enum body end '{KGVL.DOUBLE_CURLY_CLOSE}' for enum \"{{0}}\"");
+
+    internal virtual ErrorDefinition ExpectedEnumConstant { get; } = new(4,
+        CompilerMessageCategory.Enum,
+        $"Expected enum \"{{0}}\" constant identifier");
+
+    internal virtual ErrorDefinition ExpectedEnumConstantOrEnd { get; } = new(5,
+        CompilerMessageCategory.Enum,
+        $"Expected enum \"{{0}}\" body end '{KGVL.DOUBLE_CURLY_CLOSE}' or an enum constant");
+
+    internal virtual ErrorDefinition ExpectedEnumAssignmentOrNextOrEnd { get; } = new(6,
+        CompilerMessageCategory.Enum,
+        $"Expected value assignment for enum constant \"{{0}}\", or enum \"{{1}}\" body end " +
+        $"'{KGVL.DOUBLE_CURLY_CLOSE}' or comma '{KGVL.COMMA}' followed by the next enum constant");
+
+    internal virtual ErrorDefinition ExpectedEnumConstantValue { get; } = new(7,
+        CompilerMessageCategory.Enum,
+        $"Expected enum constant \"{{0}}\" value (like 123, 420 or something else) because a previous " +
+        $"'{KGVL.ASSIGNMENT_OPERATOR}' character indicated that an enum constant value will follow. ");
+
+    internal virtual ErrorDefinition UnexpctedEnumNonConstantValue { get; } = new(8,
+        CompilerMessageCategory.Enum,
+        $"Expected identifier for enum constant in enum \"{{0}}\" because a previous comma {KGVL.COMMA} " +
+        $"indicated that an enum constant will follow.");
 
 
     /* Record. */
@@ -238,6 +274,10 @@ internal class ErrorRepository
     /* Return typed members common. */
 
 
+    /* Comments. */
+    internal virtual ErrorDefinition ExpectedMultiLineCommentEnd { get; } = new(35,
+        CompilerMessageCategory.Comment,
+        "Multi-line comment started on line {0} wasn't terminated properly");
 
 
 
@@ -263,33 +303,6 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedParameterIdentifier { get; } = new(27,
         "Expected member \"{0}\" function parameter identifier");
-
-    internal virtual ErrorDefinition EnumConstantOutOfRange { get; } = new(28,
-        "Enum constant \"{0}\" in enum type " +
-        "\"{1}\" is out of the valid range " +
-        $"{int.MinValue} to {int.MaxValue}, it has a value of {{2}}");
-
-    internal virtual ErrorDefinition ExpectedEnumBodyStart { get; } = new(29,
-        $"Expected enum body start '{KGVL.DOUBLE_CURLY_OPEN}' for enum \"{{0}}\"");
-
-    internal virtual ErrorDefinition ExpectedEnumBodyEnd { get; } = new(30,
-        $"Expected enum body end '{KGVL.DOUBLE_CURLY_CLOSE}' for enum \"{{0}}\"");
-
-    internal virtual ErrorDefinition ExpectedEnumConstant { get; } = new(31,
-        $"Expected enum \"{{0}}\" constant identifier");
-
-    internal virtual ErrorDefinition ExpectedEnumConstantOrEnd { get; } = new(32,
-        $"Expected enum \"{{0}}\" body end '{KGVL.DOUBLE_CURLY_CLOSE}' or an enum constant");
-
-    internal virtual ErrorDefinition ExpectedEnumAssignmentOrNextOrEnd { get; } = new(33,
-        $"Expected value assignment for constant \"{{0}}\", or enum \"{{1}}\" body end " +
-        $"'{KGVL.DOUBLE_CURLY_CLOSE}' or comma '{KGVL.COMMA}' followed by the next enum constant");
-
-    internal virtual ErrorDefinition ExpectedEnumConstantValue { get; } = new(34,
-        "Expected enum constant \"{0}\" value");
-
-    internal virtual ErrorDefinition ExpectedMultiLineCommentEnd { get; } = new(35,
-        "Multi-line comment started on line {0} wasn't terminated properly");
 
 
 

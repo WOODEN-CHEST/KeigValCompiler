@@ -21,6 +21,7 @@ internal class CompilerMessageCategory
     public static CompilerMessageCategory Identifiers { get; } = new("Identifiers", "ID");
     public static CompilerMessageCategory Record { get; } = new("Record", "RE");
     public static CompilerMessageCategory Generics { get; } = new("Generics", "GE");
+    public static CompilerMessageCategory Comment { get; } = new("Comment", "CO");
 
 
 

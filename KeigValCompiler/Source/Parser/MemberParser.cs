@@ -56,7 +56,7 @@ internal class MemberParser : AbstractParserBase
         }
         else if (FirstSegment == KGVL.KEYWORD_ENUM)
         {
-            ParseEnumeration(memberHolder, Modifiers);
+            ParseEnumeration(memberHolder, memberHolderTypeName, Modifiers);
         }
         else
         {
@@ -412,11 +412,11 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
     }
 
-    private void ParseEnumeration(object parentObject, PackMemberModifiers modifiers)
+    private void ParseEnumeration(object parentObject, string holderTypeName, PackMemberModifiers modifiers)
     {
         if (parentObject is not IPackTypeHolder EnumHolder)
         {
-            throw CreateInvalidHolderException(parentObject, KGVL.NAME_ENUM);
+            throw CreateInvalidHolderException(parentObject, holderTypeName, KGVL.NAME_ENUM);
         }
 
         Identifier Name = ParseMemberSelfIdentifier(KGVL.NAME_ENUM);
@@ -430,7 +430,7 @@ internal class MemberParser : AbstractParserBase
         ErrorCreateOptions BodyStartError = ErrorCreator.ExpectedEnumBodyStart.CreateOptions(Name.SourceCodeName);
 
         Parser.SkipUntilNonWhitespace(BodyStartError);
-        if (Parser.GetCharAtDataIndex() !=KGVL.OPEN_CURLY_BRACKET)
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
         {
             throw new SourceFileReadException(Parser, BodyStartError);
         }
@@ -456,6 +456,12 @@ internal class MemberParser : AbstractParserBase
         bool IsValueExpected = Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET;
         while (IsValueExpected)
         {
+            if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (enumeration.ConstantCount > 0))
+            {
+                throw new SourceFileReadException(Parser, ErrorCreator.UnexpctedEnumNonConstantValue
+                    .CreateOptions(EnumName));
+            }
+
             ErrorCreateOptions ExpectedConstantError = ErrorCreator.ExpectedEnumConstant.CreateOptions(EnumName);
             string ConstantName = Parser.ReadIdentifier(ExpectedConstantError);
             ErrorCreateOptions AssignmentOrNextOrEndError = ErrorCreator.ExpectedEnumAssignmentOrNextOrEnd
@@ -466,8 +472,6 @@ internal class MemberParser : AbstractParserBase
             if (Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
             {
                 ErrorCreateOptions ExpectedValueError = ErrorCreator.ExpectedEnumConstantValue.CreateOptions(ConstantName);
-                string ExceptionMsgExpectedConstant = $"Expected value for enum constant \"{ConstantName}\" " +
-                    $"for enum {enumeration.SelfIdentifier.SourceCodeName}";
                 Parser.IncrementDataIndex();
                 Parser.SkipUntilNonWhitespace(ExpectedValueError);
                 GenericNumber Number = Parser.ReadInteger(ExpectedValueError);

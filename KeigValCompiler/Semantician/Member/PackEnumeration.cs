@@ -12,6 +12,7 @@ internal class PackEnumeration : PackMember, IEnumerable<KeyValuePair<string, in
     internal string[] Names => _values.Keys.ToArray();
     internal int[] Values => _values.Values.Distinct().ToArray();
     internal int this[string name] => _values[name];
+    internal int ConstantCount => _values.Count;
 
 
     // Private fields.
