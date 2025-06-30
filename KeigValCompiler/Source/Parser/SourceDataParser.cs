@@ -138,7 +138,7 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if ((Identifier.Length == 0) || char.IsDigit(Identifier[0]))
+        if ((error.HasValue) && (Identifier.Length == 0) || char.IsDigit(Identifier[0]))
         {
             string IdentifierName = Identifier.Length != 0 ? $"\"{Identifier.ToString()}\"" : "with empty name";
             throw new SourceFileReadException(this, error, $"Invalid identifier {IdentifierName}. " +
@@ -366,7 +366,7 @@ public class SourceDataParser
 
         (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), error);
 
-        if (Number.Length <= 0)
+        if (error.HasValue && (Number.Length <= 0))
         {
             throw new SourceFileReadException(this, error);
         }
@@ -399,12 +399,15 @@ public class SourceDataParser
             }
         }
 
-        if (GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END)
+        if (error.HasValue && (GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END))
         {
             throw new SourceFileReadException(this, error,
                 $"Expected generic type end '{KGVL.GENERIC_TYPE_END}'");
         }
-        IncrementDataIndex();
+        else if (GetCharAtDataIndex() == KGVL.GENERIC_TYPE_END)
+        {
+            IncrementDataIndex();
+        }
 
         return new(new(BaseName), SubTypes.ToArray()) { IsNullable = GetIsNullable() };
     }
@@ -441,7 +444,7 @@ public class SourceDataParser
             char LowerChar = char.ToLowerInvariant(Character);
             if (LowerChar == KGVL.SUFFIX_LONG)
             {
-                if (HasLongSpecifier)
+                if (error.HasValue && HasLongSpecifier)
                 {
                     throw new SourceFileReadException(this, error,
                         $"Duplicate long specifier '{KGVL.SUFFIX_LONG}' for integer {numberValue} ");
@@ -451,7 +454,7 @@ public class SourceDataParser
             }
             else if (LowerChar == KGVL.SUFFIX_UNSIGNED)
             {
-                if (HasUnsignedSpecifier)
+                if (error.HasValue && HasUnsignedSpecifier)
                 {
                     throw new SourceFileReadException(this, error,
                         $"Duplicate unsigned specifier '{KGVL.SUFFIX_UNSIGNED}' for integer {numberValue}");

@@ -3,6 +3,7 @@ using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -146,22 +147,29 @@ internal class MemberParser : AbstractParserBase
         return Name;
     }
 
-    private ErrorCreateOptions GetClassWrongStartExceptionMessage(PackMember member,
+    private ErrorCreateOptions GetExtendableTypeWrongStartExceptionMessage(PackMember member,
         bool isRecord,
+        bool isGenericsHolder,
         string typeName)
     {
         string Name = member.SelfIdentifier.SourceCodeName;
         if (isRecord)
         {
-            return ErrorCreator.EOFWhileParsingRecord.CreateOptions(Name);
+            return ErrorCreator.ExpectedRecordPrimaryConstructorOrBodyOrConstraints.CreateOptions(Name);
         }
-        return ErrorCreator.EOFWhileParsingType.CreateOptions(typeName, Name);
+        if (isGenericsHolder)
+        {
+            return ErrorCreator.ExpectedBodyOrExtensionOrConstraints.CreateOptions(typeName, Name);
+        }
+        return ErrorCreator.ExpectedBodyOrExtension.CreateOptions(typeName, Name);
     }
 
     private void ParseRecordPrimaryConstructor(PackClass recordClass)
     {
-        Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedRecordPrimaryConstructorOrBody.CreateOptions(
-            recordClass.SelfIdentifier.SourceCodeName));
+        string RecordName = recordClass.SelfIdentifier.SourceCodeName;
+        bool IsGenericsHolder = recordClass.GenericParameters.Count > 0;
+
+        Parser.SkipUntilNonWhitespace(GetRecordPrimaryConstructorErrorMessage(RecordName, IsGenericsHolder));
 
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
         {
@@ -169,11 +177,51 @@ internal class MemberParser : AbstractParserBase
         }
 
         Parser.IncrementDataIndex();
+        Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedRecordPrimaryConstructorParameters
+            .CreateOptions(RecordName));
+
         PackFunction Constructor = new(new(recordClass.SelfIdentifier.SourceCodeName), SourceFile);
         Constructor.Parameters.SetFrom(ParseFunctionParameters(KGVL.CLOSE_PARENTHESIS, recordClass.SelfIdentifier));
 
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
+        {
+            /* Technically impossible case due to ParseFunctionParameters already throwing an exception, but
+            * I'll keep it if the behavior changes, just in case. */
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedRecordPrimaryConstructorEnd
+                .CreateOptions(RecordName)); 
+        }
+
         recordClass.AddFunction(Constructor);
         Parser.IncrementDataIndex();
+    }
+    
+    private ErrorCreateOptions GetRecordPrimaryConstructorErrorMessage(string recordName, bool isGenericsHolder)
+    {
+        if (isGenericsHolder)
+        {
+            return ErrorCreator.ExpectedRecordPrimaryConstructorOrBodyOrConstraints.CreateOptions(recordName);
+        }
+        return ErrorCreator.ExpectedRecordPrimaryConstructorOrBody.CreateOptions(recordName);
+    }
+
+    private ErrorCreateOptions GetExtendableTypeEOFErrorMessage(string memberName,
+        string memberTypeName,
+        bool isGenericsHolder)
+    {
+        if (isGenericsHolder)
+        {
+            return ErrorCreator.ExpectedBodyOrExtensionOrConstraints.CreateOptions(memberTypeName, memberName);
+        }
+        return ErrorCreator.ExpectedBodyOrExtension.CreateOptions(memberTypeName, memberName);
+    }
+
+    private ErrorCreateOptions GetExpectedExtendableBodyStart(bool isRecord, string memberTypeName, string memberName)
+    {
+        if (isRecord)
+        {
+            ErrorCreator.ExpectedRecordBodyStartOrEnd.CreateOptions(memberName);
+        }
+        return ErrorCreator.ExpectedMemberBodyStart.CreateOptions(memberTypeName, memberName);
     }
 
     private void ParseClass(object parentObject, PackMemberModifiers modifiers)
@@ -236,19 +284,22 @@ internal class MemberParser : AbstractParserBase
         }
 
         bool IsRecord = (modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
-        Parser.SkipUntilNonWhitespace(GetClassWrongStartExceptionMessage(CreatedType, IsRecord, typeName));
+        bool HasGenerics = (GenericsHolder != null) && (GenericsHolder.GenericParameters.Count > 0);
+        Parser.SkipUntilNonWhitespace(GetExtendableTypeWrongStartExceptionMessage(
+            CreatedType, IsRecord, HasGenerics, typeName));
         if ((CreatedType is PackClass ClassType) && IsRecord)
         {
             ParseRecordPrimaryConstructor(ClassType);
         }
 
+        Parser.SkipUntilNonWhitespace(GetExtendableTypeEOFErrorMessage(Name.SourceCodeName, typeName, HasGenerics));
         ParseMemberExtensions((IPackMemberExtender)CreatedType, CreatedType.SelfIdentifier);
         if (GenericsHolder != null)
         {
-            ParseGenericConstraints(Name, GenericsHolder.GenericParameters, GetExtendableTypeLimitChars(IsRecord));
+            ParseGenericConstraints(Name.SourceCodeName, typeName, GenericsHolder.GenericParameters);
         }
-        Parser.SkipUntilNonWhitespace(null);
 
+        Parser.SkipUntilNonWhitespace(GetExpectedExtendableBodyStart(IsRecord, typeName, Name.SourceCodeName));
         if (IsRecord && (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON))
         {
             Parser.IncrementDataIndex();
@@ -256,8 +307,8 @@ internal class MemberParser : AbstractParserBase
         }
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
         {
-            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedMemberBodyStart
-                .CreateOptions(Name.SourceCodeName));
+            throw new SourceFileReadException(Parser,
+                GetExpectedExtendableBodyStart(IsRecord, typeName, Name.SourceCodeName));
         }
 
         Parser.IncrementDataIndex();
@@ -267,7 +318,7 @@ internal class MemberParser : AbstractParserBase
             && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
             && Parser.IsMoreDataAvailable)
         {
-            ParseMember(CreatedType);
+            ParseMember(CreatedType, typeName, Name.SourceCodeName);
         }
 
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
@@ -610,39 +661,41 @@ internal class MemberParser : AbstractParserBase
     }
 
     private void ParseGenericConstraints(
-        Identifier memberName,
-        GenericTypeParameterCollection parameters, 
-        params char[] endCharacters)
+        string memberName,
+        string memberTypeName,
+        GenericTypeParameterCollection parameters)
     {
         Parser.SkipUntilNonWhitespace(null);
 
-        while (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.KEYWORD_WHERE))
+        int SavedIndex = Parser.DataIndex;
+        while (Parser.ReadIdentifier(null) == KGVL.KEYWORD_WHERE)
         {
-            Parser.IncrementDataIndexNTimes(KGVL.KEYWORD_WHERE.Length);
-            Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericTypeConstraint
-                .CreateOptions(memberName.SourceCodeName));
-            ParseSingleGenericParameterConstraints(memberName, parameters, endCharacters);
+            Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericTypeNameForConstraint
+                .CreateOptions(memberTypeName, memberName));
+            ParseSingleGenericParameterConstraints(memberName, memberTypeName, parameters);
 
+            SavedIndex = Parser.DataIndex;
             Parser.SkipUntilNonWhitespace(null);
         }
+
+        Parser.DataIndex = SavedIndex;
     }
 
     private void ParseSingleGenericParameterConstraints(
-        Identifier memberName,
-        GenericTypeParameterCollection parameters,
-        params char[] endCharacters)
+        string memberName,
+        string memberTypeName,
+        GenericTypeParameterCollection parameters)
     {
-        string TypeName = Parser.ReadIdentifier(ErrorCreator.ExpectedGenericTypeConstraint
-            .CreateOptions(memberName.SourceCodeName));
-        GenericTypeParameter? Parameter = parameters.GetBySourceCodeName(TypeName);
-        if (Parameter == null)
-        {
+        string TypeParamName = Parser.ReadIdentifier(ErrorCreator.ExpectedGenericTypeNameForConstraint
+            .CreateOptions(memberTypeName, memberName));
+
+        GenericTypeParameter Parameter = parameters.GetBySourceCodeName(TypeParamName) ??
             throw new SourceFileReadException(Parser, ErrorCreator.GenericParameterNotFound
-                .CreateOptions(TypeName, memberName.SourceCodeName));
-        }
+            .CreateOptions(TypeParamName, memberTypeName, memberName));
 
         ErrorCreateOptions ExpectStartError = ErrorCreator.GenericParameterConstraintStartNotFound
-            .CreateOptions(TypeName, memberName.SourceCodeName);
+            .CreateOptions(TypeParamName, memberTypeName, memberName);
+
         Parser.SkipUntilNonWhitespace(ExpectStartError);
         if (Parser.GetCharAtDataIndex() != KGVL.COLON)
         {
@@ -651,17 +704,23 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
 
         ErrorCreateOptions ExpectedConstraintError = ErrorCreator.ExpectedGenericConstraintIdentifier
-            .CreateOptions(Parameter.SelfIdentifier.SourceCodeName);
+            .CreateOptions(Parameter.SelfIdentifier.SourceCodeName, memberTypeName, memberName);
         List<GenericConstraint> Constraints = new();
         bool IsConstraintExpected = true;
         while (IsConstraintExpected)
         {
             Parser.SkipUntilNonWhitespace(ExpectedConstraintError);
+
+            if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (Constraints.Count > 0))
+            {
+                throw new SourceFileReadException(Parser, ErrorCreator.UnexpectedGenericConstraintEnd
+                    .CreateOptions(memberTypeName, memberName));
+            }
+
             TypeTargetIdentifier ConstraintType = Parser.ReadTypeTargetIdentifier(ExpectedConstraintError);
             SpecialGenericConstraint? SpecialConstraint = TryGetSpecialConstraint(
                 ConstraintType.MainTarget!.SourceCodeName);
-            GenericConstraint Constraint = SpecialConstraint != null
-                ? new(SpecialConstraint.Value) : new(ConstraintType);
+            GenericConstraint Constraint = SpecialConstraint != null ? new(SpecialConstraint.Value) : new(ConstraintType);
             Constraints.Add(Constraint);
 
             Parser.SkipUntilNonWhitespace(null);

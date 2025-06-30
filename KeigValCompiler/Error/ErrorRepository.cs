@@ -14,7 +14,7 @@ internal class ErrorRepository
 {
     // Fields.
     /* File root. */
-    internal virtual ErrorDefinition RootExpectedKeyword { get; }  = new(1,
+    internal virtual ErrorDefinition RootExpectedKeyword { get; } = new(1,
         CompilerMessageCategory.SourceFileRoot,
         $"In root scope of a source-code file, expected keyword \"{KGVL.KEYWORD_NAMESPACE}\" " +
         $"to set the active namespace or \"{KGVL.KEYWORD_USING}\" to import a namespace");
@@ -87,11 +87,11 @@ internal class ErrorRepository
 
 
     /* Member modifier. */
-    internal virtual ErrorDefinition DuplicateModifiers { get; } = new(3,
+    internal virtual ErrorDefinition DuplicateModifiers { get; } = new(1,
         CompilerMessageCategory.MemberModifier,
         "Duplicate member modifier \"{0}\"");
 
-    internal virtual ErrorDefinition ReservedKeywordBuiltIn { get; } = new(4,
+    internal virtual ErrorDefinition ReservedKeywordBuiltIn { get; } = new(2,
         CompilerMessageCategory.MemberModifier,
         $"The modifier \"{KGVL.KEYWORD_BUILTIN}\" is reserved for compiler internal use only");
 
@@ -111,24 +111,34 @@ internal class ErrorRepository
 
 
     /* Type member common. */
-    internal virtual ErrorDefinition EOFWhileParsingType { get; } = new(1,
+    internal virtual ErrorDefinition ExpectedBodyOrExtensionOrConstraints { get; } = new(1,
         CompilerMessageCategory.TypeMemberCommon,
         $"Expected {{0}} \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}' " +
-        $"or member extension, or generic constraints ({{1}} {KGVL.KEYWORD_WHERE} T1 {KGVL.COLON} ... )");
+        $"or member extension ({{1}} {KGVL.COLON} T1, T2 ... Tn), " +
+        $"or generic constraints ({{1}} {KGVL.KEYWORD_WHERE} T1 {KGVL.COLON} ... )");
 
-    internal virtual ErrorDefinition EOFWhileParsingMembers { get; } = new(2,
+    internal virtual ErrorDefinition ExpectedBodyOrExtension { get; } = new(2,
+        CompilerMessageCategory.TypeMemberCommon,
+        $"Expected {{0}} \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}' " +
+        $"or member extension ({{1}} {KGVL.COLON} T1, T2 ... Tn)");
+
+    internal virtual ErrorDefinition EOFWhileParsingMembers { get; } = new(3,
         CompilerMessageCategory.TypeMemberCommon,
         $"Expected {{0}} \"{{1}}\" body end '{KGVL.DOUBLE_CURLY_CLOSE}' or {{0}} member, got end of file");
 
-    internal virtual ErrorDefinition ExpectedCurlyTypeEnd { get; } = new(3,
+    internal virtual ErrorDefinition ExpectedCurlyTypeEnd { get; } = new(4,
         CompilerMessageCategory.TypeMemberCommon,
-        $"Expected {{0}} \"{{1}}\" end '{KGVL.DOUBLE_CURLY_CLOSE}'");
+        $"Expected {{0}} \"{{1}}\" body end '{KGVL.DOUBLE_CURLY_CLOSE}'");
 
-    internal virtual ErrorDefinition ExpectedGenericParamsOrExtension { get; } = new(4,
+    internal virtual ErrorDefinition ExpectedGenericParamsOrExtension { get; } = new(5,
         CompilerMessageCategory.TypeMemberCommon,
         "Expected {0} member \"{1}\" generic parameters " +
         $"({{1}}{KGVL.GENERIC_TYPE_START}T1, T2 ... Tn{KGVL.GENERIC_TYPE_END}) " +
         $"or member extension ({{1}} {KGVL.COLON} T1, T2 ... Tn)");
+
+    internal virtual ErrorDefinition ExpectedMemberBodyStart { get; } = new(6,
+        CompilerMessageCategory.TypeMemberCommon,
+        $"Expected {{0}} \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}'");
 
 
     /* Delegate. */
@@ -153,14 +163,30 @@ internal class ErrorRepository
     /* Record. */
     internal virtual ErrorDefinition ExpectedRecordPrimaryConstructorOrBody { get; } = new(1,
         CompilerMessageCategory.Record,
-        $"Expected record primary constructor {{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS} " +
-        $"or record body {{0}} {KGVL.DOUBLE_CURLY_OPEN} ... {KGVL.DOUBLE_CURLY_CLOSE}");
+        $"Expected record \"{{0}}\" " +
+        $"primary constructor ({{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS}) " +
+        $"or body ({{0}} {KGVL.DOUBLE_CURLY_OPEN} ... {KGVL.DOUBLE_CURLY_CLOSE}) " +
+        $"or member extension ({{0}} {KGVL.COLON} T1, T2 ... Tn)");
 
-    internal virtual ErrorDefinition EOFWhileParsingRecord { get; } = new(2,
+    internal virtual ErrorDefinition ExpectedRecordPrimaryConstructorOrBodyOrConstraints { get; } = new(2,
         CompilerMessageCategory.Record,
         $"Expected record \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}', primary constructor " +
-        $"({{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS};) " +
-        $"or member extension, or generic constraints ({{0}} {KGVL.KEYWORD_WHERE} T1 {KGVL.COLON} ... )");
+        $"({{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS}{KGVL.SEMICOLON}) " +
+        $"or member extension ({{0}} {KGVL.COLON} T1, T2 ... Tn), " +
+        $"or generic constraints ({{0}} {KGVL.KEYWORD_WHERE} T1 {KGVL.COLON} ... )");
+
+    internal virtual ErrorDefinition ExpectedRecordPrimaryConstructorParameters { get; } = new(3,
+        CompilerMessageCategory.Record,
+        $"Expected record \"{{0}}\" primary constructor's parameters (T1 a, T2 b, ... Tn z) or " +
+        $"parameter list end '{KGVL.CLOSE_PARENTHESIS}'");
+
+    internal virtual ErrorDefinition ExpectedRecordPrimaryConstructorEnd { get; } = new(4,
+        CompilerMessageCategory.Record,
+        $"Expected record \"{{0}}\" primary constructor end '{KGVL.CLOSE_PARENTHESIS}'");
+
+    internal virtual ErrorDefinition ExpectedRecordBodyStartOrEnd { get; } = new(5,
+        CompilerMessageCategory.Record,
+        $"Expected record \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}' or end '{KGVL.SEMICOLON}'");
 
 
     /* Generics. */
@@ -181,7 +207,32 @@ internal class ErrorRepository
         CompilerMessageCategory.Generics,
         $"Unexpected end of generic parameters in {{0}} \"{{1}}\". A previously placed comma '{KGVL.COMMA}' " +
         "indicated that more generic type parameters would follow, but the end of the parameter list was " +
-        $"met instead '{KGVL.GENERIC_TYPE_END}'");
+        $"met instead '{KGVL.GENERIC_TYPE_END}'. Trailing comma perhaps?");
+
+    internal virtual ErrorDefinition ExpectedGenericTypeNameForConstraint { get; } = new(5,
+        CompilerMessageCategory.Generics,
+        "Expected identifier of a generic type parameter (like \"T1\") " +
+        "to be used for constraints for the {0} \"{1}\"");
+
+    internal virtual ErrorDefinition GenericParameterNotFound { get; } = new(6,
+        CompilerMessageCategory.Generics,
+        "No generic parameter with the name \"{0}\" was found for the {1} \"{2}\"");
+
+    internal virtual ErrorDefinition GenericParameterConstraintStartNotFound { get; } = new(7,
+        CompilerMessageCategory.Generics,
+        $"Expected '{KGVL.COLON}' to denote the start of constraints for the " +
+        "type parameter \"{0}\" in the {1} \"{2}\"");
+
+    internal virtual ErrorDefinition ExpectedGenericConstraintIdentifier { get; } = new(8,
+        CompilerMessageCategory.Generics,
+        "Expected generic constraint value " +
+        $"(type identifier like \"T1\" or special constraint like \"{KGVL.KEYWORD_NOTNULL}\") for the " +
+        "type parameter \"{0}\" in the {1} \"{2}\"");
+
+    internal virtual ErrorDefinition UnexpectedGenericConstraintEnd { get; } = new(9,
+        CompilerMessageCategory.Generics,
+        $"Expected generic constraint value because a previous comma '{KGVL.COMMA}' indicated that more " +
+        $"constraints are to follow, but found no constraint in the {{0}} \"{{1}}\". Trailing comma perhaps?");
 
 
     /* Return typed members common. */
@@ -239,27 +290,6 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedMultiLineCommentEnd { get; } = new(35,
         "Multi-line comment started on line {0} wasn't terminated properly");
-
-    internal virtual ErrorDefinition ExpectedGenericTypeConstraint { get; } = new(36,
-        "Expected identifier of a generic type parameter to apply constraints to " +
-        "for the type \"{0}\"");
-
-    internal virtual ErrorDefinition GenericParameterNotFound { get; } = new(37,
-        "No generic parameter with the name \"{0}\" was found for the type \"{1}\" " +
-        "as listed in the generic type parameter constraint.");
-
-    internal virtual ErrorDefinition GenericParameterConstraintStartNotFound { get; } = new(38,
-        $"Expected '{KGVL.COLON}' to denote the start of constraints for the " +
-        "type parameter \"{0}\" in member \"{1}\"");
-
-    internal virtual ErrorDefinition ExpectedGenericConstraintIdentifier { get; } = new(39,
-        "Expected generic constraint value (identifier or special constraint) for the " +
-        "type parameter \"{0}\"");
-
-
-
-    internal virtual ErrorDefinition ExpectedMemberBodyStart { get; } = new(43,
-        $"Expected member \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}'");
 
 
 
