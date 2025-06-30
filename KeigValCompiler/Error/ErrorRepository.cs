@@ -140,6 +140,15 @@ internal class ErrorRepository
         CompilerMessageCategory.TypeMemberCommon,
         $"Expected {{0}} \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}'");
 
+    internal virtual ErrorDefinition ExpectedExtendedMemberIdentifier { get; } = new(7,
+        CompilerMessageCategory.TypeMemberCommon,
+        $"Expected {{0}} \"{{1}}\" extended member identifier (like \"T1\" or \"ABC\")");
+
+    internal virtual ErrorDefinition UnexpectedExtendedMemberEnd { get; } = new(8,
+        CompilerMessageCategory.TypeMemberCommon,
+        $"Expected a member extension identifier because a previous comma '{KGVL.COMMA}' indicated " +
+        "that member more member extensions are to follow for the {0} \"{1}\"");
+
 
     /* Delegate. */
     internal virtual ErrorDefinition ExpectedDelegateParamList { get; } = new(1,
@@ -153,6 +162,11 @@ internal class ErrorRepository
     internal virtual ErrorDefinition ExpectedDelegateDefinitionEnd { get; } = new(3,
         CompilerMessageCategory.Delegate,
         $"Expected delegate \"{{0}}\" definition end '{KGVL.SEMICOLON}'");
+
+    internal virtual ErrorDefinition ExpectedEventDelegateType { get; } = new(4,
+        CompilerMessageCategory.Delegate,
+        "Expected event delegate type identifier.");
+
 
     /* Event */
 
@@ -281,13 +295,7 @@ internal class ErrorRepository
 
 
 
-    internal virtual ErrorDefinition ExpectedMemberExtensionOrBodyOrConstraints { get; } = new(22,
-        $"Expected member \"{{0}}\" body '{KGVL.DOUBLE_CURLY_OPEN}' " +
-        $"or member extension ({{0}} {KGVL.COLON} T1{KGVL.COMMA} T2{KGVL.COMMA} ... Tn), " +
-        $"or member generic type constraints ({{0}} {KGVL.KEYWORD_WHERE} T1 {KGVL.COLON} ... )");
 
-    internal virtual ErrorDefinition ExpectedMemberExtension { get; } = new(23,
-        "Expected extended member identifier for member \"{0}\"");
 
     internal virtual ErrorDefinition ExpectedParametersOrEnd { get; } = new(24,
         $"Expected member \"{{0}}\" function parameter list " +
@@ -304,10 +312,6 @@ internal class ErrorRepository
     internal virtual ErrorDefinition ExpectedParameterIdentifier { get; } = new(27,
         "Expected member \"{0}\" function parameter identifier");
 
-
-
-    internal virtual ErrorDefinition ExpectedEventDelegateType { get; } = new(45,
-        "Expected event delegate type identifier.");
 
     internal virtual ErrorDefinition ExpectedEventEnd { get; } = new(45,
         $"Expected event \"{{0}}\" definition end '{KGVL.SEMICOLON}'");

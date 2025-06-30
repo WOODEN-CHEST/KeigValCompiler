@@ -10,6 +10,8 @@ internal interface IPackMemberExtender
 {
     // Fields/
     IEnumerable<Identifier> ExtendedMembers { get; }
+    int ExtendedMemberCount { get; }
+
 
     // Methods.
     void AddExtendedMember(Identifier identifier);

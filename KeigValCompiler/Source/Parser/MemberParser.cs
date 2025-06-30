@@ -293,7 +293,7 @@ internal class MemberParser : AbstractParserBase
         }
 
         Parser.SkipUntilNonWhitespace(GetExtendableTypeEOFErrorMessage(Name.SourceCodeName, typeName, HasGenerics));
-        ParseMemberExtensions((IPackMemberExtender)CreatedType, CreatedType.SelfIdentifier);
+        ParseMemberExtensions((IPackMemberExtender)CreatedType, typeName, CreatedType.SelfIdentifier.SourceCodeName);
         if (GenericsHolder != null)
         {
             ParseGenericConstraints(Name.SourceCodeName, typeName, GenericsHolder.GenericParameters);
@@ -391,11 +391,11 @@ internal class MemberParser : AbstractParserBase
         Delegate.Parameters.SetFrom(Parameters);
     }
 
-    private void ParseEvent(object parentObject, PackMemberModifiers modifiers)
+    private void ParseEvent(object parentObject, string parentObjectTypeName, PackMemberModifiers modifiers)
     {
         if (parentObject is not IPackEventHolder EventHolder)
         {
-            throw CreateInvalidHolderException(parentObject, KGVL.NAME_EVENT);
+            throw CreateInvalidHolderException(parentObject, parentObjectTypeName, KGVL.NAME_EVENT);
         }
 
         ErrorCreateOptions ExpectedDelegateError = ErrorCreator.ExpectedEventDelegateType.CreateOptions();
@@ -578,29 +578,34 @@ internal class MemberParser : AbstractParserBase
 
     }
 
-    internal void ParseMemberExtensions(IPackMemberExtender extender, 
-        Identifier extenderName)
+    internal void ParseMemberExtensions(IPackMemberExtender extender,
+        string extenderTypeName,
+        string extenderName)
     {
         char[] ExpectedChars = new char[]
         { KGVL.COLON, KGVL.OPEN_CURLY_BRACKET, KGVL.KEYWORD_WHERE[0], KGVL.SEMICOLON, KGVL.COMMA };
 
-        ErrorCreateOptions ExtendOrBodyError = ErrorCreator.ExpectedMemberExtensionOrBodyOrConstraints
-            .CreateOptions(extenderName.SourceCodeName);
-        ErrorCreateOptions ExtendError = ErrorCreator.ExpectedMemberExtension
-            .CreateOptions(extenderName.SourceCodeName);
+        ErrorCreateOptions IdentifierError = ErrorCreator.ExpectedExtendedMemberIdentifier
+            .CreateOptions(extenderTypeName, extenderName);
+        ErrorCreateOptions ExtendEndError = ErrorCreator.UnexpectedExtendedMemberEnd
+            .CreateOptions(extenderTypeName, extenderName);
 
-        Parser.SkipWhitespaceUntil(ExtendOrBodyError, ExpectedChars);
+        Parser.SkipUntilNonWhitespace(null);
 
         bool IsAnExtensionExpected = Parser.GetCharAtDataIndex() == KGVL.COLON;
-
         while (IsAnExtensionExpected)
         {
+            if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (extender.ExtendedMemberCount > 0))
+            {
+                throw new SourceFileReadException(Parser, ExtendEndError);
+            }
+
             Parser.IncrementDataIndex();
-            Parser.SkipUntilNonWhitespace(ExtendError);
-            Identifier ExtendedMember = new(Parser.ReadIdentifier(ExtendError));
+            Parser.SkipUntilNonWhitespace(IdentifierError);
+            Identifier ExtendedMember = new(Parser.ReadIdentifier(IdentifierError));
             extender.AddExtendedMember(ExtendedMember);
 
-            Parser.SkipWhitespaceUntil(ExtendOrBodyError, ExpectedChars);
+            Parser.SkipUntilNonWhitespace(null);
             IsAnExtensionExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
         }
     }
