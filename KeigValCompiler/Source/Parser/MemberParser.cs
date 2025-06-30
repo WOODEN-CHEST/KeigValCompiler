@@ -52,7 +52,7 @@ internal class MemberParser : AbstractParserBase
         }
         else if (FirstSegment == KGVL.KEYWORD_EVENT)
         {
-            ParseEvent(memberHolder, Modifiers);
+            ParseEvent(memberHolder, memberHolderName, Modifiers);
         }
         else if (FirstSegment == KGVL.KEYWORD_ENUM)
         {
@@ -181,7 +181,8 @@ internal class MemberParser : AbstractParserBase
             .CreateOptions(RecordName));
 
         PackFunction Constructor = new(new(recordClass.SelfIdentifier.SourceCodeName), SourceFile);
-        Constructor.Parameters.SetFrom(ParseFunctionParameters(KGVL.CLOSE_PARENTHESIS, recordClass.SelfIdentifier));
+        Constructor.Parameters.SetFrom(ParseFunctionParameters(recordClass.SelfIdentifier.SourceCodeName,
+            KGVL.NAME_RECORD_CLASS, KGVL.CLOSE_PARENTHESIS));
 
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
         {
@@ -530,32 +531,32 @@ internal class MemberParser : AbstractParserBase
     private void ParseReturnTypedMember(object memberHolder, 
         PackMemberModifiers modifiers)
     {
-        const string NAME_RETURN_TYPE_MEMBER = "field or property, or function";
-        TypeTargetIdentifier? ReturnType = ParseReturnType(NAME_RETURN_TYPE_MEMBER);
-        Identifier MemberIdentifier = ParseMemberSelfIdentifier(NAME_RETURN_TYPE_MEMBER);
-        ErrorCreateOptions ErrorNoMember = ErrorCreator.ExpectedFieldOrPropertyOrFunction
-            .CreateOptions(MemberIdentifier.SourceCodeName);
+        //const string NAME_RETURN_TYPE_MEMBER = "field or property, or function";
+        //TypeTargetIdentifier? ReturnType = ParseReturnType(NAME_RETURN_TYPE_MEMBER);
+        //Identifier MemberIdentifier = ParseMemberSelfIdentifier(NAME_RETURN_TYPE_MEMBER);
+        //ErrorCreateOptions ErrorNoMember = ErrorCreator.ExpectedFieldOrPropertyOrFunction
+        //    .CreateOptions(MemberIdentifier.SourceCodeName);
 
-        Parser.SkipUntilNonWhitespace(ErrorNoMember);
-        char NextChar = Parser.GetCharAtDataIndex();
+        //Parser.SkipUntilNonWhitespace(ErrorNoMember);
+        //char NextChar = Parser.GetCharAtDataIndex();
 
-        if ((ReturnType == null) || (NextChar == KGVL.GENERIC_TYPE_START) || (NextChar == KGVL.OPEN_PARENTHESIS))
-        {
-            ParseFunction(modifiers, ReturnType, MemberIdentifier);
-        }
-        else if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY)
-            || (NextChar == KGVL.OPEN_CURLY_BRACKET))
-        {
-            ParseProperty(modifiers, ReturnType, MemberIdentifier);
-        }
-        else if ((NextChar == KGVL.ASSIGNMENT_OPERATOR) || (NextChar == KGVL.SEMICOLON))
-        {
-            ParseField(modifiers, ReturnType, MemberIdentifier);
-        }
-        else
-        {
-            throw new SourceFileReadException(Parser, ErrorNoMember);
-        }
+        //if ((ReturnType == null) || (NextChar == KGVL.GENERIC_TYPE_START) || (NextChar == KGVL.OPEN_PARENTHESIS))
+        //{
+        //    ParseFunction(modifiers, ReturnType, MemberIdentifier);
+        //}
+        //else if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY)
+        //    || (NextChar == KGVL.OPEN_CURLY_BRACKET))
+        //{
+        //    ParseProperty(modifiers, ReturnType, MemberIdentifier);
+        //}
+        //else if ((NextChar == KGVL.ASSIGNMENT_OPERATOR) || (NextChar == KGVL.SEMICOLON))
+        //{
+        //    ParseField(modifiers, ReturnType, MemberIdentifier);
+        //}
+        //else
+        //{
+        //    throw new SourceFileReadException(Parser, ErrorNoMember);
+        //}
     }
 
     private void ParseFunction(PackMemberModifiers modifiers,
@@ -582,9 +583,6 @@ internal class MemberParser : AbstractParserBase
         string extenderTypeName,
         string extenderName)
     {
-        char[] ExpectedChars = new char[]
-        { KGVL.COLON, KGVL.OPEN_CURLY_BRACKET, KGVL.KEYWORD_WHERE[0], KGVL.SEMICOLON, KGVL.COMMA };
-
         ErrorCreateOptions IdentifierError = ErrorCreator.ExpectedExtendedMemberIdentifier
             .CreateOptions(extenderTypeName, extenderName);
         ErrorCreateOptions ExtendEndError = ErrorCreator.UnexpectedExtendedMemberEnd
@@ -621,40 +619,48 @@ internal class MemberParser : AbstractParserBase
         };
     }
 
-    private FunctionParameterCollection ParseFunctionParameters(char paramListEndChar, Identifier funcHolderName)
+    private FunctionParameterCollection ParseFunctionParameters(string memberName,
+        string memberTypeName,
+        char paramsListEndChar)
     {
-        ErrorCreateOptions ExpectTypeOrModifierError = ErrorCreator.ExpectedParameterTypeOrModifier
-                .CreateOptions(funcHolderName.SourceCodeName);
-        ErrorCreateOptions ExpectTypeOrEndError = ErrorCreator.ExpectedParametersOrEnd
-                .CreateOptions(funcHolderName.SourceCodeName);
-        ErrorCreateOptions ExpectIdentifierError = ErrorCreator.ExpectedParameterIdentifier
-                .CreateOptions(funcHolderName.SourceCodeName);
-        ErrorCreateOptions ExpectTypeError = ErrorCreator.ExpectedParameterType
-                .CreateOptions(funcHolderName.SourceCodeName);
+        ErrorCreateOptions ExpectedParamOrEndError = ErrorCreator.ExpectedParametersRegularOrEnd
+                .CreateOptions(memberTypeName, memberName);
+        ErrorCreateOptions ExpectedTypeError = ErrorCreator.ExpectedParameterType
+                .CreateOptions(memberTypeName, memberName);
+        ErrorCreateOptions ExpectedIdentifierError = ErrorCreator.ExpectedParameterIdentifier
+                .CreateOptions(memberTypeName, memberName);
+        ErrorCreateOptions ExpectedParamTypeOrModifier = ErrorCreator.ExpectedParameterTypeOrModifier
+                .CreateOptions(memberTypeName, memberName);
 
         FunctionParameterCollection Params = new();
-        Parser.SkipUntilNonWhitespace(ExpectTypeOrEndError);
-        bool IsParameterExpected = Parser.GetCharAtDataIndex() != paramListEndChar;
 
+        Parser.SkipUntilNonWhitespace(ExpectedParamOrEndError);
+        bool IsParameterExpected = Parser.GetCharAtDataIndex() != paramsListEndChar;
         while (IsParameterExpected)
         {
+            if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
+            {
+                throw new SourceFileReadException(Parser, ErrorCreator.UnexpectedParameterEndError
+                    .CreateOptions(memberTypeName, memberName));
+            }
+
             int StartIndex = Parser.DataIndex;
             string FirstWord = Parser.ReadIdentifier(null);
             FunctionParameterModifier Modifier = StringToParamModifier(FirstWord);
 
             if (Modifier != FunctionParameterModifier.None)
             {
-                Parser.SkipUntilNonWhitespace(ExpectTypeError);
+                Parser.SkipUntilNonWhitespace(ExpectedTypeError);
             }
             else
             {
                 Parser.DataIndex = StartIndex;
             }
 
-            TypeTargetIdentifier ParamType = Parser.ReadTypeTargetIdentifier(ExpectTypeError);
-            Parser.SkipUntilNonWhitespace(ExpectIdentifierError);
-            string ParamName = Parser.ReadIdentifier(ExpectIdentifierError);
-            Parser.SkipUntilNonWhitespace(ExpectTypeOrEndError);
+            TypeTargetIdentifier ParamType = Parser.ReadTypeTargetIdentifier(ExpectedTypeError);
+            Parser.SkipUntilNonWhitespace(ExpectedIdentifierError);
+            string ParamName = Parser.ReadIdentifier(ExpectedIdentifierError);
+            Parser.SkipUntilNonWhitespace(ExpectedParamOrEndError);
             Params.AddItem(new(ParamType, new(ParamName), Modifier));
 
             char NextChar = Parser.GetCharAtDataIndex();
@@ -662,7 +668,7 @@ internal class MemberParser : AbstractParserBase
             if (IsParameterExpected)
             {
                 Parser.IncrementDataIndex();
-                Parser.SkipUntilNonWhitespace(ExpectTypeOrModifierError);
+                Parser.SkipUntilNonWhitespace(ExpectedParamTypeOrModifier);
             }
         }
 

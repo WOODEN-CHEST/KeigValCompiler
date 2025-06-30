@@ -169,6 +169,9 @@ internal class ErrorRepository
 
 
     /* Event */
+    internal virtual ErrorDefinition ExpectedEventEnd { get; } = new(1,
+        CompilerMessageCategory.Event,
+        $"Expected event \"{{0}}\" definition end '{KGVL.SEMICOLON}'");
 
 
     /* Enum. */
@@ -296,26 +299,28 @@ internal class ErrorRepository
 
 
 
-
-    internal virtual ErrorDefinition ExpectedParametersOrEnd { get; } = new(24,
-        $"Expected member \"{{0}}\" function parameter list " +
+    /* Function. */
+    internal virtual ErrorDefinition ExpectedParametersRegularOrEnd { get; } = new(1,
+        CompilerMessageCategory.Function,
+        $"Expected {{0}} \"{{1}}\" function parameter list " +
         $"{KGVL.OPEN_PARENTHESIS}T1 a, T2 b, ... {KGVL.CLOSE_PARENTHESIS} " +
         $"or parameter list end '{KGVL.CLOSE_PARENTHESIS}'");
 
-    internal virtual ErrorDefinition ExpectedParameterTypeOrModifier { get; } = new(25,
-        $"Expected member \"{{0}}\" function parameter type identifier or parameter modifier " +
+    internal virtual ErrorDefinition ExpectedParameterTypeOrModifier { get; } = new(2,
+        CompilerMessageCategory.Function,
+        "Expected {0} \"{1}\" function parameter type identifier or parameter modifier " +
         $"(\"{KGVL.KEYWORD_IN}\", \"{KGVL.KEYWORD_OUT}\" or \"{KGVL.KEYWORD_REF}\")");
 
-    internal virtual ErrorDefinition ExpectedParameterType { get; } = new(26,
-        "Expected member \"{0}\" function parameter type identifier");
+    internal virtual ErrorDefinition ExpectedParameterType { get; } = new(3,
+        CompilerMessageCategory.Function,
+        "Expected {0} \"{1}\" function parameter type identifier");
 
-    internal virtual ErrorDefinition ExpectedParameterIdentifier { get; } = new(27,
-        "Expected member \"{0}\" function parameter identifier");
+    internal virtual ErrorDefinition ExpectedParameterIdentifier { get; } = new(4,
+        CompilerMessageCategory.Function,
+        "Expected {0} \"{1}\" function parameter identifier");
 
-
-    internal virtual ErrorDefinition ExpectedEventEnd { get; } = new(45,
-        $"Expected event \"{{0}}\" definition end '{KGVL.SEMICOLON}'");
-
-    internal virtual ErrorDefinition ExpectedFieldOrPropertyOrFunction { get; } = new(46,
-        "Expected either a field, property of function with the identifier \"{0}\"");
+    internal virtual ErrorDefinition UnexpectedParameterEndError { get; } = new(5,
+        CompilerMessageCategory.Function,
+        $"Expected more function parameters because a previously placed comma '{KGVL.COMMA}' " +
+        "indicated that more function parameters are to follow for {0} \"{1}\"");
 }
