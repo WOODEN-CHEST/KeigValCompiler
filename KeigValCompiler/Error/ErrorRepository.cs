@@ -153,7 +153,7 @@ internal class ErrorRepository
     /* Delegate. */
     internal virtual ErrorDefinition ExpectedDelegateParamList { get; } = new(1,
         CompilerMessageCategory.Delegate,
-        $"Expected delegate \"{{0}}\" parameter list {KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS}");
+        $"Expected delegate \"{{0}}\" parameter list ({{0}}{KGVL.OPEN_PARENTHESIS} ... {KGVL.CLOSE_PARENTHESIS})");
 
     internal virtual ErrorDefinition ExpectedDelegateParamListEnd { get; } = new(2,
         CompilerMessageCategory.Delegate,
@@ -163,15 +163,15 @@ internal class ErrorRepository
         CompilerMessageCategory.Delegate,
         $"Expected delegate \"{{0}}\" definition end '{KGVL.SEMICOLON}'");
 
-    internal virtual ErrorDefinition ExpectedEventDelegateType { get; } = new(4,
-        CompilerMessageCategory.Delegate,
-        "Expected event delegate type identifier.");
-
 
     /* Event */
     internal virtual ErrorDefinition ExpectedEventEnd { get; } = new(1,
         CompilerMessageCategory.Event,
         $"Expected event \"{{0}}\" definition end '{KGVL.SEMICOLON}'");
+
+    internal virtual ErrorDefinition ExpectedEventDelegateType { get; } = new(2,
+        CompilerMessageCategory.Event,
+        "Expected event delegate type identifier.");
 
 
     /* Enum. */
@@ -292,10 +292,9 @@ internal class ErrorRepository
 
 
     /* Comments. */
-    internal virtual ErrorDefinition ExpectedMultiLineCommentEnd { get; } = new(35,
+    internal virtual ErrorDefinition ExpectedMultiLineCommentEnd { get; } = new(1,
         CompilerMessageCategory.Comment,
         "Multi-line comment started on line {0} wasn't terminated properly");
-
 
 
 

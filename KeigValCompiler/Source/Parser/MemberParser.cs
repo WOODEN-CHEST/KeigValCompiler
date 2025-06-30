@@ -44,7 +44,7 @@ internal class MemberParser : AbstractParserBase
         }
         else if (FirstSegment == KGVL.KEYWORD_DELEGATGE)
         {
-            ParseDelegate(memberHolder, Modifiers);
+            ParseDelegate(memberHolder, memberHolderTypeName, Modifiers);
         }
         else if (FirstSegment == KGVL.KEYWORD_INTERFACE)
         {
@@ -281,7 +281,7 @@ internal class MemberParser : AbstractParserBase
         {
             Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericParamsOrExtension
                 .CreateOptions(typeName, Name.SourceCodeName));
-            ParseGenericParameters(Name, typeName, GenericsHolder.GenericParameters);
+            ParseGenericParameters(Name.SourceCodeName, typeName, GenericsHolder.GenericParameters);
         }
 
         bool IsRecord = (modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
@@ -345,11 +345,11 @@ internal class MemberParser : AbstractParserBase
         return Chars.ToArray();
     }
 
-    private void ParseDelegate(object parentObject, PackMemberModifiers modifiers)
+    private void ParseDelegate(object parentObject, string parentObjectTypeName, PackMemberModifiers modifiers)
     {
         if (parentObject is not IPackTypeHolder DelegateHolder)
         {
-            throw CreateInvalidHolderException(parentObject, KGVL.NAME_DELEGATE);
+            throw CreateInvalidHolderException(parentObject, parentObjectTypeName, KGVL.NAME_DELEGATE);
         }
         
         TypeTargetIdentifier? ReturnType = ParseReturnType(KGVL.NAME_DELEGATE);
@@ -361,7 +361,8 @@ internal class MemberParser : AbstractParserBase
             SourceFileOrigin = Origin,
         };
 
-        ParseGenericParameters(Name, Delegate.GenericParameters);
+        Parser.SkipUntilNonWhitespace(null);
+        ParseGenericParameters(Name.SourceCodeName, KGVL.NAME_DELEGATE, Delegate.GenericParameters);
 
         ErrorCreateOptions ParamError = ErrorCreator.ExpectedDelegateParamList.CreateOptions(Name.SourceCodeName);
         Parser.SkipUntilNonWhitespace(ParamError);
@@ -370,7 +371,8 @@ internal class MemberParser : AbstractParserBase
             throw new SourceFileReadException(Parser, ParamError);
         }
         Parser.IncrementDataIndex();
-        FunctionParameterCollection Parameters = ParseFunctionParameters(KGVL.CLOSE_PARENTHESIS, Name);
+        FunctionParameterCollection FunctionParameters = ParseFunctionParameters(
+            Name.SourceCodeName, KGVL.NAME_DELEGATE, KGVL.CLOSE_PARENTHESIS);
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
         {
             throw new SourceFileReadException(Parser,
@@ -378,7 +380,8 @@ internal class MemberParser : AbstractParserBase
         }
         Parser.IncrementDataIndex();
 
-        ParseGenericConstraints(Name, Delegate.GenericParameters, KGVL.SEMICOLON);
+        Parser.SkipUntilNonWhitespace(null);
+        ParseGenericConstraints(Name.SourceCodeName, KGVL.NAME_DELEGATE, Delegate.GenericParameters);
 
         ErrorCreateOptions EndError = ErrorCreator.ExpectedDelegateDefinitionEnd.CreateOptions(Name.SourceCodeName);
         Parser.SkipUntilNonWhitespace(EndError);
@@ -389,7 +392,7 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
 
         DelegateHolder.AddDelegate(Delegate);
-        Delegate.Parameters.SetFrom(Parameters);
+        Delegate.Parameters.SetFrom(FunctionParameters);
     }
 
     private void ParseEvent(object parentObject, string parentObjectTypeName, PackMemberModifiers modifiers)
@@ -760,7 +763,7 @@ internal class MemberParser : AbstractParserBase
         };
     }
 
-    private bool ParseGenericParameters(Identifier memberName,
+    private bool ParseGenericParameters(string memberName,
         string memberTypeName,
         GenericTypeParameterCollection parameters)
     {
@@ -775,20 +778,20 @@ internal class MemberParser : AbstractParserBase
         while (IsParameterExpected)
         {
             ErrorCreateOptions ExpectedIdentifierError = ErrorCreator.ExpectedGenericParameterIdentifier
-                .CreateOptions(memberTypeName, memberName.SourceCodeName);
+                .CreateOptions(memberTypeName, memberName);
 
             Parser.SkipUntilNonWhitespace(ExpectedIdentifierError);
             if (Parser.GetCharAtDataIndex() == KGVL.GENERIC_TYPE_END) // Test edge case for better error messages.
             {
                 throw new SourceFileReadException(Parser, ErrorCreator.GenericParametersUnexpectedEnd
-                    .CreateOptions(memberTypeName, memberName.SourceCodeName));
+                    .CreateOptions(memberTypeName, memberName));
             }
 
             string Identifier = Parser.ReadIdentifier(ExpectedIdentifierError);
             parameters.AddItem(new(new(Identifier), null));
 
             Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedGenericParameterCommaOrEnd
-                    .CreateOptions(memberTypeName, memberName.SourceCodeName));
+                    .CreateOptions(memberTypeName, memberName));
 
             IsParameterExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
             if (IsParameterExpected)
@@ -798,7 +801,7 @@ internal class MemberParser : AbstractParserBase
         }
 
         ErrorCreateOptions ErrorExpectedParameterEnd = ErrorCreator.ExpectedGenericParameterEnd
-                .CreateOptions(memberTypeName, memberName.SourceCodeName);
+                .CreateOptions(memberTypeName, memberName);
         Parser.SkipUntilNonWhitespace(ErrorExpectedParameterEnd);
         if (Parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END)
         {
