@@ -6,7 +6,7 @@ internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPack
     // Fields.
     public OperatorOverloadCollection OperatorOverloads => _members.OperatorOverloads;
     public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
-    public IEnumerable<Identifier> ExtendedMembers => _extendedMember.ToArray();
+    public IEnumerable<Identifier> ExtendedMembers => _extendedMembers.ToArray();
     public IEnumerable<PackClass> Classes => _members.Classes;
     public IEnumerable<PackInterface> Interfaces => _members.Interfaces;
     public IEnumerable<PackStruct> Structs => _members.Structs;
@@ -31,6 +31,7 @@ internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPack
     public IEnumerable<PackProperty> AllProperties => _members.AllProperties;
     public IEnumerable<PackIndexer> AllIndexers => _members.AllIndexers;
     public IEnumerable<PackEvent> AllEvents => _members.AllEvents;
+    public int ExtendedMemberCount => _extendedMembers.Count;
 
 
     // Internal fields.
@@ -39,7 +40,7 @@ internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPack
 
 
     // Private fields.
-    private readonly List<Identifier> _extendedMember = new();
+    private readonly List<Identifier> _extendedMembers = new();
     private readonly MemberContainer _members = new();
 
 
@@ -150,11 +151,11 @@ internal class PackStruct : PackMember, IPackTypeHolder, IPackFieldHolder, IPack
 
     public void AddExtendedMember(Identifier identifier)
     {
-        _extendedMember.Add(identifier);
+        _extendedMembers.Add(identifier);
     }
 
     public void RemoveExtendedMember(Identifier identifier)
     {
-        _extendedMember.Remove(identifier);
+        _extendedMembers.Remove(identifier);
     }
 }

@@ -5,7 +5,7 @@ internal class PackInterface : PackMember, IPackTypeHolder, IPackFunctionHolder,
 {
     // Fields.
     public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
-    public IEnumerable<Identifier> ExtendedMembers => _extendedMember.ToArray();
+    public IEnumerable<Identifier> ExtendedMembers => _extendedMembers.ToArray();
     public IEnumerable<PackClass> Classes => _members.Classes;
     public IEnumerable<PackInterface> Interfaces => _members.Interfaces;
     public IEnumerable<PackStruct> Structs => _members.Structs;
@@ -30,6 +30,7 @@ internal class PackInterface : PackMember, IPackTypeHolder, IPackFunctionHolder,
     public IEnumerable<PackProperty> AllProperties => _members.AllProperties;
     public IEnumerable<PackIndexer> AllIndexers => _members.AllIndexers;
     public IEnumerable<PackEvent> AllEvents => _members.AllEvents;
+    public int ExtendedMemberCount => _extendedMembers.Count;
 
 
     // Internal fields.
@@ -38,7 +39,7 @@ internal class PackInterface : PackMember, IPackTypeHolder, IPackFunctionHolder,
 
 
     // Private fields.
-    private readonly List<Identifier> _extendedMember = new();
+    private readonly List<Identifier> _extendedMembers = new();
     private readonly MemberContainer _members = new();
 
 
@@ -134,12 +135,12 @@ internal class PackInterface : PackMember, IPackTypeHolder, IPackFunctionHolder,
 
     public void AddExtendedMember(Identifier identifier)
     {
-        _extendedMember.Add(identifier);
+        _extendedMembers.Add(identifier);
     }
 
     public void RemoveExtendedMember(Identifier identifier)
     {
-        _extendedMember.Remove(identifier);
+        _extendedMembers.Remove(identifier);
     }
 
     public void RemoveDelegate(PackDelegate packDelegate)

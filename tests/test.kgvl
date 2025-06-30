@@ -1,0 +1,163 @@
+/* Parser test source file. If the parser works, everything here should be parsed without errors. */
+/*** COMMENT TESTS***/
+
+/* Multi=line comment tests
+*
+*
+/* terminated here. */
+
+
+/*** NAMESPACE TESTS ***/
+using KGVL;
+/* comment before code */ using KGVL.Minecraft;
+using KGVL.Minecraft.Server; // Comment after code.
+
+
+namespace Test.Test1;
+
+namespace Test.Test2;
+
+using KGVL.Minecraft.World;
+
+namespace Test.Test3;
+
+
+/*** TYPE TESTS ***/
+/* Modifier tests. */
+
+public class PublicClass {}
+public static class PublicStaticClass { }
+
+protected class ProtectedClass 
+{ 
+
+}
+
+protected static class ProtectedStaticClass {
+
+}
+
+private class PrivateClass { }
+private static class PrivateStaticClass    {   }
+
+class Class { }
+
+/* Class tests. */
+public class TestClass1 { }
+
+public class TestClass2<T> { }
+
+public class TestClass2<T1, T2, T3, T4, T5> { }
+
+public class TestClass2 : IInterface1, IInterface2, IInterface3 { }
+
+public class TestClass3<T> : IInterface1, IInterface2, IInterface3 { }
+
+public class TestClass4<T> where T : GenericType, class, struct, notnull { }
+
+public class TestClass5<T1, T2, T3> where T1 : A where T2 : B where T3 : C { }
+
+public class TestClass5<T1, T2, T3> where T1 : A where T2 : B where T3 : The<The2<The3<The4, The5, The6>>> { }
+
+public class TestClass6<T1> : IInterface1, IInterface2, IInterface3 where T1 : class { }
+
+
+/* Interface tests. */
+public interface TestInterface1 { }
+
+public interface TestInterface2<T> { }
+
+public interface TestInterface2<T1, T2, T3, T4, T5> { }
+
+public interface TestInterface2 : IInterface1, IInterface2, IInterface3 { }
+
+public interface TestInterface3<T> : IInterface1, IInterface2, IInterface3 { }
+
+public interface TestInterface4<T> where T : GenericType, interface, struct, notnull { }
+
+public interface TestInterface5<T1, T2, T3> where T1 : A where T2 : B where T3 : C { }
+
+public interface TestInterface6<T1> : IInterface1, IInterface2, IInterface3 where T1 : class { }
+
+
+/* Record tests. */
+public record TestRecord1();
+
+public record TestRecord2 { }
+
+public record TestRecord3(int a, string b, decimal c);
+
+public record TestRecord4(int a, string b, decimal c) { }
+
+public record TestRecord5<T>(int a, string b, decimal c, T d);
+
+public record TestRecord5<T>(int a, string b, decimal c, T d) : IInterface1, IInterface2, IInterface3 where T : class;
+
+public record TestRecord5<T>(int a, string b, decimal c, T d) : IInterface1, IInterface2, IInterface3 where T : class { }
+
+
+/* Enum tests. */
+public enum TestEnum1
+{
+    A = 0,
+    B = 2,
+    C = 4,
+    D = 6
+}
+
+public enum TestEnum2
+{
+    A = 0,
+    B,
+    C = 3,
+    D
+}
+
+public enum TestEnum3
+{
+    A = 0b10,
+    B = 0xff,
+    C = 15,
+    D,
+    E = 1_000_000,
+    F = 1__00___0_0
+}
+
+//public enum EnumTest4 { }
+
+
+/* Delegate tests. */
+public delegate void TestDelegate1();
+private delegate int TestDelegate2(string abc, out int a123);
+protected delegate int TestDelegate3<T>(string abc, out int a123) where T : class;
+delegate T2 TestDelegate4<T1, T2, T3>(string abc, out int a123, T1 amogus, T2 sus);
+
+
+/* Event tests. */
+
+
+
+/*  Sub-member tests. */
+
+
+
+/* Edge cases. */
+
+public class publicclass { }
+
+public class publicint { }
+
+public delegate publicint2 WeirdDelegate(refint a, ref int b);
+
+delegate classint<long>
+ SuperWeirdDelegate<   T1,
+T2,  T3   >(
+    out 
+        int C12345678999999_090909
+);
+
+
+/*** FIELD, PROPERTY AND INDEXER TESTS ***/
+
+
+/***  FUNCTION TESTS ***/

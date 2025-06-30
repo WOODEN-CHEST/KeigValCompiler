@@ -34,7 +34,7 @@ public class SourceDataParser
         }
     }
     internal string? FilePath { get; set; } = null;
-    internal int DataLength => DataLength;
+    internal int DataLength => _data.Length;
     internal bool IsMoreDataAvailable => DataIndex < DataLength;
 
 
@@ -103,6 +103,18 @@ public class SourceDataParser
         for (int i = 0; i < count; i++) { DecrementDataIndex(); }
     }
 
+    internal int GetColumn(int startIndex)
+    {
+        int Index = startIndex;
+        do
+        {
+            Index--;
+        }
+        while ((Index > 0) && (GetCharAtDataIndex(Index) != '\n'));
+
+        return startIndex - Index;
+    }
+
     internal char GetCharAtDataIndex() => _dataIndex >= DataLength ? KGVL.CHAR_NONE : _data[_dataIndex];
 
     internal char GetCharAtDataIndex(int index) => index >= DataLength ? KGVL.CHAR_NONE : _data[index];
@@ -138,7 +150,7 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        if ((error.HasValue) && (Identifier.Length == 0) || char.IsDigit(Identifier[0]))
+        if (error.HasValue && ((Identifier.Length == 0) || char.IsDigit(Identifier[0])))
         {
             string IdentifierName = Identifier.Length != 0 ? $"\"{Identifier.ToString()}\"" : "with empty name";
             throw new SourceFileReadException(this, error, $"Invalid identifier {IdentifierName}. " +
@@ -364,7 +376,7 @@ public class SourceDataParser
             CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
         }
 
-        (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), error);
+        (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), Base, error);
 
         if (error.HasValue && (Number.Length <= 0))
         {
@@ -432,7 +444,9 @@ public class SourceDataParser
         }
     }
 
-    private (bool IsLong, bool IsUnsigned) ReadNumberTypeSpecifier(string numberValue, ErrorCreateOptions? error)
+    private (bool IsLong, bool IsUnsigned) ReadNumberTypeSpecifier(string numberValue, 
+        NumberBase numberBase,
+        ErrorCreateOptions? error)
     {
         string Suffix = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}";
 
@@ -470,25 +484,51 @@ public class SourceDataParser
 
         int SpecifierLength = (HasLongSpecifier ? 1 : 0) + (HasUnsignedSpecifier ? 1 : 0);
         IncrementDataIndexNTimes(SpecifierLength);
-        (bool IsValueLong, bool IsValueUnsigned) = GetNumberSpecifiersBasedOnValue(numberValue);
+        (bool IsValueLong, bool IsValueUnsigned) = GetNumberSpecifiersBasedOnValue(numberValue, numberBase);
         return (HasLongSpecifier || IsValueLong, HasUnsignedSpecifier || IsValueUnsigned);
     }
 
-    private (bool IsLong, bool IsUnsigned) GetNumberSpecifiersBasedOnValue(string numberValue)
+    private (bool IsLong, bool IsUnsigned) GetNumberSpecifiersBasedOnValue(string numberValue, NumberBase numberBase)
     {
-        if (int.TryParse(numberValue, out _))
+        int Base = BaseToInt(numberBase);
+        if (TryParseInt(() => Convert.ToInt32(numberValue, Base)))
         {
             return (false, false);
         }
-        if (uint.TryParse(numberValue, out _))
+        if (TryParseInt(() => Convert.ToUInt32(numberValue, Base)))
         {
             return (false, true);
         }
-        if (long.TryParse(numberValue, out _))
+        if (TryParseInt(() => Convert.ToInt64(numberValue, Base)))
         {
             return (true, false);
         }
         return (true, true);
+    }
+
+    private int BaseToInt(NumberBase numberBase)
+    {
+        return numberBase switch
+        {
+            NumberBase.Decimal => 10,
+            NumberBase.Binary => 2,
+            NumberBase.Hexadecimal => 16,
+            _ => throw new ArgumentOutOfRangeException($"Invalid number base {numberBase} ({(int)numberBase})")
+        };
+    }
+
+    private bool TryParseInt(Action action)
+    {
+        try
+        {
+            action.Invoke();
+            return true;
+        }
+        catch (Exception e) when (e is ArgumentException or FormatException
+            or ArgumentOutOfRangeException or OverflowException)
+        {
+            return false;
+        }
     }
 
     private string GetNoTargetCharsFoundNote(char[] characters)

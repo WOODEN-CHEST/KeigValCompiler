@@ -147,7 +147,7 @@ internal class ErrorRepository
     internal virtual ErrorDefinition UnexpectedExtendedMemberEnd { get; } = new(8,
         CompilerMessageCategory.TypeMemberCommon,
         $"Expected a member extension identifier because a previous comma '{KGVL.COMMA}' indicated " +
-        "that member more member extensions are to follow for the {0} \"{1}\"");
+        "that more member extensions are to follow for the {0} \"{1}\"");
 
 
     /* Delegate. */

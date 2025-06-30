@@ -17,8 +17,19 @@ internal class SourceFileReadException : Exception
     // Private static methods.
     private static string CreateErrorMessage(SourceDataParser parser, ErrorCreateOptions? error, string? notes)
     {
-        string Notes = notes != null ? $"Notes: {notes}" : string.Empty;
-        return $"Failed to read file \"{parser.FilePath}\" on line {parser.Line}. " +
-            $"{error?.CreateMessage() ?? string.Empty}. {Notes}.";
+        string Notes = notes != null ? $"Notes: {notes}{GetEndPunctuation(notes)}" : string.Empty;
+        string ErrorMessage = error?.CreateMessage() ?? string.Empty;
+        return $"Failed to read file \"{parser.FilePath}\" on line {parser.Line} " +
+            $"column {parser.GetColumn(parser.DataIndex)}. " +
+            $"{ErrorMessage}{GetEndPunctuation(ErrorMessage)} {Notes}";
+    }
+
+    private static string GetEndPunctuation(string sentence)
+    {
+        if ((sentence.Length == 0) || (sentence.EndsWith('.') || sentence.EndsWith('?') || sentence.EndsWith('!')))
+        {
+            return string.Empty;
+        }
+        return ".";
     }
 }

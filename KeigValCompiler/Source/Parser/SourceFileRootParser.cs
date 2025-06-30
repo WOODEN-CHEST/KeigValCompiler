@@ -129,7 +129,7 @@ internal class SourceFileRootParser : AbstractParserBase
             else
             {
                 throw new SourceFileReadException(Parser, ErrorCreator.NamespaceUnexpectedChar
-                    .CreateOptions(IncompleteNamespaceName));
+                    .CreateOptions(Parser.GetCharAtDataIndex(), IncompleteNamespaceName));
             }
         }
 

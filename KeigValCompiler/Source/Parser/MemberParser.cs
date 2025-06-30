@@ -25,9 +25,9 @@ internal class MemberParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(ExpectedMemberError);
         int StartParserIndex = Parser.DataIndex;
         TypeTargetIdentifier TypeTarget = Parser.ReadTypeTargetIdentifier(ExpectedMemberError);
-        Modifiers = 0;
 
         string FirstSegment = TypeTarget.MainTarget!.SourceCodeName;
+
         bool IsRecord = (Modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
         if (FirstSegment == KGVL.KEYWORD_CLASS)
         {
@@ -596,13 +596,14 @@ internal class MemberParser : AbstractParserBase
         bool IsAnExtensionExpected = Parser.GetCharAtDataIndex() == KGVL.COLON;
         while (IsAnExtensionExpected)
         {
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(IdentifierError);
+
             if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (extender.ExtendedMemberCount > 0))
             {
                 throw new SourceFileReadException(Parser, ExtendEndError);
             }
 
-            Parser.IncrementDataIndex();
-            Parser.SkipUntilNonWhitespace(IdentifierError);
             Identifier ExtendedMember = new(Parser.ReadIdentifier(IdentifierError));
             extender.AddExtendedMember(ExtendedMember);
 
