@@ -19,4 +19,8 @@
     <None Remove="Semantician\Resolver\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Executor\" />
+  </ItemGroup>
+
 </Project>

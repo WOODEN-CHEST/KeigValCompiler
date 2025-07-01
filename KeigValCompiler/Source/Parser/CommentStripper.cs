@@ -69,7 +69,6 @@ internal class CommentStripper
                     .CreateOptions(StartLine), KGVL.MULTI_LINE_COMMENT_END);
                 int EndLine = _parser.Line;
                 strippedData.Append(KGVL.NEWLINE, EndLine - StartLine);
-                continue;
             }
             else
             {
