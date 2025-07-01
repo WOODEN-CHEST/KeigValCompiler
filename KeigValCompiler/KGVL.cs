@@ -82,6 +82,7 @@ internal static class KGVL
     public const string KEYWORD_AS = "as";
     public const string KEYWORD_BASE = "base";
     public const string KEYWORD_THIS = "this";
+    public const string KEYWORD_VAR = "var";
 
     public const string KEYWORD_IN = "in";
     public const string KEYWORD_OUT = "out";
@@ -117,6 +118,7 @@ internal static class KGVL
     public const string PREFIX_HEX = "0x";
     public const char SUFFIX_LONG = 'l';
     public const char SUFFIX_UNSIGNED ='u';
+    public const char SUFFIX_DECIMAL ='m';
 
 
     /* Internal. */

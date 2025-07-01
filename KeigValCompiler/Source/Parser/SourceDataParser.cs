@@ -105,6 +105,7 @@ public class SourceDataParser
 
     internal int GetColumn(int startIndex)
     {
+        // YAY, more inefficient as fuck code.
         int Index = startIndex;
         do
         {
@@ -549,5 +550,4 @@ public class SourceDataParser
         DataIndex = EndIndex;
         return false;
     }
-
 }

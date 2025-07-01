@@ -24,26 +24,42 @@ internal class CommentStripper
     // Methods.
     public string StripCommentsFromCode(string code)
     {
-        /* IMPROTANT: as of now there's a bug where interpolated strings do not correctly get parsed here. */
         _parser.DataIndex = 0;
         StringBuilder StrippedData = new(_parser.DataLength);
 
-        while (_parser.DataIndex < _parser.DataLength)
+        ParseCode(StrippedData, false);
+
+        return StrippedData.ToString();
+    }
+
+
+    // Private methods.
+    private void ParseCode(StringBuilder strippedData, bool isInterpolation)
+    {
+        bool IsMoreDataAvailable = true;
+        while (IsMoreDataAvailable)
         {
             char Character = _parser.GetCharAtDataIndex();
 
             if (Character == KGVL.DOUBLE_QUOTE)
             {
-                StrippedData.Append(ReadQuotedInclQuote(KGVL.DOUBLE_QUOTE));
+                ReadQuotedInclQuote(strippedData, KGVL.DOUBLE_QUOTE, false);
             }
             else if (Character == KGVL.SINGLE_QUOTE)
             {
-                StrippedData.Append(ReadQuotedInclQuote(KGVL.SINGLE_QUOTE));
+                ReadQuotedInclQuote(strippedData, KGVL.SINGLE_QUOTE, false);
+            }
+            else if ((Character == KGVL.STRING_INTERPOLATION_OPERATOR) &&
+                (_parser.GetCharAtDataIndex(_parser.DataIndex + 1) == KGVL.DOUBLE_QUOTE))
+            {
+                _parser.IncrementDataIndex();
+                strippedData.Append(KGVL.STRING_INTERPOLATION_OPERATOR);
+                ReadQuotedInclQuote(strippedData, KGVL.DOUBLE_QUOTE, true);
             }
             else if (_parser.HasStringAtIndex(_parser.DataIndex, KGVL.SINGLE_LINE_COMMENT_START))
             {
                 _parser.SkipUntil(null, KGVL.NEWLINE);
-                StrippedData.Append(KGVL.NEWLINE);
+                strippedData.Append(KGVL.NEWLINE);
                 _parser.IncrementDataIndex();
             }
             else if (_parser.HasStringAtIndex(_parser.DataIndex, KGVL.MULTI_LINE_COMMENT_START))
@@ -52,21 +68,20 @@ internal class CommentStripper
                 _parser.SkipPastString(_errorRepository.ExpectedMultiLineCommentEnd
                     .CreateOptions(StartLine), KGVL.MULTI_LINE_COMMENT_END);
                 int EndLine = _parser.Line;
-                StrippedData.Append(KGVL.NEWLINE, EndLine - StartLine);
+                strippedData.Append(KGVL.NEWLINE, EndLine - StartLine);
                 continue;
             }
             else
             {
-                StrippedData.Append(Character);
+                strippedData.Append(Character);
                 _parser.IncrementDataIndex();
             }
-        }
 
-        return StrippedData.ToString();
+            IsMoreDataAvailable = _parser.IsMoreDataAvailable && (!isInterpolation 
+                || (Character == KGVL.CLOSE_CURLY_BRACKET));
+        }
     }
 
-
-    // Private methods.
 
     //private string ReadInterpolatedStringInclSyntax()
     //{
@@ -140,31 +155,43 @@ internal class CommentStripper
     //    return Interpolation.ToString();
     //}
 
-    private string ReadQuotedInclQuote(char targetQuote)
+    private void ReadQuotedInclQuote(StringBuilder strippedData, char targetEndQuote, bool isInterpolated)
     {
-        StringBuilder Target = new();
-        Target.Append(_parser.GetCharAtDataIndex());
+        strippedData.Append(_parser.GetCharAtDataIndex());
         _parser.IncrementDataIndex();
 
         bool IsInEscapeSequence = false;
+        bool IsInterpolationSuggested = false;
         char Character;
 
         Character = _parser.GetCharAtDataIndex();
-        while (((Character != targetQuote) || IsInEscapeSequence) && _parser.IsMoreDataAvailable)
+        while (((Character != targetEndQuote) || IsInEscapeSequence) && _parser.IsMoreDataAvailable)
         {
             IsInEscapeSequence = !IsInEscapeSequence && (Character == KGVL.ESCAPE_CHAR);
-            Target.Append(Character);
-            _parser.IncrementDataIndex();
+
+            if (IsInterpolationSuggested && (Character != KGVL.OPEN_CURLY_BRACKET))
+            {
+                ParseCode(strippedData, true);
+            }
+            else
+            {
+                strippedData.Append(Character);
+                _parser.IncrementDataIndex();
+            }
+
+            IsInterpolationSuggested = isInterpolated
+                    && !IsInterpolationSuggested
+                    && (Character == KGVL.OPEN_CURLY_BRACKET);
+
             Character = _parser.GetCharAtDataIndex();
         }
 
         if (!_parser.IsMoreDataAvailable)
         {
-            throw new SourceFileReadException($"Expected end of quoted block with {targetQuote}");
+            throw new SourceFileReadException($"Expected end of quoted block with {targetEndQuote}");
         }
 
-        Target.Append(Character);
+        strippedData.Append(Character);
         _parser.IncrementDataIndex();
-        return Target.ToString();
     }
 }

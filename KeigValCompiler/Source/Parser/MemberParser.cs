@@ -13,8 +13,15 @@ namespace KeigValCompiler.Source.Parser;
 
 internal class MemberParser : AbstractParserBase
 {
+    // Private fields
+    private readonly StatementParser _statementParser;
+
+
     // Constructors.
-    public MemberParser(PackParsingContext context) : base(context) { }
+    public MemberParser(PackParsingContext context) : base(context)
+    {
+        _statementParser = new(context);
+    }
 
 
     // Methods.
