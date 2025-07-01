@@ -78,82 +78,10 @@ internal class CommentStripper
             }
 
             IsMoreDataAvailable = _parser.IsMoreDataAvailable && (!isInterpolation 
-                || (Character == KGVL.CLOSE_CURLY_BRACKET));
+                || (Character != KGVL.CLOSE_CURLY_BRACKET));
         }
     }
 
-
-    //private string ReadInterpolatedStringInclSyntax()
-    //{
-    //    StringBuilder ReadData = new();
-    //    ReadData.Append(_parser.GetCharAtDataIndex());
-    //    _parser.IncrementDataIndex();
-    //    ReadData.Append(_parser.ReadUntilNonWhitespace(null));
-    //    if (_parser.GetCharAtDataIndex() != KGVL.DOUBLE_QUOTE)
-    //    {
-    //        return ReadData.ToString();
-    //    }
-
-    //    ReadData.Append(_parser.GetCharAtDataIndex());
-    //    _parser.IncrementDataIndex();
-
-    //    bool WasInterpolationEscaped = false;
-    //    while (_parser.GetCharAtDataIndex() != KGVL.DOUBLE_QUOTE)
-    //    {
-    //        char Character = GetCharAtDataIndex();
-    //        bool HasDoubleInterpSymbol = (Character == KGVL.OPEN_CURLY_BRACKET)
-    //            && (GetCharAtDataIndex(_dataIndex + 1) == KGVL.OPEN_CURLY_BRACKET);
-
-    //        if ((Character == KGVL.OPEN_CURLY_BRACKET) && !HasDoubleInterpSymbol && !WasInterpolationEscaped)
-    //        {
-    //            ReadData.Append(ReadInterpolation());
-    //        }
-    //        else
-    //        {
-    //            ReadData.Append(Character);
-    //        }
-
-    //        WasInterpolationEscaped = !WasInterpolationEscaped && HasDoubleInterpSymbol;
-    //        IncrementDataIndex();
-    //    }
-
-    //    ReadData.Append(GetCharAtDataIndex());
-
-    //    return ReadData.ToString();
-    //}
-
-    //private string ReadInterpolation()
-    //{
-    //    StringBuilder Interpolation = new();
-    //    char Character;
-
-    //    while (((Character = GetCharAtDataIndex()) != KGVL.CLOSE_CURLY_BRACKET) && (_dataIndex < _data.Length))
-    //    {
-    //        if (Character == KGVL.SINGLE_QUOTE)
-    //        {
-    //            Interpolation.Append(ReadQuotedInclQuote(KGVL.SINGLE_QUOTE));
-    //        }
-    //        else if (Character == KGVL.STRING_INTERPOLATION_OPERATOR)
-    //        {
-    //            Interpolation.Append(ReadInterpolatedStringInclSyntax());
-    //        }
-    //        else if (Character == KGVL.DOUBLE_QUOTE)
-    //        {
-    //            Interpolation.Append(ReadQuotedInclQuote(KGVL.DOUBLE_QUOTE));
-    //        }
-    //        else
-    //        {
-    //            Interpolation.Append(Character);
-    //        }
-    //        IncrementDataIndex();
-    //    }
-    //    if (_dataIndex >= _data.Length)
-    //    {
-    //        throw new SourceFileException(this, "Expected end of interpolated string's interpolation block.");
-    //    }
-    //    Interpolation.Append(Character);
-    //    return Interpolation.ToString();
-    //}
 
     private void ReadQuotedInclQuote(StringBuilder strippedData, char targetEndQuote, bool isInterpolated)
     {
