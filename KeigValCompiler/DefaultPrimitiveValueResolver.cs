@@ -12,7 +12,7 @@ namespace KeigValCompiler;
 internal class DefaultPrimitiveValueResolver : IPrimitiveValueResolver
 {
     // Private methods.
-    private PackMember? GetTypeOfNumber(GenericNumber number, BuiltInTypeRegistry registry)
+    private PackMember? GetTypeOfNumber(IntegerNumber number, BuiltInTypeRegistry registry)
     {
         if (TwoIntDecimal.TryParse(number.Number, out _))
         {
@@ -29,7 +29,7 @@ internal class DefaultPrimitiveValueResolver : IPrimitiveValueResolver
     // Inherited methods.
     public PackMember? GetTypeOfValue(object value, DataPack pack, BuiltInTypeRegistry registry)
     {
-        if (value is GenericNumber Number)
+        if (value is IntegerNumber Number)
         {
             return GetTypeOfNumber(Number, registry);
         }

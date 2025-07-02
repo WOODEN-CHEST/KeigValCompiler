@@ -9,5 +9,31 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class TryStatement : Statement
 {
     // Fields.
-    public StatementCollection TryBody { get; set; } = new();
+    internal override IEnumerable<Statement> SubStatements
+    {
+        get
+        {
+            List<Statement> Statements = new(TryBody);
+
+            foreach (CatchClause Clause in CatchClauses)
+            {
+                if (Clause.WhenCondition != null)
+                {
+                    Statements.Add(Clause.WhenCondition);
+                }
+                Statements.AddRange(Clause.Body);
+            }
+
+            if (FinallyBody != null)
+            {
+                Statements.AddRange(FinallyBody);
+            }
+
+            return SubStatements;
+        }
+    }
+
+    internal StatementCollection TryBody { get; } = new();
+    internal List<CatchClause> CatchClauses { get; } = new();
+    internal StatementCollection? FinallyBody { get; set; } = null;
 }

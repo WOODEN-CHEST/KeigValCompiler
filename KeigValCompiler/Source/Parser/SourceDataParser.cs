@@ -1,4 +1,5 @@
 ﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
 using System;
 using System.Collections.Generic;
@@ -361,7 +362,7 @@ public class SourceDataParser
         return true;
     }
 
-    internal GenericNumber ReadInteger(ErrorCreateOptions? error)
+    internal IntegerNumber? ReadInteger(ErrorCreateOptions? error)
     {
         StringBuilder Number = new();
 
@@ -379,12 +380,56 @@ public class SourceDataParser
 
         (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), Base, error);
 
-        if (error.HasValue && (Number.Length <= 0))
+        if (Number.Length <= 0)
         {
-            throw new SourceFileReadException(this, error);
+            if (error.HasValue)
+            {
+                throw new SourceFileReadException(this, error);
+            }
+            return null;
         }
 
         return new(Number.ToString(), Base, IsLong, IsUnsigned);
+    }
+
+    internal DecimalNumber? ReadDecimal(ErrorCreateOptions? error)
+    {
+        string? DecimalString = ParseDecimalNumber(error);
+
+        if ((DecimalString == null) || !TwoIntDecimal.TryParse(DecimalString, out _))
+        {
+            if (error.HasValue)
+            {
+                throw new SourceFileReadException(this, error, $"Invalid decimal number {DecimalString}");
+            }
+            return null;
+        }
+         
+        return new(DecimalString);
+    }
+
+    internal object? ReadNumber(ErrorCreateOptions? error)
+    {
+        int StartIndex = DataIndex;
+
+        DecimalNumber? DecNumber = ReadDecimal(null);
+        if (DecNumber != null)
+        {
+            return DecNumber;
+        }
+
+        DataIndex = StartIndex;
+        IntegerNumber? IntNumber = ReadInteger(null);
+        if (IntNumber != null)
+        {
+            return IntNumber;
+        }
+        
+        if (error.HasValue)
+        {
+            throw new SourceFileReadException(this, error, "Invalid number.");
+        }
+        return null;
     }
 
     internal TypeTargetIdentifier ReadTypeTargetIdentifier(ErrorCreateOptions? error)
@@ -425,7 +470,92 @@ public class SourceDataParser
         return new(new(BaseName), SubTypes.ToArray()) { IsNullable = GetIsNullable() };
     }
 
+    internal CharConstant ReadCharacter()
+    {
+        throw new NotImplementedException();
+    }
+
+    internal InterpolatedString ReadString()
+    {
+        throw new NotImplementedException();
+    }
+
+
     // Private methods.
+    private string? ParseDecimalNumber(ErrorCreateOptions? error)
+    {
+        StringBuilder Number = new StringBuilder();
+
+        bool HasDecimalIndicator = false;
+        bool HasSeparator = false;
+        bool HasExponent = false;
+
+        char Character = char.ToLowerInvariant(GetCharAtDataIndex());
+        while (!HasDecimalIndicator && (char.IsAsciiDigit(Character) 
+            || (Character == KGVL.DECIMAL_SEPARATOR) 
+            || (Character == KGVL.DECIMAL_EXPONENT)
+            || (Character == KGVL.SUFFIX_DECIMAL)))
+        {
+            if (Character == KGVL.DECIMAL_SEPARATOR)
+            {
+                if (HasSeparator)
+                {
+                    if ((Number.Length > 0) && (Number[^1] == KGVL.DECIMAL_SEPARATOR))
+                    {
+                        if (error.HasValue)
+                        {
+                            throw new SourceFileReadException(this, error, $"Multiple decimal separators " +
+                                $"'{KGVL.DECIMAL_SEPARATOR}' are not allowed (Number \"{Number}\")");
+                        }
+                        return null;
+                    }
+                    return Number.ToString();
+                }
+                HasSeparator = true;
+            }
+            else if (Character == KGVL.DECIMAL_EXPONENT)
+            {
+                if (HasExponent)
+                {
+                    if (error.HasValue)
+                    {
+                        throw new SourceFileReadException(this, error, $"Multiple exponend indicators " +
+                            $"'{KGVL.DECIMAL_EXPONENT}' are not allowed (Number \"{Number}\")");
+                    }
+                    return null;
+                }
+                HasExponent = true;
+            }
+            else if (Character == KGVL.SUFFIX_DECIMAL)
+            {
+                if ((Number.Length == 0) || (Number[^1] == KGVL.DECIMAL_SEPARATOR) || (Number[^1] == KGVL.DECIMAL_EXPONENT))
+                {
+                    if (error.HasValue)
+                    {
+                        throw new SourceFileReadException(this, error, $"The decimal number suffix {KGVL.SUFFIX_DECIMAL} " +
+                            $"is used incorrectly. It must not appear after a separator '{KGVL.DECIMAL_SEPARATOR}' " +
+                            $"or an exponent indicator '{KGVL.DECIMAL_EXPONENT}' (Number \"{Number}\")");
+                    }
+                }
+            }
+
+            Number.Append(Character);
+            IncrementDataIndex();
+            Character = GetCharAtDataIndex();
+        }
+
+        if ((Number.Length == 0) || (Number[^1] == KGVL.DECIMAL_EXPONENT))
+        {
+            if (error != null)
+            {
+                throw new SourceFileReadException(this, error, $"Invalid decimal number \"{Number}\". " +
+                    $"Decimal numbers must not be empty or end with an exponent indicator '{KGVL.DECIMAL_EXPONENT}'");
+            }
+        }
+
+        return Number.ToString();
+    }
+
     private (char[] characters, NumberBase numberBase) GetNumberBase()
     {
         string BaseIndicator = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}".ToLowerInvariant();

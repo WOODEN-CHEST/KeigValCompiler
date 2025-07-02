@@ -6,4 +6,4 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler;
 
-internal record GenericNumber(string Number, NumberBase Base, bool IsLong, bool IsUnsigned);
+internal record InterpolatedString(object[] Sections);

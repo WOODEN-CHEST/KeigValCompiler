@@ -485,7 +485,7 @@ internal class MemberParser : AbstractParserBase
                 ErrorCreateOptions ExpectedValueError = ErrorCreator.ExpectedEnumConstantValue.CreateOptions(ConstantName);
                 Parser.IncrementDataIndex();
                 Parser.SkipUntilNonWhitespace(ExpectedValueError);
-                GenericNumber Number = Parser.ReadInteger(ExpectedValueError);
+                IntegerNumber Number = Parser.ReadInteger(ExpectedValueError)!;
                 CurrentEnumValue = CastNumberToEnumConstantValue(enumeration, ConstantName, Number);
             }
             enumeration.SetConstant(ConstantName, CurrentEnumValue);
@@ -501,7 +501,7 @@ internal class MemberParser : AbstractParserBase
         }
     }
 
-    private int CastNumberToEnumConstantValue(PackEnumeration enumeration, string constantName, GenericNumber number)
+    private int CastNumberToEnumConstantValue(PackEnumeration enumeration, string constantName, IntegerNumber number)
     {
         if (number.IsLong || number.IsUnsigned)
         {
