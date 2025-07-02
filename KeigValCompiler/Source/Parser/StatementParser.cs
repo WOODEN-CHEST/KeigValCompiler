@@ -33,26 +33,58 @@ internal class StatementParser : AbstractParserBase
             return new EmptyStatement();
         }
 
-        if (ExtractedKeyword == KGVL.KEYWORD_CONTINUE)
+        Statement? KeywordStatement = ParseKeywordStatement(ExtractedKeyword);
+        if (KeywordStatement != null)
         {
-            return new ContinueStatement();
-        }
-        else if (ExtractedKeyword == KGVL.KEYWORD_BREAK)
-        {
-            return new BreakStatement();
+            return KeywordStatement;
         }
 
-        throw new NotImplementedException();
+        return ParseNonKeywordStatement();
     }
 
 
     // Private methods.
-    private void ParseNonEmptyStatement()
+    private Statement? ParseKeywordStatement(string keyword)
+    {
+        return keyword switch
+        {
+            KGVL.KEYWORD_CONTINUE => new ContinueStatement(),
+            KGVL.KEYWORD_BREAK => new BreakStatement(),
+            KGVL.KEYWORD_RETURN => ParseReturnStatement(),
+            KGVL.KEYWORD_TRY => ParseTryStatement(),
+            KGVL.KEYWORD_IF => ParseIfStatement(),
+            KGVL.KEYWORD_WHILE => ParseWhileStatement(),
+            KGVL.KEYWORD_FOR => ParseForStatement(),
+            _ => null
+        };
+    }
+
+    private Statement ParseNonKeywordStatement()
     {
         throw new NotImplementedException();
     }
 
     private ReturnStatement ParseReturnStatement()
+    {
+        throw new NotImplementedException();
+    }
+
+    private TryStatement ParseTryStatement()
+    {
+        throw new NotImplementedException();
+    }
+
+    private IfStatement ParseIfStatement()
+    {
+        throw new NotImplementedException();
+    }
+
+    private WhileStatement ParseWhileStatement()
+    {
+        throw new NotImplementedException();
+    }
+
+    private ForStatement ParseForStatement()
     {
         throw new NotImplementedException();
     }

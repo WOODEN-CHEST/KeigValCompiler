@@ -6,14 +6,14 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Semantician.Member.Code;
 
-internal class MemberRetrieveStatement : Statement
+internal class IdentifiableAccessStatement : Statement
 {
     // Fields.
     internal Identifier MemberIdentifier { get; set; }
 
 
     // Constructors.
-    internal MemberRetrieveStatement(string identifierName)
+    internal IdentifiableAccessStatement(string identifierName)
     {
         MemberIdentifier = new(identifierName);
     }

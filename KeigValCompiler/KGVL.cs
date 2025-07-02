@@ -64,6 +64,8 @@ internal static class KGVL
 
     public const string KEYWORD_FOR = "for";
     public const string KEYWORD_FOREACH = "foreach";
+    public const string KEYWORD_IN = "in";
+    public const string KEYWORD_WHILE = "while";
     public const string KEYWORD_CONTINUE = "continue";
     public const string KEYWORD_BREAK = "break";
     public const string KEYWORD_YIELD = "yield";
@@ -72,12 +74,11 @@ internal static class KGVL
     public const string KEYWORD_SWITCH = "switch";
     public const string KEYWORD_CASE = "case";
     public const string KEYWORD_DEFAULT = "default";
-    public const string KEYWORD_GOTO = "goto";
-    public const string KEYWORD_LABEL = "label";
     public const string KEYWORD_TRY = "try";
     public const string KEYWORD_CATCH = "catch";
     public const string KEYWORD_THROW = "throw";
     public const string KEYWORD_FINALLY = "finally";
+    public const string KEYWORD_RETURN = "return";
     public const string KEYWORD_CONSTALLOC = "constalloc";
     public const string KEYWORD_IS = "is";
     public const string KEYWORD_AS = "as";
