@@ -523,8 +523,7 @@ public class SourceDataParser
             catch (Exception e) when (e is FormatException or ArgumentException
                 or OverflowException or ArgumentOutOfRangeException)
             {
-                throw new SourceFileReadException(this, null, $"Invalid character in hex notation \"{sequence}\". " +
-                    $"Character must s");
+                throw new SourceFileReadException(this, null, $"Invalid character in hex notation \"{sequence}\".");
             }
         }
 
