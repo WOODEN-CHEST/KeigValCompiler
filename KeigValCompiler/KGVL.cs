@@ -122,6 +122,7 @@ internal static class KGVL
     public const char SUFFIX_DECIMAL ='m';
     public const char DECIMAL_SEPARATOR ='.';
     public const char DECIMAL_EXPONENT ='e';
+    public const char PREFIX_HEX_CHAR ='x';
 
 
     /* Internal. */

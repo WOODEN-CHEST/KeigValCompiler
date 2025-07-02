@@ -8,6 +8,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace KeigValCompiler.Source.Parser;
 
@@ -470,14 +471,76 @@ public class SourceDataParser
         return new(new(BaseName), SubTypes.ToArray()) { IsNullable = GetIsNullable() };
     }
 
-    internal CharConstant ReadCharacter()
+    internal CharConstant? ReadCharacter(ErrorCreateOptions? error)
+    {
+        if (GetCharAtDataIndex() != KGVL.SINGLE_QUOTE)
+        {
+            if (error != null)
+            {
+                throw new SourceFileReadException(this, error,
+                    $"Character did not start with a quote {KGVL.SINGLE_QUOTE}");
+            }
+            return null;
+        }
+        IncrementDataIndex();
+
+        char Character;
+        if (GetCharAtDataIndex() == KGVL.ESCAPE_CHAR)
+        {
+            Character = EscapeSequenceToChar(ReadUntil(error, KGVL.SINGLE_QUOTE));
+        }
+        else
+        {
+            Character = GetCharAtDataIndex();
+        }
+
+        if (GetCharAtDataIndex() != KGVL.SINGLE_QUOTE)
+        {
+            if (error != null)
+            {
+                throw new SourceFileReadException(this, error, 
+                    $"Character \"{Character}\" did not end with a quote {KGVL.SINGLE_QUOTE}");
+            }
+            return null;
+        }
+        IncrementDataIndex();
+        return new(Character);
+    }
+
+    internal InterpolatedString? ReadInterpolatedString(ErrorCreateOptions? error)
     {
         throw new NotImplementedException();
     }
 
-    internal InterpolatedString ReadString()
+    internal char EscapeSequenceToChar(string sequence)
     {
-        throw new NotImplementedException();
+        if (sequence.StartsWith(KGVL.PREFIX_HEX_CHAR))
+        {
+            try
+            {
+                return (char)Convert.ToUInt32(sequence.Substring(1), 16);
+            }
+            catch (Exception e) when (e is FormatException or ArgumentException
+                or OverflowException or ArgumentOutOfRangeException)
+            {
+                throw new SourceFileReadException(this, null, $"Invalid character in hex notation \"{sequence}\". " +
+                    $"Character must s");
+            }
+        }
+
+        return sequence switch
+        {
+            "a" => '\a',
+            "b" => '\b',
+            "f" => '\f',
+            "n" => '\n',
+            "t" => '\t',
+            "v" => '\v',
+            "'" => '\'',
+            "\"" => '"',
+            "\\" => '\\',
+            _ => throw new SourceFileReadException(this, null, $"Unknown escape sequence \"\\{sequence}\"")
+        };
     }
 
 
