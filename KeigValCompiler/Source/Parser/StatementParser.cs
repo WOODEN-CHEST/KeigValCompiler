@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician.Member;
+﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Member.Code;
 using System;
 using System.Collections.Generic;
@@ -42,6 +43,30 @@ internal class StatementParser : AbstractParserBase
         return ParseNonKeywordStatement();
     }
 
+    public StatementCollection ParseStatementBody()
+    {
+        StatementCollection Statements = new();
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser, null, 
+                $"Expected statement body start '{KGVL.OPEN_CURLY_BRACKET}'");
+        }
+
+        while (Parser.IsMoreDataAvailable
+            && Parser.SkipUntilNonWhitespace(null)
+            && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
+        {
+            Statements.AddStatement(ParseStatement());
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected statement body end '{KGVL.CLOSE_CURLY_BRACKET}'");
+        }
+        return Statements;
+    }
+
 
     // Private methods.
     private Statement? ParseKeywordStatement(string keyword)
@@ -53,19 +78,22 @@ internal class StatementParser : AbstractParserBase
             KGVL.KEYWORD_RETURN => ParseReturnStatement(),
             KGVL.KEYWORD_TRY => ParseTryStatement(),
             KGVL.KEYWORD_IF => ParseIfStatement(),
-            KGVL.KEYWORD_WHILE => ParseWhileStatement(),
+            KGVL.KEYWORD_WHILE or KGVL.KEYWORD_DO => ParseWhileStatement(),
             KGVL.KEYWORD_FOR => ParseForStatement(),
+            KGVL.KEYWORD_SWITCH => ParseSwitchStatement(),
             _ => null
         };
     }
 
-    private Statement ParseNonKeywordStatement()
-    {
-        throw new NotImplementedException();
-    }
-
     private ReturnStatement ParseReturnStatement()
     {
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON)
+        {
+            Parser.IncrementDataIndex();
+            return new ReturnStatement();
+        }
+        
         throw new NotImplementedException();
     }
 
@@ -87,5 +115,28 @@ internal class StatementParser : AbstractParserBase
     private ForStatement ParseForStatement()
     {
         throw new NotImplementedException();
+    }
+
+    private ForStatement ParseSwitchStatement()
+    {
+        throw new NotImplementedException();
+    }
+
+    private Statement ParseNonKeywordStatement()
+    {
+        throw new NotImplementedException();
+    }
+
+    private string ParseString()
+    {
+        if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+        {
+
+        }
+    }
+
+    private InterpolatedString ParseInterpolatedString()
+    {
+
     }
 }

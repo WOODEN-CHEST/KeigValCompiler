@@ -66,6 +66,7 @@ internal static class KGVL
     public const string KEYWORD_FOREACH = "foreach";
     public const string KEYWORD_IN = "in";
     public const string KEYWORD_WHILE = "while";
+    public const string KEYWORD_DO = "do";
     public const string KEYWORD_CONTINUE = "continue";
     public const string KEYWORD_BREAK = "break";
     public const string KEYWORD_YIELD = "yield";

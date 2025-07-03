@@ -9,14 +9,39 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class SwitchCase
 {
     // Fields.
-    internal Statement CaseCondition { get; set; }
+    internal IEnumerable<Statement> CaseConditions => _caseConditions;
+    internal int CaseConditionCount => _caseConditions.Count;
     internal StatementCollection Body { get; } = new();
     internal bool IsBroken = false;
 
 
-    // Constructors.
-    internal SwitchCase(Statement condition)
+    // Private fields.
+    private readonly List<Statement> _caseConditions = new();
+
+
+    // Methods.
+    public void AddCondition(Statement condition)
     {
-        CaseCondition = condition;
+        _caseConditions.Add(condition);
+    }
+
+    public void RemoveCondition(Statement condition)
+    {
+        _caseConditions.Remove(condition);
+    }
+
+    public void RemoveConditionAt(int index)
+    {
+        _caseConditions.RemoveAt(index);
+    }
+
+    public void InsertConditionAt(int index, Statement condition)
+    {
+        _caseConditions.Insert(index, condition);
+    }
+
+    public void ClearCondition()
+    {
+        _caseConditions.Clear();
     }
 }

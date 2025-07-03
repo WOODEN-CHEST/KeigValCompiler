@@ -42,6 +42,17 @@ internal class StatementCollection : IEnumerable<Statement>
         _statements.RemoveAt(index);
     }
 
+    public void ClearStataements()
+    {
+        _statements.Clear();
+    }
+
+    public void SetFrom(IEnumerable<Statement> body)
+    {
+        ClearStataements();
+        _statements.AddRange(body);
+    }
+
     public IEnumerator<Statement> GetEnumerator()
     {
         return _statements.GetEnumerator();

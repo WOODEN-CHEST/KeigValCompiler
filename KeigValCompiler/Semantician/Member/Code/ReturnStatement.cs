@@ -8,5 +8,5 @@ namespace KeigValCompiler.Semantician.Member.Code;
 
 internal class ReturnStatement : Statement
 {
-    Identifier? ReturnedObject { get; set; } = null;
+    Statement? ReturnValue { get; set; } = null;
 }
