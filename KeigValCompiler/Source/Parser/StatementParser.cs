@@ -3,6 +3,7 @@ using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Member.Code;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -351,9 +352,94 @@ internal class StatementParser : AbstractParserBase
         return TargetStatement;
     }
 
-    private ForStatement ParseSwitchStatement()
+    private SwitchStatement ParseSwitchStatement()
     {
-        throw new NotImplementedException();
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected switch statement body start '{KGVL.OPEN_CURLY_BRACKET}'");
+        }
+        Parser.IncrementDataIndex();
+
+        List<SwitchCase> Cases = ParseSwitchCases();
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected switch statement body end '{KGVL.CLOSE_CURLY_BRACKET}'");
+        }
+        Parser.IncrementDataIndex();
+
+        SwitchStatement TargetStatement = new();
+        foreach (SwitchCase Case in Cases)
+        {
+            TargetStatement.AddCase(Case);
+        }
+        return TargetStatement;
+    }
+
+    private List<SwitchCase> ParseSwitchCases()
+    {
+        List<SwitchCase> Cases = new();
+
+        Parser.SkipUntilNonWhitespace(null);
+        while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
+        {
+            SwitchCase? Case = ParseSingleSwitchCase();
+            if (Case != null)
+            {
+                Cases.Add(Case);
+            }
+        }
+
+        return Cases;
+    }
+
+    private SwitchCase? ParseSingleSwitchCase()
+    {
+        SwitchCase Case = new();
+        Parser.SkipUntilNonWhitespace(null);
+
+        StatementCollection Conditions = new();
+
+        int StartIndex = Parser.DataIndex;
+        string Keyword = Parser.ReadIdentifier(null);
+        
+        while (Keyword == KGVL.KEYWORD_CASE)
+        {
+            Parser.SkipUntilNonWhitespace(null);
+            Case.CaseConditions.AddStatement(ParseStatementInternal(KGVL.COLON));
+            if (Parser.GetCharAtDataIndex() != KGVL.COLON)
+            {
+                throw new SourceFileReadException(Parser, null,
+                    $"Expected colon '{KGVL.COLON}' after switch condition");
+            }
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(null);
+            StartIndex = Parser.DataIndex;
+            Keyword = Parser.ReadIdentifier(null);
+        }
+
+        Parser.DataIndex = StartIndex;
+
+        Statement BodyStatement;
+        do
+        {
+            BodyStatement = ParseStatement();
+            Case.Body.AddStatement(BodyStatement);
+            Parser.SkipUntilNonWhitespace(null);
+        } while (BodyStatement is not BreakStatement);
+
+        if (Case.CaseConditions.IsEmpty)
+            {
+                throw new SourceFileReadException(Parser, null,
+                    $"Expected at least 1 switch case condition.");
+            }
+
+        Case.CaseConditions.SetFrom(Conditions);
+        return Case;
     }
 
     private Statement ParseNonKeywordStatement(TypeTargetIdentifier target)
