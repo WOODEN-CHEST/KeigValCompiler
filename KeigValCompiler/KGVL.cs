@@ -37,6 +37,9 @@ internal static class KGVL
 
     public const char TYPE_NULLABLE_INDICATOR = '?';
 
+    public const char ESCAPE_SEQUENCE_CODEPOINT_INDICATOR = 'u';
+    public const char ESCAPE_SEQUENCE_HEX_INDICATOR = 'x';
+
 
     /* Keywords. */
     public const string KEYWORD_NAMESPACE = "namespace";
@@ -64,7 +67,6 @@ internal static class KGVL
 
     public const string KEYWORD_FOR = "for";
     public const string KEYWORD_FOREACH = "foreach";
-    public const string KEYWORD_IN = "in";
     public const string KEYWORD_WHILE = "while";
     public const string KEYWORD_DO = "do";
     public const string KEYWORD_CONTINUE = "continue";
@@ -94,6 +96,8 @@ internal static class KGVL
 
     public const string KEYWORD_WHERE = "where";
     public const string KEYWORD_NOTNULL = "notnull";
+
+    public const string KEYWORD_WHEN = "when";
 
     public const string KEYWORD_NAMEOF = "nameof";
     public const string KEYWORD_TYPEOF = "typeof";

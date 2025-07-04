@@ -9,10 +9,9 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal abstract class ConditionalStatement : Statement
 {
     // Internal fields.
-    internal override IEnumerable<Statement> SubStatements => IfBody.Concat(ElseBody).Append(Condition);
     internal Statement Condition { get; set; }
     internal StatementCollection IfBody { get; } = new();
-    internal StatementCollection ElseBody { get; } = new();
+    internal StatementCollection? ElseBody { get; set; } = new();
 
 
     // Constructors.
