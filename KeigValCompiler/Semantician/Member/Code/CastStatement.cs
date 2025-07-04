@@ -9,7 +9,6 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class CastStatement : Statement
 {
     // Fields.
-    internal override IEnumerable<Statement> SubStatements => new Statement[] { StatementToCast };
     internal TypeTargetIdentifier TargetCastType { get; set; }
     internal Statement StatementToCast { get; set; }
     internal bool IsStrict { get; set; } = true;

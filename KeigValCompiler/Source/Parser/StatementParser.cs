@@ -96,8 +96,8 @@ internal class StatementParser : AbstractParserBase
             KGVL.KEYWORD_RETURN => ParseReturnStatement(),
             KGVL.KEYWORD_TRY => ParseTryStatement(),
             KGVL.KEYWORD_IF => ParseIfStatement(),
-            KGVL.KEYWORD_WHILE => ParseWhileStatement(false),
-            KGVL.KEYWORD_DO => ParseWhileStatement(true),
+            KGVL.KEYWORD_WHILE => ParseWhileStatement(),
+            KGVL.KEYWORD_DO => ParseDoWhileStatement(),
             KGVL.KEYWORD_FOR => ParseForStatement(),
             KGVL.KEYWORD_SWITCH => ParseSwitchStatement(),
             _ => null
@@ -116,7 +116,7 @@ internal class StatementParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(null);
         return new ReturnStatement()
         {
-            StatementReturnType = ParseStatementInternal(KGVL.SEMICOLON)
+            ReturnValue = ParseStatementInternal(KGVL.SEMICOLON)
         };
     }
 
@@ -266,14 +266,89 @@ internal class StatementParser : AbstractParserBase
         return Condition;
     }
 
-    private WhileStatement ParseWhileStatement(bool isDoLoop)
+    private WhileStatement ParseWhileStatement()
     {
-        throw new NotImplementedException();
+        Parser.SkipUntilNonWhitespace(null);
+        Statement Condition = ParseSimpleCondition();
+
+        Parser.SkipUntilNonWhitespace(null);
+        StatementCollection Body = ParseVariableLengthStatement();
+
+        WhileStatement TargetStatement = new(Condition)
+        {
+            IsPairedWithDoStatement = false
+        };
+        TargetStatement.Body.SetFrom(Body);
+        return TargetStatement;
+    }
+
+    private WhileStatement ParseDoWhileStatement()
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        StatementCollection Body = ParseVariableLengthStatement();
+
+        Parser.SkipUntilNonWhitespace(null);
+        Statement Condition = ParseSimpleCondition();
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected '{KGVL.SEMICOLON}' to end a do-while statement");
+        }
+        Parser.IncrementDataIndex();
+
+        WhileStatement TargetStatement = new(Condition)
+        {
+            IsPairedWithDoStatement = true
+        };
+        TargetStatement.Body.SetFrom(Body);
+        return TargetStatement;
     }
 
     private ForStatement ParseForStatement()
     {
-        throw new NotImplementedException();
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected for statement condition start '{KGVL.OPEN_PARENTHESIS}'");
+        }
+        Parser.IncrementDataIndex();
+
+        Parser.SkipUntilNonWhitespace(null);
+        Statement Assignment = ParseStatementInternal(KGVL.SEMICOLON);
+        if (Assignment is not VariableAssignmentStatement or EmptyStatement)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected variable assignment statement (for assignment section) or nothing in for loop");
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        Statement Condition = ParseStatementInternal(KGVL.SEMICOLON);
+
+        Parser.SkipUntilNonWhitespace(null);
+        Statement Increment = ParseStatementInternal(KGVL.CLOSE_PARENTHESIS);
+        if (Increment is not VariableAssignmentStatement or EmptyStatement)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected variable assignment statement (for increment section) or nothing in for loop");
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected for statement condition end '{KGVL.CLOSE_PARENTHESIS}'");
+        }
+        Parser.IncrementDataIndex();
+
+        Parser.SkipUntilNonWhitespace(null);
+        StatementCollection Body = ParseVariableLengthStatement();
+
+        ForStatement TargetStatement = new(Assignment, Condition, Increment);
+        TargetStatement.Body.SetFrom(Body);
+        return TargetStatement;
     }
 
     private ForStatement ParseSwitchStatement()

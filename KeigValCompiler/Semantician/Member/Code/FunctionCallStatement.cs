@@ -9,7 +9,6 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal abstract class FunctionCallStatement : Statement
 {
     // Internal fields.
-    internal override IEnumerable<Statement> SubStatements => Arguments;
     internal IEnumerable<Statement> Arguments => _arguments;
     internal int ArgumentCount => _arguments.Count;
 

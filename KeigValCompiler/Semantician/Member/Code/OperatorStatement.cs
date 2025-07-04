@@ -9,23 +9,9 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class OperatorStatement : Statement
 {
     // Fields.
-    internal override IEnumerable<Statement> SubStatements
-    {
-        get
-        {
-            List<Statement> Statements = new() {  MainStatement  };
-            if (AdditionalStatement != null)
-            {
-                Statements.Add(AdditionalStatement);
-            }
-
-            return Statements;
-        }
-    }
-
     internal StatementOperator TargetOperator { get; set; }
     internal Statement MainStatement { get; set; }
-    internal Statement? AdditionalStatement { get; set; }
+    internal Statement? AdditionalStatement { get; set; } = null;
 
 
     // Constructors.

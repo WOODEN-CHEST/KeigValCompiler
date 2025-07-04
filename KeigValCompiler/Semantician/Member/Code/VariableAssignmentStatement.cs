@@ -9,10 +9,6 @@ namespace KeigValCompiler.Semantician.Member.Code;
 internal class VariableAssignmentStatement : Statement
 {
     // Internal fields.
-    internal override IEnumerable<Statement> SubStatements => Assignments
-        .Select(assignment => assignment.Value)
-        .Where(statement => statement != null)!;
-
     internal Identifier? Type { get; set; }
     internal bool IsDeclaration { get; set; } = false;
     internal VariableAssignmentCollection Assignments { get; } = new();

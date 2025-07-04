@@ -7,6 +7,7 @@ internal class StatementCollection : IEnumerable<Statement>
     // Fields.
     internal int Count => _statements.Count;
     internal Statement this[int index] => _statements[index];
+    internal bool IsEmpty => (Count <= 0) || _statements.All(statement => statement is EmptyStatement);
 
     // Private fields.
     private readonly List<Statement> _statements = new();
