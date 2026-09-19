@@ -69,12 +69,9 @@ public interface TestInterface2<T> { }
 
 public interface TestInterface2<T1, T2, T3, T4, T5> { }
 
-public interface TestInterface2 : Interface1, IInterface2, IInterface3 { }
+public interface TestInterface2 : IInterface1, IInterface2, IInterface3 { }
 
-public interface TestInterface3<T> ace1, IInterface2, IInterface3 { }
-
-public class TestClass3<T> : IInterface1, IInterface2, IInterface3 { }
-: IInterface1, IInterface2, IInterface3 { }
+public interface TestInterface3<T> : IInterface1, IInterface2, IInterface3 { }
 
 public interface TestInterface4<T> where T : GenericType, interface, struct, notnull { }
 
@@ -134,6 +131,16 @@ public delegate void TestDelegate1();
 private delegate int TestDelegate2(string abc, out int a123);
 protected delegate int TestDelegate3<T>(string abc, out int a123) where T : class;
 delegate T2 TestDelegate4<T1, T2, T3>(string abc, out int a123, T1 amogus, T2 sus);
+
+
+/* Array type tests. A type of array depth N has N + 1 independently nullable positions, listed
+ * innermost first: "int?[]?[]?" is a nullable array of nullable arrays of nullable ints. */
+public delegate int[] TestArray1(string[] a);
+public delegate int[][] TestArray2(string[][][] a);
+public delegate int[]? TestArray3(string?[] a);
+public delegate int?[]?[]? TestArray4(string[]?[] a);
+public delegate List<int>[] TestArray5(Map<string, int[]>[] a);
+public delegate int [ ] TestArray6(string  [ ]  a);
 
 
 /* Event tests. */

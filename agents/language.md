@@ -27,6 +27,15 @@ Divergences from C# worth knowing:
 - **`raw` and `constalloc`** are reserved in `KGVL.cs` but referenced nowhere
   else — no parsing, no modifier flag, no semantics. Their intended meaning is
   not recorded anywhere; ask before assuming.
+- **Arrays are jagged and nullable at every level.** A type of array depth N has
+  N + 1 independently nullable positions, so `int?[]?[]?` is a nullable array of
+  nullable arrays of nullable ints. The reading rule is that each `[]` wraps
+  everything to its left in one more array, and a `?` always annotates whatever
+  stands immediately to its left — so the leftmost `[]` is the *innermost*
+  array. This differs from C#, where the leftmost rank specifier is the
+  outermost; the KGVL rule was chosen because it makes every `?` position
+  unambiguous. `TypeTargetIdentifier.NullabilityByLevel` stores these innermost
+  first. True multidimensional arrays (`int[,]`) are not parsed.
 - Namespaces are file-scoped and *reassignable mid-file* — a `.kgvl` file may
   contain several `namespace X;` statements, each switching the active namespace
   for what follows.

@@ -12,7 +12,7 @@ would go stale within a few commits. Read the code.
    v
 DataPack  (in-memory object model)
    |
-   |  2. RESOLVE .......................... skeleton, never invoked
+   |  2. RESOLVE .......................... excluded from the build
    v
 DataPack  (identifiers resolved to targets)
    |
@@ -112,10 +112,7 @@ sequences, and strings.
   the expression parser.
 - `SourceDataParser.ReadInterpolatedString` is a stub.
 - `TwoIntDecimal` has several unimplemented operator/conversion members.
-- `tests/test.kgvl` is corrupted at lines 72-77; everything else in it parses.
 - `CatchClause.WhenCondition` exists but `catch ... when (...)` is not parsed.
-- `FunctionParameterModifier` is `[Flags]` yet `Ref = 3` collides with
-  `In | Out`. Nothing ORs them today, so it is latent rather than live.
 
 ## Suggested order of work
 

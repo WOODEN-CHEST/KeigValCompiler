@@ -444,18 +444,18 @@ public class SourceDataParser
             TypeArguments = ReadGenericTypeArguments(error);
         }
 
-        /* A nullable indicator before the brackets makes the element nullable ("int?[]"), while one
-         * after the brackets makes the array itself nullable ("int[]?"). */
-        bool IsNullableBeforeBrackets = GetIsNullable();
-        int ArrayRank = ReadArrayRank();
-        bool IsNullable = ArrayRank > 0 ? GetIsNullable() : IsNullableBeforeBrackets;
-
-        return new TypeTargetIdentifier(new(BaseName), TypeArguments)
+        /* Each "[]" wraps everything read so far in one more array, and a '?' always annotates
+         * whatever stands immediately to its left. So "int?[]?[]" is an array of nullable arrays
+         * of nullable ints, and the levels come out innermost first. */
+        List<bool> NullabilityByLevel = new() { GetIsNullable() };
+        while (ReadOneArrayLevel())
         {
-            ArrayRank = ArrayRank,
-            IsNullable = IsNullable,
-            IsElementNullable = (ArrayRank > 0) && IsNullableBeforeBrackets
-        };
+            NullabilityByLevel.Add(GetIsNullable());
+        }
+
+        TypeTargetIdentifier TypeTarget = new(new(BaseName), TypeArguments);
+        TypeTarget.SetNullabilityByLevel(NullabilityByLevel);
+        return TypeTarget;
     }
 
     private TypeTargetIdentifier[] ReadGenericTypeArguments(ErrorCreateOptions? error)
@@ -749,33 +749,30 @@ public class SourceDataParser
                 $"[{string.Join(", ", characters)}].";
     }
 
-    /* Reads a run of "[]" pairs and returns how many were found, rewinding if none are present.
-     * A lone '[' that is not immediately closed is left unconsumed, so that an index access like
-     * "a[i]" is not mistaken for an array type. */
-    private int ReadArrayRank()
+    /* Consumes one "[]" pair and reports whether there was one, rewinding if not. A lone '[' that
+     * is not immediately closed is left unconsumed, so that an index access like "a[i]" is never
+     * mistaken for an array type. */
+    private bool ReadOneArrayLevel()
     {
-        int Rank = 0;
         int EndIndex = DataIndex;
         SkipUntilNonWhitespace(null);
 
-        while (GetCharAtDataIndex() == KGVL.OPEN_SQUARE_BRACKET)
+        if (GetCharAtDataIndex() != KGVL.OPEN_SQUARE_BRACKET)
         {
-            IncrementDataIndex();
-            SkipUntilNonWhitespace(null);
+            DataIndex = EndIndex;
+            return false;
+        }
+        IncrementDataIndex();
+        SkipUntilNonWhitespace(null);
 
-            if (GetCharAtDataIndex() != KGVL.CLOSE_SQUARE_BRACKET)
-            {
-                break;
-            }
-
-            IncrementDataIndex();
-            Rank++;
-            EndIndex = DataIndex;
-            SkipUntilNonWhitespace(null);
+        if (GetCharAtDataIndex() != KGVL.CLOSE_SQUARE_BRACKET)
+        {
+            DataIndex = EndIndex;
+            return false;
         }
 
-        DataIndex = EndIndex;
-        return Rank;
+        IncrementDataIndex();
+        return true;
     }
 
     private bool GetIsNullable()
