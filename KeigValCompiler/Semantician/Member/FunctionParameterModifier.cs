@@ -6,5 +6,6 @@ internal enum FunctionParameterModifier
     None = 0,
     In = 1,
     Out = 2,
-    Ref = 4
+    Ref = 4,
+    Params = 8
 }

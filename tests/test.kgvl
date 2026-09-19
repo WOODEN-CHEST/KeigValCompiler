@@ -171,3 +171,182 @@ T2,  T3   >(
 
 
 /***  FUNCTION TESTS ***/
+
+/*** FIELD, PROPERTY AND INDEXER TESTS ***/
+public class MemberTests
+{
+    private int _plainField;
+    public static int StaticField = 4;
+    public readonly string InitialisedField = "abc";
+    public sealed int SealedField;
+    public required int RequiredField;
+
+    public int AutoProperty { get; set; }
+    public int GetOnlyProperty { get; }
+    public int NarrowedSetter { get; private set; }
+    public int InitProperty { get; init; } = 7;
+    public int ExpressionProperty => _plainField + 1;
+    public int BlockAccessors
+    {
+        get { return _plainField; }
+        set { _plainField = value; }
+    }
+
+    public int this[int index] { get; set; }
+    public string this[string key, int offset] { get => key; }
+}
+
+
+/*** FUNCTION, CONSTRUCTOR AND OPERATOR TESTS ***/
+public class FunctionTests
+{
+    private int _value;
+
+    public FunctionTests() { }
+    public FunctionTests(int value) { _value = value; }
+    public FunctionTests(int value, int other) : this(value) { _value = other; }
+
+    public void NoReturn() { }
+    public int WithReturn() { return _value; }
+    public int ExpressionBodied() => _value * 2;
+    public abstract void NoBodyAtAll();
+    public T GenericFunction<T>(T value) where T : class => value;
+    public void Modifiers(ref int a, out int b, in int c, params int[] rest) { }
+
+    public static FunctionTests operator +(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator ++(FunctionTests a) => a;
+    public static bool operator ==(FunctionTests a, FunctionTests b) => true;
+    public static bool operator !=(FunctionTests a, FunctionTests b) => false;
+    public static bool operator >=(FunctionTests a, FunctionTests b) => true;
+    public static implicit operator int(FunctionTests a) => a._value;
+    public static explicit operator string(FunctionTests a) => "x";
+}
+
+
+/*** STATEMENT AND EXPRESSION TESTS ***/
+public class StatementTests
+{
+    private int _count;
+
+    public void Declarations()
+    {
+        int single = 1;
+        int first = 1, second = 2, uninitialised;
+        var inferred = 3;
+        int[] array = new int[4];
+        int[] listed = new int[] { 1, 2, 3 };
+        var implicitArray = new[] { 4, 5 };
+        int[][] jagged = new int[2][];
+        StatementTests built = new StatementTests();
+        StatementTests initialised = new StatementTests { _count = 1 };
+    }
+
+    public void Operators()
+    {
+        int a = 1 + 2 - 3 * 4 / 5 % 6;
+        int b = (1 + 2) * 3;
+        int c = a << 2 >> 1 >>> 3;
+        int d = a & b | c ^ a;
+        bool e = (a < b) && (b > c) || (a <= b) && (b >= c);
+        bool f = !(a == b) && (a != c);
+        int g = ~a;
+        int h = -a + +b;
+        a++;
+        a--;
+        ++a;
+        --a;
+        a += 1; a -= 1; a *= 2; a /= 2; a %= 2;
+        a &= 1; a |= 1; a ^= 1; a <<= 1; a >>= 1; a >>>= 1;
+        int i = a > b ? a : b;
+        object j = null;
+        object k = j ?? a;
+        bool l = j is StatementTests;
+    }
+
+    public void Literals()
+    {
+        int binary = 0b1010;
+        int hex = 0xFF;
+        int separated = 1_000_000;
+        long suffixed = 100l;
+        uint unsigned = 5u;
+        decimal fractional = 1.5m;
+        decimal exponent = 1.5e3m;
+        string text = "plain";
+        string escaped = "line\nbreak\ttab\\slash\"quote";
+        string interpolated = $"count is {_count} and doubled {_count * 2}";
+        string braces = $"literal {{ and }} braces";
+        char letter = 'a';
+        char escapedChar = '\n';
+        char hexChar = '\x41';
+        bool yes = true;
+        bool no = false;
+    }
+
+    public void Access()
+    {
+        StatementTests other = new StatementTests();
+        int a = other._count;
+        int b = this._count;
+        int[] values = new int[2];
+        int c = values[0];
+        Access();
+        this.Access();
+        int d = other?._count ?? 0;
+        string e = nameof(_count);
+        int f = default(int);
+        int g = default;
+    }
+
+    public void ControlFlow(int n)
+    {
+        if (n > 0) { _count = 1; }
+        if (n > 0) { _count = 1; } else { _count = 2; }
+        if (n > 0) _count = 1; else _count = 2;
+
+        for (int i = 0; i < n; i++) { _count += i; }
+        for (;;) { break; }
+        foreach (int item in new int[2]) { _count += item; }
+        foreach (var item in new int[2]) { continue; }
+        while (n > 0) { n--; }
+        do { n++; } while (n < 5);
+
+        switch (n)
+        {
+            case 1:
+                _count = 1;
+                break;
+            case 2:
+            case 3:
+                _count = 2;
+                break;
+            default:
+                _count = 0;
+                break;
+        }
+
+        int described = n switch { 1 => 10, 2 => 20, _ => 30 };
+
+        try { _count = 1; }
+        catch (SomeException error) when (n > 0) { _count = 2; }
+        catch (OtherException) { _count = 3; }
+        finally { _count = 4; }
+
+        throw new SomeException("message");
+    }
+
+    public void Lambdas()
+    {
+        Func<int, int> single = x => x + 1;
+        Func<int, int> bracketed = (x) => x + 1;
+        Func<int, int, int> typed = (int a, int b) => a + b;
+        Action none = () => _count++;
+        Func<int, int> block = x => { return x * 2; };
+    }
+
+    public int Iterator()
+    {
+        yield return 1;
+        yield break;
+    }
+}

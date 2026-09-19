@@ -22,8 +22,11 @@ and are made by the repository owner, not by agents.
 
 Be honest with yourself about how little exists. As of 2026-09-19:
 
-- The **parser** is partially built — it reads types, but not function bodies.
-- The **semantic/resolver layer** is a skeleton and is never invoked.
+- The **parser is complete** for the language's syntax, including function
+  bodies, expressions and operator precedence. It checks nothing about what it
+  reads: no types are resolved, no names are looked up, nothing is validated.
+- The **semantic/resolver layer** is excluded from the build and does not
+  compile.
 - The **datapack backend does not exist**. Not one line. The project does not
   currently emit any output at all.
 
@@ -69,9 +72,8 @@ is effectively no automated test coverage.
    rather than deciding. See [`agents/language.md`](agents/language.md).
 4. **Do not "fix" unrelated warnings or reformat untouched code.** The warning
    list is known. Drive-by changes bury the real diff.
-5. **Do not delete commented-out code** without asking. Several blocks (e.g.
-   `Compiler.Test()`, `MemberParser.ParseReturnTypedMember`) are paused work,
-   not dead code — they record intent.
+5. **Do not delete commented-out code** without asking. Some blocks, such as
+   `Compiler.Test()`, are paused work rather than dead code — they record intent.
 6. **Leave stubs honest.** An unfinished method should `throw new
    NotImplementedException()`, not silently return a wrong value or do nothing.
    Empty method bodies that pretend to succeed have already cost this project

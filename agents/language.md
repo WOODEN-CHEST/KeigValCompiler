@@ -24,6 +24,7 @@ Divergences from C# worth knowing:
   below.
 - **Extra modifiers** exist that C# lacks: `builtin` and `inline` (both parsed
   today, as `PackMemberModifiers.BuiltIn` and `.Inline`).
+- **`params`** marks a variadic final parameter, alongside `ref`, `out` and `in`.
 - **`raw` and `constalloc`** are reserved in `KGVL.cs` but referenced nowhere
   else — no parsing, no modifier flag, no semantics. Their intended meaning is
   not recorded anywhere; ask before assuming.
@@ -44,6 +45,35 @@ The built-in type names, as synthesised by `DefaultInternalContentProvider`,
 live in the `KGVL` namespace: `Int8`, `UInt8`, `Int16`, `UInt16`, `Int32`,
 `UInt32`, `Int64`, `UInt64`, `TwoIntDecimal`, `Boolean`, `String`, `Null`. The
 keywords above are shorthands registered against them in `BuiltInTypeRegistry`.
+
+## Member syntax
+
+These five constructs were undefined until 2026-09-20 and are now **identical to
+C#**, with the keywords `new`, `get`, `set`, `init`, `operator`, `implicit`,
+`explicit` and `sealed` added to `KGVL.cs` to support them:
+
+```
+new Thing(1)                      new Thing { Field = 1 }
+new int[5]        new int[2][]    new int[] { 1, 2 }      new[] { 1, 2 }
+
+public Thing(int a) { }           public Thing(int a, int b) : this(a) { }
+
+public int Count { get; set; }    public int Total { get => _total; }
+public int Once { get; init; }    public int Quick => _total * 2;
+public int Narrow { get; private set; }
+
+public int this[int index] { get; set; }
+
+public static Vec operator +(Vec a, Vec b) { }
+public static implicit operator int(Vec v) => v._value;
+```
+
+The overloadable operators are fixed by `OverloadableOperator`: `+ - * / %`,
+unary negation, `++ --`, `== != > < >= <=`, and implicit/explicit conversions.
+
+A constructor is recognised as a member with no return type whose name matches
+the type holding it, so it needs no keyword of its own. `PackConstructor`
+derives from `PackFunction` and carries the `this`/`base` chain.
 
 ## `TwoIntDecimal`
 

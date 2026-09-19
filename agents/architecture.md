@@ -8,7 +8,7 @@ would go stale within a few commits. Read the code.
 ```
 .kgvl source files
    |
-   |  1. PARSE ............................ partially built
+   |  1. PARSE ............................ complete (syntax only)
    v
 DataPack  (in-memory object model)
    |
@@ -76,8 +76,9 @@ the rest of the file. Recovery is panic-mode: the throw unwinds to the nearest
 loop over a repeatable construct, which queues the message and skips ahead to
 somewhere the next construct could plausibly start. Those loops are the per-file
 loop in `PackParser`, `SourceFileRootParser.ParseBase`, the member loop in
-`MemberParser.ParseExtendableType`, and `MemberParser.ParseEnumValues`.
-`StatementParser` has none yet — it is waiting on the expression parser.
+`MemberParser.ParseExtendableType`, `MemberParser.ParseEnumValues`, and
+`StatementParser.ParseStatementBody`, which recovers at the next `;` so that one
+broken statement does not cost the rest of the function.
 
 Recovery is a heuristic and only claims three things: it terminates, the first
 error in a file is accurate, and later code is still reached. Whether the second
@@ -87,67 +88,61 @@ the other reason the next stage must not run.
 
 ## Current state (as of 2026-09-19)
 
-The build is **green**. The statement object model has been repaired and
-completed: every node carries `Children`/`TransformChildren` for generic
-traversal and rewriting, type references in the `Code` namespace all use
-`TypeTargetIdentifier`, assignment accepts arbitrary lvalue targets, operators
-are split into unary and binary forms, and the nodes needed for arrays,
-indexing, lambdas, `yield`, switch expressions and interpolated strings exist.
-What remains missing is the *parser* code to build most of them.
+The build is **green** and **the parser is syntactically complete**: it reads
+every construct the language has, all the way down to expressions inside
+function bodies, and builds the full statement tree for them. `tests/test.kgvl`
+exercises the whole grammar and parses with zero errors.
+
+The parser only reads. It resolves no names, checks no types and validates
+nothing — `Foo bar = Nonexistent();` parses happily. That is the resolver's job
+and the resolver does not compile yet.
 
 ### Works
-Comment stripping; namespaces and usings; classes, structs, interfaces, records
-(including primary constructors), enums, delegates, events; generic parameters
-and `where` constraints; function parameter lists and modifiers; literal parsing
-for integers (binary/hex/underscore-separated), decimals, chars with escape
-sequences, and strings.
+Everything in the grammar. Types (classes, structs, interfaces, records, enums,
+delegates, events), their members (fields, properties with `get`/`set`/`init`,
+indexers, functions, constructors with `this`/`base` chaining, operator
+overloads including conversions), generics with constraints, and every
+statement and expression form: precedence-correct operators, assignment,
+ternary, lambdas, `switch` expressions, `new` with object/collection/array
+initializers, indexing, member and conditional access, `yield`, `catch ... when`,
+interpolated strings and all literal forms.
 
-### The four blocking gaps
+### The two blocking gaps
 
-1. **No expression parser.** `StatementParser` handles every control-flow
-   *keyword* (`if`, `while`, `do`, `for`, `switch`, `try`, `throw`, `return`,
-   `break`, `continue`) but `ParseNonKeywordStatement()` and
-   `ParseAssignmentStatement()` both throw `NotImplementedException`. There is
-   no precedence-climbing or expression-tree construction anywhere.
-   The node types it would build all exist now, but nothing constructs them.
-   This blocks all real code parsing and is the next task.
-
-2. **Member bodies are switched off.** In `MemberParser`,
-   `ParseReturnTypedMember` is entirely commented out, and `ParseFunction`,
-   `ParseField` and `ParseProperty` have empty bodies. The parser therefore
-   walks type declarations and silently produces *nothing* for their contents.
-
-3. **The resolver is excluded from the build.** See stage 2 above.
+1. **The resolver is excluded from the build.** See stage 2 above.
    `Compiler.CompilePack` parses and returns; the wiring that constructs a
    `PackResolutionContext` and calls `FullPackResolver` exists only inside the
    commented-out `Compiler.Test()`. Also
    `DefaultIdentifierSearcher.SearchForIdentifier` throws
    `NotImplementedException` — the actual lookup is missing.
 
-4. **No test harness.** `KeigValCompilerTest` has no `ProjectReference` to the
+2. **No test harness.** `KeigValCompilerTest` has no `ProjectReference` to the
    compiler and its `Main` prints `Hello, World!`. `ICodeTester`, `TestResults`
    and `TwoIntDecimalTester` exist but nothing runs them. The two fixtures,
    `tests/test.kgvl` and `tests-errors/recovery.kgvl`, are run by hand and their
    output read by eye.
 
 ### Smaller known gaps
-- `ParseParenthesisStatement`, `ParseNonKeywordStatement` and
-  `ParseAssignmentStatement` are honest `NotImplementedException` stubs awaiting
-  the expression parser.
-- `SourceDataParser.ReadInterpolatedString` is a stub.
 - `TwoIntDecimal` has several unimplemented operator/conversion members.
-- `CatchClause.WhenCondition` exists but `catch ... when (...)` is not parsed.
+- Generic *calls* (`Foo<int>(x)`) are not parsed. In expression position `<` is
+  always read as less-than, which is the classic C# ambiguity; resolving it needs
+  speculative parsing that is not there yet.
+- No pattern matching beyond a bare `is SomeType`, by design.
+- `raw` and `constalloc` remain reserved with no meaning.
 
 ## Suggested order of work
 
 Roughly dependency-ordered; the owner decides priorities.
 
 1. ~~Get the build green.~~ Done.
-2. Wire up `KeigValCompilerTest` and make it parse `tests/test.kgvl`. A feedback
-   loop should come before more features.
-3. Build the expression parser — it unblocks gap 1 and much of gap 2.
-4. Restore and implement function/field/property parsing.
-5. Invoke the resolver from `CompilePack`; implement `SearchForIdentifier`.
+2. ~~Finish the parser.~~ Done.
+3. Wire up `KeigValCompilerTest` so the two fixtures run automatically. Both are
+   currently checked by eye, which will not survive the resolver work.
+4. Decide how the built-in types and standard library are declared, since the
+   resolver needs somewhere to resolve `KGVL.String` *to*. Stub `.kgvl` files
+   parsed by the compiler itself are the leading idea.
+5. Get `Semantician/Resolver/**` compiling again and invoke it from
+   `CompilePack`; implement `SearchForIdentifier`.
 6. Design and prototype the datapack backend.
 
 Step 6 is worth starting **earlier than its position suggests**, even crudely.

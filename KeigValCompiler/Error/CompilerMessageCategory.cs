@@ -24,6 +24,8 @@ internal class CompilerMessageCategory
     public static CompilerMessageCategory Comment { get; } = new("Comment", "CO");
     public static CompilerMessageCategory Function { get; } = new("Function", "FN");
     public static CompilerMessageCategory Literal { get; } = new("Literal", "LI");
+    public static CompilerMessageCategory Expression { get; } = new("Expression", "EX");
+    public static CompilerMessageCategory Statement { get; } = new("Statement", "ST");
     public static CompilerMessageCategory SourceFile { get; } = new("Source File", "SF");
 
 

@@ -577,11 +577,14 @@ public class SourceDataParser
         char Character;
         if (GetCharAtDataIndex() == KGVL.ESCAPE_CHAR)
         {
+            /* The backslash only marks the sequence, so it is stepped over rather than looked up. */
+            IncrementDataIndex();
             Character = EscapeSequenceToChar(ReadUntil(error, KGVL.SINGLE_QUOTE));
         }
         else
         {
             Character = GetCharAtDataIndex();
+            IncrementDataIndex();
         }
 
         if (GetCharAtDataIndex() != KGVL.SINGLE_QUOTE)
@@ -595,11 +598,6 @@ public class SourceDataParser
         }
         IncrementDataIndex();
         return new(Character);
-    }
-
-    internal InterpolatedStringStatement? ReadInterpolatedString(ErrorCreateOptions? error)
-    {
-        throw new NotImplementedException();
     }
 
     internal char EscapeSequenceToChar(string sequence)
@@ -729,12 +727,19 @@ public class SourceDataParser
                             $"is used incorrectly. It must not appear after a separator '{KGVL.DECIMAL_SEPARATOR}' " +
                             $"or an exponent indicator '{KGVL.DECIMAL_EXPONENT}' (Number \"{Number}\")");
                     }
+                    return null;
                 }
+
+                /* The suffix says the number is a decimal but is not part of its value, so it is
+                 * stepped over instead of being appended, and nothing may follow it. */
+                HasDecimalIndicator = true;
+                IncrementDataIndex();
+                break;
             }
 
             Number.Append(Character);
             IncrementDataIndex();
-            Character = GetCharAtDataIndex();
+            Character = char.ToLowerInvariant(GetCharAtDataIndex());
         }
 
         if ((Number.Length == 0) || (Number[^1] == KGVL.DECIMAL_EXPONENT))
@@ -744,6 +749,15 @@ public class SourceDataParser
                 throw new SourceFileReadException(this, error, $"Invalid decimal number \"{Number}\". " +
                     $"Decimal numbers must not be empty or end with an exponent indicator '{KGVL.DECIMAL_EXPONENT}'");
             }
+            return null;
+        }
+
+        /* Digits on their own are an integer. Only a separator, an exponent or the suffix make the
+         * number a decimal, and without one of them this has to fail so that the caller falls
+         * through to reading an integer instead. */
+        if (!HasSeparator && !HasExponent && !HasDecimalIndicator)
+        {
+            return null;
         }
 
         return Number.ToString();
@@ -806,8 +820,7 @@ public class SourceDataParser
             }
         }
 
-        int SpecifierLength = (HasLongSpecifier ? 1 : 0) + (HasUnsignedSpecifier ? 1 : 0);
-        IncrementDataIndexNTimes(SpecifierLength);
+        /* The loop above already stepped over each specifier it accepted. */
         (bool IsValueLong, bool IsValueUnsigned) = GetNumberSpecifiersBasedOnValue(numberValue, numberBase);
         return (HasLongSpecifier || IsValueLong, HasUnsignedSpecifier || IsValueUnsigned);
     }
@@ -864,7 +877,7 @@ public class SourceDataParser
     /* Consumes one "[]" pair and reports whether there was one, rewinding if not. A lone '[' that
      * is not immediately closed is left unconsumed, so that an index access like "a[i]" is never
      * mistaken for an array type. */
-    private bool ReadOneArrayLevel()
+    internal bool ReadOneArrayLevel()
     {
         int EndIndex = DataIndex;
         SkipUntilNonWhitespace(null);

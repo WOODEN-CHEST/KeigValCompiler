@@ -365,6 +365,280 @@ internal class ErrorRepository
         "the file system rather than with the code in it");
 
 
+    /* Expressions. */
+    internal virtual ErrorDefinition ExpectedValue { get; } = new(1,
+        CompilerMessageCategory.Expression,
+        "Expected a value here, but found the character '{0}', which cannot begin one. " +
+        "A value is a literal, a name, a call, or any of those combined with operators");
+
+    internal virtual ErrorDefinition ExpectedTernaryElseBranch { get; } = new(2,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.TERNARY_BRANCH_SEPARATOR}' and the value to use when the condition is " +
+        $"false. A conditional value is written \"condition {KGVL.TYPE_NULLABLE_INDICATOR} whenTrue " +
+        $"{KGVL.TERNARY_BRANCH_SEPARATOR} whenFalse\" and must always supply both branches");
+
+    internal virtual ErrorDefinition ExpectedIsCheckType { get; } = new(3,
+        CompilerMessageCategory.Expression,
+        $"Expected a type name after the \"{KGVL.KEYWORD_IS}\" keyword, as in \"value " +
+        $"{KGVL.KEYWORD_IS} SomeType\"");
+
+    internal virtual ErrorDefinition ExpectedMemberAccessName { get; } = new(4,
+        CompilerMessageCategory.Expression,
+        $"Expected the name of a member after '{KGVL.MEMBER_ACCESS}'");
+
+    internal virtual ErrorDefinition ExpectedIndexAccessEnd { get; } = new(5,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_SQUARE_BRACKET}' to close an index access");
+
+    internal virtual ErrorDefinition ExpectedIndexAccessArgument { get; } = new(6,
+        CompilerMessageCategory.Expression,
+        $"An index access needs at least one index between '{KGVL.OPEN_SQUARE_BRACKET}' and " +
+        $"'{KGVL.CLOSE_SQUARE_BRACKET}'");
+
+    internal virtual ErrorDefinition UncallableStatement { get; } = new(7,
+        CompilerMessageCategory.Expression,
+        "Only a named member can be called, so the brackets here have nothing to call");
+
+    internal virtual ErrorDefinition ExpectedCallArgumentsEnd { get; } = new(8,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_PARENTHESIS}' to close a call's argument list, or " +
+        $"'{KGVL.COMMA}' to continue it with another argument");
+
+    internal virtual ErrorDefinition ExpectedOpenParenthesis { get; } = new(9,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.OPEN_PARENTHESIS}'");
+
+    internal virtual ErrorDefinition ExpectedCloseParenthesis { get; } = new(10,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_PARENTHESIS}'");
+
+    internal virtual ErrorDefinition ExpectedNameOfTarget { get; } = new(11,
+        CompilerMessageCategory.Expression,
+        $"Expected the name whose text \"{KGVL.KEYWORD_NAMEOF}\" should produce");
+
+    internal virtual ErrorDefinition ExpectedTypeOfTarget { get; } = new(12,
+        CompilerMessageCategory.Expression,
+        "Expected a type name inside the brackets");
+
+    internal virtual ErrorDefinition ExpectedConstructedType { get; } = new(13,
+        CompilerMessageCategory.Expression,
+        $"Expected the name of the type to create after the \"{KGVL.KEYWORD_NEW}\" keyword");
+
+    internal virtual ErrorDefinition ExpectedInferredArrayEnd { get; } = new(14,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_SQUARE_BRACKET}' directly after '{KGVL.OPEN_SQUARE_BRACKET}'. " +
+        $"An array written as \"{KGVL.KEYWORD_NEW}[] {{ ... }}\" takes its element type from its " +
+        "values, so no length belongs between the brackets");
+
+    internal virtual ErrorDefinition ExpectedArrayLengthEnd { get; } = new(15,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_SQUARE_BRACKET}' to close an array's length");
+
+    internal virtual ErrorDefinition ExpectedInitializerStart { get; } = new(16,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.OPEN_CURLY_BRACKET_IN_MESSAGE}' to start the list of values");
+
+    internal virtual ErrorDefinition ExpectedInitializerEnd { get; } = new(17,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_CURLY_BRACKET_IN_MESSAGE}' to end the list of values, or '{KGVL.COMMA}' to " +
+        "continue it with another value");
+
+    internal virtual ErrorDefinition ExpectedLambdaArrow { get; } = new(18,
+        CompilerMessageCategory.Expression,
+        $"Expected \"{KGVL.QUICK_METHOD_BODY}\" between an inline function's parameters and its body");
+
+    internal virtual ErrorDefinition ExpectedSwitchExpressionEnd { get; } = new(19,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.CLOSE_CURLY_BRACKET_IN_MESSAGE}' to end a switch value's branches, or '{KGVL.COMMA}' " +
+        "to continue with another branch");
+
+    internal virtual ErrorDefinition ExpectedSwitchArmArrow { get; } = new(20,
+        CompilerMessageCategory.Expression,
+        $"Expected \"{KGVL.QUICK_METHOD_BODY}\" between a switch value's pattern and its result");
+
+    internal virtual ErrorDefinition ExpectedInterpolationSectionEnd { get; } = new(21,
+        CompilerMessageCategory.Expression,
+        $"Expected '{KGVL.INTERPOLATION_SECTION_END}' to close a substituted section of an " +
+        $"interpolated string. To put a literal brace in the text, double it as " +
+        $"\"{KGVL.DOUBLE_CURLY_OPEN}\" or \"{KGVL.DOUBLE_CURLY_CLOSE}\"");
+
+    internal virtual ErrorDefinition ExpectedNumberValue { get; } = new(22,
+        CompilerMessageCategory.Expression,
+        "Expected a number");
+
+    internal virtual ErrorDefinition ExpectedCharacterValue { get; } = new(23,
+        CompilerMessageCategory.Expression,
+        "Expected a character constant");
+
+    internal virtual ErrorDefinition ExpectedStringStart { get; } = new(24,
+        CompilerMessageCategory.Expression,
+        $"Expected quote '{KGVL.DOUBLE_QUOTE}' to start a string");
+
+    internal virtual ErrorDefinition ExpectedStringEnd { get; } = new(25,
+        CompilerMessageCategory.Expression,
+        $"Expected quote '{KGVL.DOUBLE_QUOTE}' to end a string");
+
+
+    /* Return typed members: fields, properties, indexers, functions, constructors and operators. */
+    internal virtual ErrorDefinition ExpectedFieldOrPropertyOrFunction { get; } = new(1,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected \"{{0}}\" to continue into a field, a property or a function. A field ends with " +
+        $"'{KGVL.SEMICOLON}' or a starting value, a property has a " +
+        $"'{KGVL.OPEN_CURLY_BRACKET_IN_MESSAGE}' block or a \"{KGVL.QUICK_METHOD_BODY}\" value, and a " +
+        $"function has a '{KGVL.OPEN_PARENTHESIS}' parameter list");
+
+    internal virtual ErrorDefinition ExpectedFunctionBody { get; } = new(2,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected a body starting with '{KGVL.OPEN_CURLY_BRACKET_IN_MESSAGE}', a single value after " +
+        $"\"{KGVL.QUICK_METHOD_BODY}\", or '{KGVL.SEMICOLON}' for a member which deliberately has " +
+        "no body");
+
+    internal virtual ErrorDefinition ExpectedAccessorBlockStart { get; } = new(3,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected '{KGVL.OPEN_CURLY_BRACKET_IN_MESSAGE}' to start the accessors of a {{0}}");
+
+    internal virtual ErrorDefinition ExpectedAccessorBlockEnd { get; } = new(4,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected '{KGVL.CLOSE_CURLY_BRACKET_IN_MESSAGE}' to end the accessors of a {{0}}");
+
+    internal virtual ErrorDefinition ExpectedAccessor { get; } = new(5,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected \"{KGVL.KEYWORD_GET}\", \"{KGVL.KEYWORD_SET}\" or \"{KGVL.KEYWORD_INIT}\" " +
+        "inside the accessors of a {0}");
+
+    internal virtual ErrorDefinition VoidIndexer { get; } = new(6,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"An indexer produces a value, so it cannot have the type \"{KGVL.KEYWORD_VOID}\"");
+
+    internal virtual ErrorDefinition ExpectedOperatorKeyword { get; } = new(7,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected the keyword \"{KGVL.KEYWORD_OPERATOR}\" and the type to convert to, as in " +
+        $"\"{KGVL.KEYWORD_IMPLICIT} {KGVL.KEYWORD_OPERATOR} SomeType(...)\"");
+
+    internal virtual ErrorDefinition ExpectedConversionTargetType { get; } = new(8,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "Expected the type this conversion produces");
+
+    internal virtual ErrorDefinition UnoverloadableOperator { get; } = new(9,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "This operator cannot be overloaded. The ones which can are " +
+        "+, -, *, /, %, ++, --, ==, !=, >, <, >= and <=, along with implicit and explicit " +
+        "conversions");
+
+    internal virtual ErrorDefinition ExpectedParameterListEnd { get; } = new(11,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "Expected '{0}' to end the parameter list");
+
+    internal virtual ErrorDefinition ExpectedConstructorChainTarget { get; } = new(10,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"Expected \"{KGVL.KEYWORD_THIS}\" or \"{KGVL.KEYWORD_BASE}\" to name the constructor " +
+        "which runs before this one");
+
+
+    /* Statements. */
+    internal virtual ErrorDefinition ExpectedStatementEnd { get; } = new(1,
+        CompilerMessageCategory.Statement,
+        "Expected '{0}' to end the statement");
+
+    internal virtual ErrorDefinition ExpectedStatementBodyStart { get; } = new(2,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.OPEN_CURLY_BRACKET_IN_MESSAGE}' to start a body of statements");
+
+    internal virtual ErrorDefinition ExpectedStatementBodyEnd { get; } = new(3,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.CLOSE_CURLY_BRACKET_IN_MESSAGE}' to end a body of statements");
+
+    internal virtual ErrorDefinition ExpectedVariableName { get; } = new(4,
+        CompilerMessageCategory.Statement,
+        "Expected the name of the variable being declared");
+
+    internal virtual ErrorDefinition ExpectedConditionStart { get; } = new(5,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.OPEN_PARENTHESIS}' to start a condition");
+
+    internal virtual ErrorDefinition ExpectedConditionEnd { get; } = new(6,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.CLOSE_PARENTHESIS}' to end a condition");
+
+    internal virtual ErrorDefinition ExpectedYieldContinuation { get; } = new(7,
+        CompilerMessageCategory.Statement,
+        $"Expected \"{KGVL.KEYWORD_RETURN}\" or \"{KGVL.KEYWORD_BREAK}\" after the " +
+        $"\"{KGVL.KEYWORD_YIELD}\" keyword, as in \"{KGVL.KEYWORD_YIELD} {KGVL.KEYWORD_RETURN} " +
+        $"value{KGVL.SEMICOLON}\" or \"{KGVL.KEYWORD_YIELD} {KGVL.KEYWORD_BREAK}{KGVL.SEMICOLON}\"");
+
+    internal virtual ErrorDefinition ExpectedCatchClause { get; } = new(8,
+        CompilerMessageCategory.Statement,
+        $"A \"{KGVL.KEYWORD_TRY}\" statement needs at least one \"{KGVL.KEYWORD_CATCH}\" clause");
+
+    internal virtual ErrorDefinition ExpectedCatchClauseStart { get; } = new(9,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.OPEN_PARENTHESIS}' and the type of exception to catch");
+
+    internal virtual ErrorDefinition ExpectedCaughtExceptionType { get; } = new(10,
+        CompilerMessageCategory.Statement,
+        "Expected the type of exception this clause catches");
+
+    internal virtual ErrorDefinition ExpectedCatchClauseEnd { get; } = new(11,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.CLOSE_PARENTHESIS}' to end a catch clause's exception");
+
+    internal virtual ErrorDefinition ExpectedDoWhileCondition { get; } = new(12,
+        CompilerMessageCategory.Statement,
+        $"Expected the keyword \"{KGVL.KEYWORD_WHILE}\" and a condition after the body of a " +
+        $"\"{KGVL.KEYWORD_DO}\" statement");
+
+    internal virtual ErrorDefinition ExpectedForHeaderStart { get; } = new(13,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.OPEN_PARENTHESIS}' to start a for loop's header");
+
+    internal virtual ErrorDefinition ExpectedForEachHeaderStart { get; } = new(14,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.OPEN_PARENTHESIS}' to start a foreach loop's header");
+
+    internal virtual ErrorDefinition ExpectedForEachElementType { get; } = new(15,
+        CompilerMessageCategory.Statement,
+        $"Expected the type of a single element, or the keyword \"{KGVL.KEYWORD_VAR}\" to infer it");
+
+    internal virtual ErrorDefinition ExpectedForEachElementName { get; } = new(16,
+        CompilerMessageCategory.Statement,
+        "Expected the name to give each element in turn");
+
+    internal virtual ErrorDefinition ExpectedForEachInKeyword { get; } = new(17,
+        CompilerMessageCategory.Statement,
+        $"Expected the keyword \"{KGVL.KEYWORD_IN}\" between a foreach loop's element and the " +
+        "collection it walks");
+
+    internal virtual ErrorDefinition ExpectedForEachHeaderEnd { get; } = new(18,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.CLOSE_PARENTHESIS}' to end a foreach loop's header");
+
+    internal virtual ErrorDefinition ExpectedSwitchBodyStart { get; } = new(19,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.OPEN_CURLY_BRACKET_IN_MESSAGE}' to start a switch statement's cases");
+
+    internal virtual ErrorDefinition ExpectedSwitchBodyEnd { get; } = new(20,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.CLOSE_CURLY_BRACKET_IN_MESSAGE}' to end a switch statement's cases");
+
+    internal virtual ErrorDefinition ExpectedSwitchCaseColon { get; } = new(21,
+        CompilerMessageCategory.Statement,
+        $"Expected '{KGVL.COLON}' after a switch case's condition");
+
+    internal virtual ErrorDefinition ExpectedSwitchCaseCondition { get; } = new(22,
+        CompilerMessageCategory.Statement,
+        $"Expected at least one condition for this case. A case matching anything else is written " +
+        $"\"{KGVL.KEYWORD_DEFAULT}{KGVL.COLON}\" instead");
+
+    internal virtual ErrorDefinition DuplicateDefaultCase { get; } = new(23,
+        CompilerMessageCategory.Statement,
+        $"This switch statement already has a \"{KGVL.KEYWORD_DEFAULT}\" case");
+
+    internal virtual ErrorDefinition DefaultCaseWithConditions { get; } = new(24,
+        CompilerMessageCategory.Statement,
+        $"A \"{KGVL.KEYWORD_DEFAULT}\" case matches anything the other cases did not, so it cannot " +
+        "have conditions of its own");
+
+
     /* Warnings. */
     internal virtual WarningDefinition DuplicateUsingDirective { get; } = new(1,
         WarningSeverity.Minor,

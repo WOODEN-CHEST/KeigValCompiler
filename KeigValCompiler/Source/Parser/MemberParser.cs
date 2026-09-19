@@ -1,6 +1,7 @@
 ﻿using KeigValCompiler.Error;
 using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Member.Code;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -79,7 +80,7 @@ internal class MemberParser : AbstractParserBase
         else
         {
             Parser.DataIndex = StartParserIndex;
-            ParseReturnTypedMember(memberHolder, Modifiers);
+            ParseReturnTypedMember(memberHolder, memberHolderTypeName, memberHolderName, Modifiers);
         }
     }
 
@@ -112,6 +113,8 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
             KGVL.KEYWORD_BUILTIN => ReportReservedBuiltInModifier(),
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
+            KGVL.KEYWORD_SEALED => PackMemberModifiers.Sealed,
+            KGVL.KEYWORD_REQUIRED => PackMemberModifiers.Required,
             _ => PackMemberModifiers.None
         };
     }
@@ -449,6 +452,12 @@ internal class MemberParser : AbstractParserBase
             throw new SourceFileReadException(Parser, ExpectedEndError);
         }
         Parser.IncrementDataIndex();
+
+        EventHolder.AddEvent(new PackEvent(Name, EventDelegateType, SourceFile)
+        {
+            Modifiers = modifiers,
+            SourceFileOrigin = new(Parser.Line)
+        });
     }
 
     private void ParseEnumeration(object parentObject, string holderTypeName, PackMemberModifiers modifiers)
@@ -597,55 +606,604 @@ internal class MemberParser : AbstractParserBase
             .CreateOptions(targetTypeName));
     }
 
-    private void ParseReturnTypedMember(object memberHolder, 
+    /* Everything written as an optional return type followed by a name: constructors, operator
+     * overloads, indexers, functions, properties and fields. Which one it is only becomes clear
+     * after the name, so the cases are tried in order of how early they can be recognised. */
+    private void ParseReturnTypedMember(object memberHolder,
+        string memberHolderTypeName,
+        string memberHolderName,
         PackMemberModifiers modifiers)
     {
-        //const string NAME_RETURN_TYPE_MEMBER = "field or property, or function";
-        //TypeTargetIdentifier? ReturnType = ParseReturnType(NAME_RETURN_TYPE_MEMBER);
-        //Identifier MemberIdentifier = ParseMemberSelfIdentifier(NAME_RETURN_TYPE_MEMBER);
-        //ErrorCreateOptions ErrorNoMember = ErrorCreator.ExpectedFieldOrPropertyOrFunction
-        //    .CreateOptions(MemberIdentifier.SourceCodeName);
+        const string NAME_RETURN_TYPE_MEMBER = "field, property or function";
 
-        //Parser.SkipUntilNonWhitespace(ErrorNoMember);
-        //char NextChar = Parser.GetCharAtDataIndex();
+        if (TryParseConversionOperator(memberHolder, memberHolderTypeName, modifiers)
+            || TryParseConstructor(memberHolder, memberHolderTypeName, memberHolderName, modifiers))
+        {
+            return;
+        }
 
-        //if ((ReturnType == null) || (NextChar == KGVL.GENERIC_TYPE_START) || (NextChar == KGVL.OPEN_PARENTHESIS))
-        //{
-        //    ParseFunction(modifiers, ReturnType, MemberIdentifier);
-        //}
-        //else if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY)
-        //    || (NextChar == KGVL.OPEN_CURLY_BRACKET))
-        //{
-        //    ParseProperty(modifiers, ReturnType, MemberIdentifier);
-        //}
-        //else if ((NextChar == KGVL.ASSIGNMENT_OPERATOR) || (NextChar == KGVL.SEMICOLON))
-        //{
-        //    ParseField(modifiers, ReturnType, MemberIdentifier);
-        //}
-        //else
-        //{
-        //    throw new SourceFileReadException(Parser, ErrorNoMember);
-        //}
+        TypeTargetIdentifier? ReturnType = ParseReturnType(NAME_RETURN_TYPE_MEMBER);
+
+        if (TryParseOperatorOverload(memberHolder, memberHolderTypeName, ReturnType, modifiers)
+            || TryParseIndexer(memberHolder, memberHolderTypeName, ReturnType, modifiers))
+        {
+            return;
+        }
+
+        Identifier MemberIdentifier = ParseMemberSelfIdentifier(NAME_RETURN_TYPE_MEMBER);
+        ErrorCreateOptions ErrorNoMember = ErrorCreator.ExpectedFieldOrPropertyOrFunction
+            .CreateOptions(MemberIdentifier.SourceCodeName);
+
+        Parser.SkipUntilNonWhitespace(ErrorNoMember);
+        char NextChar = Parser.GetCharAtDataIndex();
+
+        if ((ReturnType == null) || (NextChar == KGVL.GENERIC_TYPE_START)
+            || (NextChar == KGVL.OPEN_PARENTHESIS))
+        {
+            ParseFunction(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier);
+        }
+        else if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY)
+            || (NextChar == KGVL.OPEN_CURLY_BRACKET))
+        {
+            ParseProperty(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier);
+        }
+        else if ((NextChar == KGVL.ASSIGNMENT_OPERATOR) || (NextChar == KGVL.SEMICOLON))
+        {
+            ParseField(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier);
+        }
+        else
+        {
+            throw new SourceFileReadException(Parser, ErrorNoMember);
+        }
     }
 
-    private void ParseFunction(PackMemberModifiers modifiers,
+    /* "implicit operator SomeType(...)" and its explicit counterpart, which name their result
+     * where every other member names its return type. */
+    private bool TryParseConversionOperator(object memberHolder,
+        string memberHolderTypeName,
+        PackMemberModifiers modifiers)
+    {
+        int StartIndex = Parser.DataIndex;
+        string Keyword = ReadKeywordOrEmpty();
+
+        if ((Keyword != KGVL.KEYWORD_IMPLICIT) && (Keyword != KGVL.KEYWORD_EXPLICIT))
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        OverloadableOperator ConversionKind = Keyword == KGVL.KEYWORD_IMPLICIT
+            ? OverloadableOperator.ImplicitCast : OverloadableOperator.ExplicitCast;
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (ReadKeywordOrEmpty() != KGVL.KEYWORD_OPERATOR)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedOperatorKeyword.CreateOptions());
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        TypeTargetIdentifier TargetType = Parser.ReadTypeTargetIdentifier(
+            ErrorCreator.ExpectedConversionTargetType.CreateOptions());
+
+        AddOperatorOverload(memberHolder, memberHolderTypeName, ConversionKind,
+            BuildOperatorFunction(memberHolderTypeName, modifiers, TargetType,
+                new Identifier(KGVL.NAME_OPERATOR_OVERLOAD)));
+        return true;
+    }
+
+    /* A constructor is a name with no return type which matches the type holding it. */
+    private bool TryParseConstructor(object memberHolder,
+        string memberHolderTypeName,
+        string memberHolderName,
+        PackMemberModifiers modifiers)
+    {
+        int StartIndex = Parser.DataIndex;
+        Parser.SkipUntilNonWhitespace(null);
+
+        string Name = ReadKeywordOrEmpty();
+        Parser.SkipUntilNonWhitespace(null);
+
+        if ((Name.Length == 0) || (Name != memberHolderName)
+            || (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS))
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        if (memberHolder is not IPackFunctionHolder FunctionHolder)
+        {
+            throw CreateInvalidHolderException(memberHolder, memberHolderTypeName, KGVL.NAME_CONSTRUCTOR);
+        }
+
+        PackConstructor Constructor = new(new Identifier(Name), SourceFile)
+        {
+            Modifiers = modifiers,
+            SourceFileOrigin = new(Parser.Line)
+        };
+        Parser.IncrementDataIndex();
+        Constructor.Parameters.SetFrom(ParseFunctionParameters(Name, KGVL.NAME_CONSTRUCTOR,
+            KGVL.CLOSE_PARENTHESIS));
+        ConsumeParameterListEnd(KGVL.CLOSE_PARENTHESIS);
+
+        ParseConstructorChain(Constructor);
+        ParseFunctionBody(Constructor, modifiers);
+
+        FunctionHolder.AddFunction(Constructor);
+        return true;
+    }
+
+    /* The ": this(...)" or ": base(...)" which runs another constructor first. */
+    private void ParseConstructorChain(PackConstructor constructor)
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.COLON)
+        {
+            return;
+        }
+        Parser.IncrementDataIndex();
+        Parser.SkipUntilNonWhitespace(null);
+
+        string Keyword = ReadKeywordOrEmpty();
+        constructor.ChainKind = Keyword switch
+        {
+            KGVL.KEYWORD_THIS => ConstructorChainKind.This,
+            KGVL.KEYWORD_BASE => ConstructorChainKind.Base,
+            _ => ConstructorChainKind.None
+        };
+
+        if (constructor.ChainKind == ConstructorChainKind.None)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedConstructorChainTarget.CreateOptions());
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedOpenParenthesis.CreateOptions());
+        }
+        Parser.IncrementDataIndex();
+        Parser.SkipUntilNonWhitespace(null);
+
+        while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS))
+        {
+            constructor.ChainArguments.AddStatement(_statementParser.ParseExpressionValue());
+            Parser.SkipUntilNonWhitespace(null);
+
+            if (Parser.GetCharAtDataIndex() != KGVL.COMMA)
+            {
+                break;
+            }
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(null);
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedCloseParenthesis.CreateOptions());
+        }
+        Parser.IncrementDataIndex();
+    }
+
+    /* "SomeType operator +(...)", where the return type has already been read. */
+    private bool TryParseOperatorOverload(object memberHolder,
+        string memberHolderTypeName,
+        TypeTargetIdentifier? returnType,
+        PackMemberModifiers modifiers)
+    {
+        int StartIndex = Parser.DataIndex;
+        Parser.SkipUntilNonWhitespace(null);
+
+        if (ReadKeywordOrEmpty() != KGVL.KEYWORD_OPERATOR)
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        OverloadableOperator? Overloaded = ReadOverloadableOperator();
+        if (Overloaded == null)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.UnoverloadableOperator.CreateOptions());
+        }
+
+        AddOperatorOverload(memberHolder, memberHolderTypeName, Overloaded.Value,
+            BuildOperatorFunction(memberHolderTypeName, modifiers, returnType,
+                new Identifier(KGVL.NAME_OPERATOR_OVERLOAD)));
+        return true;
+    }
+
+    private PackFunction BuildOperatorFunction(string memberHolderTypeName,
+        PackMemberModifiers modifiers,
         TypeTargetIdentifier? returnType,
         Identifier identifier)
     {
+        PackFunction Function = new(identifier, SourceFile)
+        {
+            Modifiers = modifiers,
+            ReturnType = returnType,
+            SourceFileOrigin = new(Parser.Line)
+        };
 
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedOpenParenthesis.CreateOptions());
+        }
+        Parser.IncrementDataIndex();
+
+        Function.Parameters.SetFrom(ParseFunctionParameters(identifier.SourceCodeName,
+            KGVL.NAME_OPERATOR_OVERLOAD, KGVL.CLOSE_PARENTHESIS));
+        ConsumeParameterListEnd(KGVL.CLOSE_PARENTHESIS);
+        ParseFunctionBody(Function, modifiers);
+        return Function;
     }
 
-    private void ParseField(PackMemberModifiers modifiers, 
-        TypeTargetIdentifier returnType, 
+    private void AddOperatorOverload(object memberHolder,
+        string memberHolderTypeName,
+        OverloadableOperator overloadedOperator,
+        PackFunction function)
+    {
+        if (memberHolder is not IOperatorOverloadHolder OverloadHolder)
+        {
+            throw CreateInvalidHolderException(memberHolder, memberHolderTypeName,
+                KGVL.NAME_OPERATOR_OVERLOAD);
+        }
+        OverloadHolder.OperatorOverloads.AddOverload(new(overloadedOperator, function));
+    }
+
+    /* Only the operators OverloadableOperator lists can be overloaded, so an unknown spelling here
+     * is reported rather than guessed at. */
+    private OverloadableOperator? ReadOverloadableOperator()
+    {
+        (string Spelling, OverloadableOperator Operator)[] Overloadable = new[]
+        {
+            (KGVL.OPERATOR_INCREMENT, OverloadableOperator.Increment),
+            (KGVL.OPERATOR_DECREMENT, OverloadableOperator.Decrement),
+            (KGVL.OPERATOR_EQUALS, OverloadableOperator.Equals),
+            (KGVL.OPERATOR_NOT_EQUALS, OverloadableOperator.NotEquals),
+            (KGVL.OPERATOR_LARGER_OR_EQUAL, OverloadableOperator.LargerOrEqual),
+            (KGVL.OPERATOR_LESS_OR_EQUAL, OverloadableOperator.LessThanOrEqual),
+            (KGVL.OPERATOR_ADD, OverloadableOperator.Addition),
+            (KGVL.OPERATOR_SUBTRACT, OverloadableOperator.Subtraction),
+            (KGVL.OPERATOR_MULTIPLY, OverloadableOperator.Multiplication),
+            (KGVL.OPERATOR_DIVIDE, OverloadableOperator.Division),
+            (KGVL.OPERATOR_MODULO, OverloadableOperator.Modulo),
+            (KGVL.OPERATOR_LARGER_THAN, OverloadableOperator.LargerThan),
+            (KGVL.OPERATOR_LESS_THAN, OverloadableOperator.LessThan)
+        };
+
+        foreach ((string Spelling, OverloadableOperator Operator) Candidate in Overloadable)
+        {
+            if (Parser.HasStringAtIndex(Parser.DataIndex, Candidate.Spelling))
+            {
+                Parser.IncrementDataIndexNTimes(Candidate.Spelling.Length);
+                return Candidate.Operator;
+            }
+        }
+        return null;
+    }
+
+    /* "SomeType this[...] { get; set; }". */
+    private bool TryParseIndexer(object memberHolder,
+        string memberHolderTypeName,
+        TypeTargetIdentifier? returnType,
+        PackMemberModifiers modifiers)
+    {
+        int StartIndex = Parser.DataIndex;
+        Parser.SkipUntilNonWhitespace(null);
+
+        if (ReadKeywordOrEmpty() != KGVL.KEYWORD_THIS)
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_SQUARE_BRACKET)
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        if (returnType == null)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.VoidIndexer.CreateOptions());
+        }
+        if (memberHolder is not IPackFunctionHolder FunctionHolder)
+        {
+            throw CreateInvalidHolderException(memberHolder, memberHolderTypeName, KGVL.NAME_INDEXER);
+        }
+
+        PackIndexer Indexer = new(new Identifier(KGVL.NAME_INDEXER), returnType, SourceFile)
+        {
+            Modifiers = modifiers,
+            SourceFileOrigin = new(Parser.Line)
+        };
+
+        Parser.IncrementDataIndex();
+        Indexer.Parameters.SetFrom(ParseFunctionParameters(KGVL.NAME_INDEXER, KGVL.NAME_INDEXER,
+            KGVL.CLOSE_SQUARE_BRACKET));
+        ConsumeParameterListEnd(KGVL.CLOSE_SQUARE_BRACKET);
+
+        ParseAccessorBlock(KGVL.NAME_INDEXER,
+            accessor => Indexer.GetFunction = accessor,
+            accessor => Indexer.SetFunction = accessor,
+            null);
+
+        FunctionHolder.AddIndexer(Indexer);
+        return true;
+    }
+
+    private void ParseFunction(object memberHolder,
+        string memberHolderTypeName,
+        PackMemberModifiers modifiers,
+        TypeTargetIdentifier? returnType,
         Identifier identifier)
     {
+        if (memberHolder is not IPackFunctionHolder FunctionHolder)
+        {
+            throw CreateInvalidHolderException(memberHolder, memberHolderTypeName, KGVL.NAME_FUNCTION);
+        }
 
+        PackFunction Function = new(identifier, SourceFile)
+        {
+            Modifiers = modifiers,
+            ReturnType = returnType,
+            SourceFileOrigin = new(Parser.Line)
+        };
+
+        ParseGenericParameters(identifier.SourceCodeName, KGVL.NAME_FUNCTION, Function.GenericParameters);
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedOpenParenthesis.CreateOptions());
+        }
+        Parser.IncrementDataIndex();
+
+        Function.Parameters.SetFrom(ParseFunctionParameters(identifier.SourceCodeName,
+            KGVL.NAME_FUNCTION, KGVL.CLOSE_PARENTHESIS));
+        ConsumeParameterListEnd(KGVL.CLOSE_PARENTHESIS);
+
+        ParseGenericConstraints(identifier.SourceCodeName, KGVL.NAME_FUNCTION, Function.GenericParameters);
+        ParseFunctionBody(Function, modifiers);
+
+        FunctionHolder.AddFunction(Function);
     }
 
-    private void ParseProperty(PackMemberModifiers modifiers,
-        TypeTargetIdentifier returnType, Identifier identifier)
+    /* A body is either a braced run of statements, a "=>" and a single value, or a ';' for members
+     * which deliberately have none, such as abstract and built in ones. */
+    private void ParseFunctionBody(PackFunction function, PackMemberModifiers modifiers)
     {
+        Parser.SkipUntilNonWhitespace(null);
 
+        if (Parser.GetCharAtDataIndex() == KGVL.SEMICOLON)
+        {
+            Parser.IncrementDataIndex();
+            return;
+        }
+
+        if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
+        {
+            Parser.IncrementDataIndexNTimes(KGVL.QUICK_METHOD_BODY.Length);
+            Parser.SkipUntilNonWhitespace(null);
+
+            /* The single value of a "=>" body is what the function returns, so it is stored the
+             * same way an explicit return would be. */
+            function.Statements = new();
+            function.Statements.AddStatement(new ReturnStatement()
+            {
+                ReturnValue = _statementParser.ParseExpressionValue()
+            });
+
+            Parser.SkipUntilNonWhitespace(null);
+            if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+            {
+                throw new SourceFileReadException(Parser,
+                    ErrorCreator.ExpectedStatementEnd.CreateOptions(KGVL.SEMICOLON));
+            }
+            Parser.IncrementDataIndex();
+            return;
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedFunctionBody.CreateOptions());
+        }
+
+        function.Statements = _statementParser.ParseStatementBody();
+    }
+
+    private void ParseField(object memberHolder,
+        string memberHolderTypeName,
+        PackMemberModifiers modifiers,
+        TypeTargetIdentifier returnType,
+        Identifier identifier)
+    {
+        if (memberHolder is not IPackFieldHolder FieldHolder)
+        {
+            throw CreateInvalidHolderException(memberHolder, memberHolderTypeName, KGVL.NAME_FIELD);
+        }
+
+        PackField Field = new(identifier, returnType, SourceFile)
+        {
+            Modifiers = modifiers,
+            SourceFileOrigin = new(Parser.Line)
+        };
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
+        {
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(null);
+            Field.InitialValue = _statementParser.ParseExpressionValue();
+            Parser.SkipUntilNonWhitespace(null);
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+        {
+            throw new SourceFileReadException(Parser,
+                ErrorCreator.ExpectedStatementEnd.CreateOptions(KGVL.SEMICOLON));
+        }
+        Parser.IncrementDataIndex();
+
+        FieldHolder.AddField(Field);
+    }
+
+    private void ParseProperty(object memberHolder,
+        string memberHolderTypeName,
+        PackMemberModifiers modifiers,
+        TypeTargetIdentifier returnType,
+        Identifier identifier)
+    {
+        if (memberHolder is not IPackFunctionHolder FunctionHolder)
+        {
+            throw CreateInvalidHolderException(memberHolder, memberHolderTypeName, KGVL.NAME_PROPERTY);
+        }
+
+        PackProperty Property = new(identifier, returnType, SourceFile)
+        {
+            Modifiers = modifiers,
+            SourceFileOrigin = new(Parser.Line)
+        };
+
+        Parser.SkipUntilNonWhitespace(null);
+
+        /* "SomeType Name => value;" is a property with nothing but a getter. */
+        if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
+        {
+            PackFunction Getter = new(new Identifier(KGVL.KEYWORD_GET), SourceFile);
+            ParseFunctionBody(Getter, modifiers);
+            Property.GetFunction = Getter;
+            FunctionHolder.AddProperty(Property);
+            return;
+        }
+
+        ParseAccessorBlock(KGVL.NAME_PROPERTY,
+            accessor => Property.GetFunction = accessor,
+            accessor => Property.SetFunction = accessor,
+            accessor => Property.InitFunction = accessor);
+
+        /* A property may be given a starting value, as in "public int Count { get; set; } = 3;". */
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
+        {
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(null);
+            Property.InitialValue = _statementParser.ParseExpressionValue();
+
+            Parser.SkipUntilNonWhitespace(null);
+            if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+            {
+                throw new SourceFileReadException(Parser,
+                    ErrorCreator.ExpectedStatementEnd.CreateOptions(KGVL.SEMICOLON));
+            }
+            Parser.IncrementDataIndex();
+        }
+
+        FunctionHolder.AddProperty(Property);
+    }
+
+    /* The braced "{ get; set; }" of a property or indexer. Each accessor is stored as a function
+     * so that a body written for it has somewhere to live. An indexer passes null for init. */
+    private void ParseAccessorBlock(string memberTypeName,
+        Action<PackFunction> setGetter,
+        Action<PackFunction> setSetter,
+        Action<PackFunction>? setInit)
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser,
+                ErrorCreator.ExpectedAccessorBlockStart.CreateOptions(memberTypeName));
+        }
+        Parser.IncrementDataIndex();
+        Parser.SkipUntilNonWhitespace(null);
+
+        while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
+        {
+            PackMemberModifiers AccessorModifiers = ParseAccessorModifiers();
+
+            Parser.SkipUntilNonWhitespace(null);
+            string Keyword = ReadKeywordOrEmpty();
+
+            PackFunction Accessor = new(new Identifier(Keyword), SourceFile)
+            {
+                Modifiers = AccessorModifiers
+            };
+            ParseFunctionBody(Accessor, AccessorModifiers);
+
+            if (Keyword == KGVL.KEYWORD_GET)
+            {
+                setGetter(Accessor);
+            }
+            else if (Keyword == KGVL.KEYWORD_SET)
+            {
+                setSetter(Accessor);
+            }
+            else if ((Keyword == KGVL.KEYWORD_INIT) && (setInit != null))
+            {
+                setInit(Accessor);
+            }
+            else
+            {
+                throw new SourceFileReadException(Parser,
+                    ErrorCreator.ExpectedAccessor.CreateOptions(memberTypeName));
+            }
+
+            Parser.SkipUntilNonWhitespace(null);
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
+        {
+            throw new SourceFileReadException(Parser,
+                ErrorCreator.ExpectedAccessorBlockEnd.CreateOptions(memberTypeName));
+        }
+        Parser.IncrementDataIndex();
+    }
+
+    /* An accessor may narrow its member's access, as in "{ get; private set; }". */
+    private PackMemberModifiers ParseAccessorModifiers()
+    {
+        PackMemberModifiers Modifiers = PackMemberModifiers.None;
+
+        while (true)
+        {
+            Parser.SkipUntilNonWhitespace(null);
+            int StartIndex = Parser.DataIndex;
+
+            string Keyword = ReadKeywordOrEmpty();
+            PackMemberModifiers Modifier = StringToModifier(Keyword);
+
+            if ((Keyword.Length == 0) || (Modifier == PackMemberModifiers.None))
+            {
+                Parser.DataIndex = StartIndex;
+                return Modifiers;
+            }
+            Modifiers = CombineModifier(Modifiers, Modifier);
+        }
+    }
+
+    /* ParseFunctionParameters stops on the character ending the list rather than consuming it, so
+     * that its callers can report a missing one themselves. */
+    private void ConsumeParameterListEnd(char endChar)
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != endChar)
+        {
+            throw new SourceFileReadException(Parser,
+                ErrorCreator.ExpectedParameterListEnd.CreateOptions(endChar));
+        }
+        Parser.IncrementDataIndex();
+    }
+
+    /* Reads the next word when there is one, without the error a bare ReadIdentifier would raise,
+     * so that callers speculating on what comes next can put the cursor back instead. */
+    private string ReadKeywordOrEmpty()
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        return Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
+            ? Parser.ReadIdentifier(null) : string.Empty;
     }
 
     internal void ParseMemberExtensions(IPackMemberExtender extender,
@@ -685,6 +1243,7 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_IN => FunctionParameterModifier.In,
             KGVL.KEYWORD_OUT => FunctionParameterModifier.Out,
             KGVL.KEYWORD_REF => FunctionParameterModifier.Ref,
+            KGVL.KEYWORD_PARAMS => FunctionParameterModifier.Params,
             _ => FunctionParameterModifier.None
         };
     }
