@@ -69,12 +69,12 @@ public interface TestInterface2<T> { }
 
 public interface TestInterface2<T1, T2, T3, T4, T5> { }
 
-public interface TestInterface2 : II
-        {
-            int a = 4;
-        }nterface1, IInterface2, IInterface3 { }
+public interface TestInterface2 : Interface1, IInterface2, IInterface3 { }
 
-public interface TestInterface3<T> : IInterface1, IInterface2, IInterface3 { }
+public interface TestInterface3<T> ace1, IInterface2, IInterface3 { }
+
+public class TestClass3<T> : IInterface1, IInterface2, IInterface3 { }
+: IInterface1, IInterface2, IInterface3 { }
 
 public interface TestInterface4<T> where T : GenericType, interface, struct, notnull { }
 
