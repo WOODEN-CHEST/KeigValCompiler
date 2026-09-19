@@ -14,24 +14,24 @@ internal class PackParser
     private readonly string _sourceDirPath;
     private readonly ErrorRepository _errorRepository;
     private readonly ParserUtilities _parsingUtilities;
-    private readonly WarningCollection _warnings;
+    private readonly CompilerMessageCollection _messages;
 
 
     // Constructors.
     internal PackParser(string sourceDirectory, 
         ErrorRepository errorRepository,
         ParserUtilities parserUtilities,
-        WarningCollection warnings)
+        CompilerMessageCollection messages)
     {
         ArgumentNullException.ThrowIfNull(sourceDirectory, nameof(sourceDirectory));
         ArgumentNullException.ThrowIfNull(errorRepository, nameof(errorRepository));
         ArgumentNullException.ThrowIfNull(errorRepository, nameof(parserUtilities));
-        ArgumentNullException.ThrowIfNull(warnings, nameof(warnings));
+        ArgumentNullException.ThrowIfNull(messages, nameof(messages));
 
         _sourceDirPath = sourceDirectory;
         _errorRepository = errorRepository;
         _parsingUtilities = parserUtilities;
-        _warnings = warnings;
+        _messages = messages;
     }
 
 
@@ -48,8 +48,21 @@ internal class PackParser
         foreach (string sourceFile in Directory.GetFiles(
             _sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
-            SourceFileParser FileParser = new(sourceFile, Pack);
-            FileParser.ParseFile(Pack, _errorRepository, _parsingUtilities, _warnings);
+            /* One unreadable file must not hide what is wrong with all the others, so whatever it
+             * failed with is queued and the next file is read anyway. */
+            try
+            {
+                SourceFileParser FileParser = new(sourceFile, Pack);
+                FileParser.ParseFile(Pack, _errorRepository, _parsingUtilities, _messages);
+            }
+            catch (SourceFileReadException e)
+            {
+                _messages.Add(e.CompilerMessage);
+            }
+            catch (SourceFileAbortException)
+            {
+                /* Hit the error limit for this file. Its errors are already queued. */
+            }
         }
 
         return Pack;

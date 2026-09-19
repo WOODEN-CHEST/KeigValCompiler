@@ -26,7 +26,7 @@ internal readonly struct WarningCreateOptions
     public string CreateMessage()
     {
         return $"KGVL {Definition.Category.Prefix} Warning {Definition.Code}{SeverityToString()}: " 
-            + string.Format(CultureInfo.InvariantCulture, Definition.RawMessage, Arguments);
+            + Definition.FormatRawMessage(Arguments);
     }
 
 

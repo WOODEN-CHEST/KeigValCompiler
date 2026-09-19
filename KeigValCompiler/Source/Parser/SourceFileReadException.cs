@@ -2,34 +2,45 @@
 
 namespace KeigValCompiler.Source.Parser;
 
+/* Thrown when the parser no longer knows where it is in a source file. The exception exists to unwind
+ * to the nearest error recovery point; the message it carries is queued there rather than here, so that
+ * a caller which catches this on purpose can throw the message away with it. */
 internal class SourceFileReadException : Exception
 {
+    // Fields.
+    internal CompilerMessage CompilerMessage { get; private init; }
+
+
     // Constructors.
     internal SourceFileReadException(SourceDataParser parser, ErrorCreateOptions? error)
         : this(parser, error, null) { }
 
     internal SourceFileReadException(SourceDataParser parser, ErrorCreateOptions? error, string? notes)
-        : this(CreateErrorMessage(parser, error, notes)) { }
+        : this(CreateCompilerMessage(parser, error, notes)) { }
 
-    internal SourceFileReadException(string message) : base(message) { }
+    internal SourceFileReadException(CompilerMessage compilerMessage)
+        : base(compilerMessage?.ToString() ?? throw new ArgumentNullException(nameof(compilerMessage)))
+    {
+        CompilerMessage = compilerMessage;
+    }
 
 
     // Private static methods.
-    private static string CreateErrorMessage(SourceDataParser parser, ErrorCreateOptions? error, string? notes)
+    private static CompilerMessage CreateCompilerMessage(SourceDataParser parser,
+        ErrorCreateOptions? error,
+        string? notes)
     {
-        string Notes = notes != null ? $"Notes: {notes}{GetEndPunctuation(notes)}" : string.Empty;
-        string ErrorMessage = error?.CreateMessage() ?? string.Empty;
-        return $"Failed to read file \"{parser.FilePath}\" on line {parser.Line} " +
-            $"column {parser.GetColumn(parser.DataIndex)}. " +
-            $"{ErrorMessage}{GetEndPunctuation(ErrorMessage)} {Notes}";
-    }
+        ArgumentNullException.ThrowIfNull(parser, nameof(parser));
 
-    private static string GetEndPunctuation(string sentence)
-    {
-        if ((sentence.Length == 0) || (sentence.EndsWith('.') || sentence.EndsWith('?') || sentence.EndsWith('!')))
+        CompilerMessageLocation Location = new(parser.FilePath, parser.Line, parser.GetColumn(parser.DataIndex));
+
+        if (error.HasValue)
         {
-            return string.Empty;
+            return new(error.Value, Location, notes);
         }
-        return ".";
+
+        /* No definition means one of the placeholder throws which still keep their text in the notes.
+         * They are not the convention, see the parser errors section of agents/code-style.md. */
+        return new(string.Empty, Location, notes);
     }
 }

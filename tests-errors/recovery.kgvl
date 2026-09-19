@@ -1,0 +1,63 @@
+/* Error recovery test source file. Unlike tests/test.kgvl, every error in here is deliberate, and the
+ * point of the file is that the compiler reports all of them in one run instead of stopping at the
+ * first. Run it with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-errors
+ *
+ * It lives outside tests/ because the compiler reads a source directory recursively, and tests/ has
+ * to keep parsing cleanly.
+ *
+ * Expected output, 9 errors and 1 warning:
+ *
+ *   line 25 SFR warning 1   duplicate using directive
+ *   line 29 MM  error 1     duplicate member modifier
+ *   line 33 MM  error 2     builtin is reserved
+ *   line 37 SFR error 3     stray closing bracket at the root of the file
+ *   line 43 ID  error 1     invalid identifier 1Bad
+ *   line 44 ID  error 1     invalid identifier 2Bad
+ *   line 51 EN  error 8     no enum constant where the comma promised one
+ *   line 53 EN  error 8     trailing comma after the last enum constant
+ *   line 57 GE  error 4     empty generic parameter list
+ *   line 64 TMC error 3     unclosed class body, found at the end of the file
+ */
+
+using KGVL;
+using KGVL;
+
+namespace Test.Recovery;
+
+public public class DuplicateModifier { }
+
+public class GoodAfterDuplicateModifier { }
+
+builtin class ReservedModifier { }
+
+public class GoodAfterReservedModifier { }
+
+}
+
+public class GoodAfterStrayBracket { }
+
+public class BadMembers
+{
+    public class 1Bad { }
+    public class 2Bad { }
+    public class GoodAfterBadMembers { }
+}
+
+public enum BadEnum
+{
+    First,
+    1,
+    Second,
+}
+
+public class GoodAfterBadEnum { }
+
+public class BadGenerics<> { }
+
+public class GoodAfterBadGenerics { }
+
+public class Unclosed
+{
+    public class GoodInUnclosedClass { }

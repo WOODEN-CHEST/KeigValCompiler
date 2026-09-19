@@ -63,6 +63,28 @@ before resolution, and records them in `BuiltInTypeRegistry`.
 `.mcfunction`, `pack.mcmeta`, scoreboards, or writing any output file.
 `CompilerOptions.DestinationDirectory` is validated and never read.
 
+## Error reporting
+
+Errors and warnings are queued into one `CompilerMessageCollection`, shared by
+every stage through its context object, and printed together at the end of the
+stage that produced them. A stage which produced any error stops the
+compilation, because running the next stage on what a failed one left behind
+buries its errors under invented ones.
+
+Inside a stage the parser recovers and keeps going, so one mistake does not hide
+the rest of the file. Recovery is panic-mode: the throw unwinds to the nearest
+loop over a repeatable construct, which queues the message and skips ahead to
+somewhere the next construct could plausibly start. Those loops are the per-file
+loop in `PackParser`, `SourceFileRootParser.ParseBase`, the member loop in
+`MemberParser.ParseExtendableType`, and `MemberParser.ParseEnumValues`.
+`StatementParser` has none yet — it is waiting on the expression parser.
+
+Recovery is a heuristic and only claims three things: it terminates, the first
+error in a file is accurate, and later code is still reached. Whether the second
+error in a file is useful or noise depends on the input. After a recovered error
+the object model holds a partially built, possibly nonsensical tree, which is
+the other reason the next stage must not run.
+
 ## Current state (as of 2026-09-19)
 
 The build is **green**. The statement object model has been repaired and
@@ -104,7 +126,9 @@ sequences, and strings.
 
 4. **No test harness.** `KeigValCompilerTest` has no `ProjectReference` to the
    compiler and its `Main` prints `Hello, World!`. `ICodeTester`, `TestResults`
-   and `TwoIntDecimalTester` exist but nothing runs them.
+   and `TwoIntDecimalTester` exist but nothing runs them. The two fixtures,
+   `tests/test.kgvl` and `tests-errors/recovery.kgvl`, are run by hand and their
+   output read by eye.
 
 ### Smaller known gaps
 - `ParseParenthesisStatement`, `ParseNonKeywordStatement` and

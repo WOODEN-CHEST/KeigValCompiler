@@ -239,7 +239,7 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExpectedRecordBodyStartOrEnd { get; } = new(5,
         CompilerMessageCategory.Record,
-        $"Expected record \"{{1}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}' or end '{KGVL.SEMICOLON}'");
+        $"Expected record \"{{0}}\" body start '{KGVL.DOUBLE_CURLY_OPEN}' or end '{KGVL.SEMICOLON}'");
 
 
     /* Generics. */
@@ -296,6 +296,12 @@ internal class ErrorRepository
         CompilerMessageCategory.Comment,
         "Multi-line comment started on line {0} wasn't terminated properly");
 
+    internal virtual ErrorDefinition ExpectedQuotedBlockEnd { get; } = new(2,
+        CompilerMessageCategory.Comment,
+        "Expected the quoted block opened with '{0}' to be closed with a matching '{0}' before the end " +
+        "of the file. Comments are not stripped from inside quotes, so an unclosed quote swallows the " +
+        "rest of the file");
+
 
 
     /* Function. */
@@ -322,4 +328,47 @@ internal class ErrorRepository
         CompilerMessageCategory.Function,
         $"Expected more function parameters because a previously placed comma '{KGVL.COMMA}' " +
         "indicated that more function parameters are to follow for {0} \"{1}\"");
+
+
+    /* Literals. */
+    internal virtual ErrorDefinition InvalidHexEscapeSequence { get; } = new(1,
+        CompilerMessageCategory.Literal,
+        $"The escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\" is not a valid hexadecimal character code. " +
+        $"A hexadecimal escape sequence is the prefix '{KGVL.PREFIX_HEX_CHAR}' followed by hexadecimal " +
+        "digits (0-9 and a-f) whose value fits into a single character");
+
+    internal virtual ErrorDefinition UnknownEscapeSequence { get; } = new(2,
+        CompilerMessageCategory.Literal,
+        $"Unknown escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\". An escape sequence is the character " +
+        $"'{KGVL.ESCAPE_CHAR}' followed by one of a, b, f, n, t, v, ', \" or {KGVL.ESCAPE_CHAR}, or by " +
+        $"the prefix '{KGVL.PREFIX_HEX_CHAR}' and a hexadecimal character code");
+
+
+    /* Source files. */
+    internal virtual ErrorDefinition SourceFileInvalidContent { get; } = new(1,
+        CompilerMessageCategory.SourceFile,
+        "The source file \"{0}\" parsed, but what it describes cannot be put into the pack");
+
+    internal virtual ErrorDefinition SourceFileNotFound { get; } = new(2,
+        CompilerMessageCategory.SourceFile,
+        "The source file \"{0}\" was listed in the source directory but could not be opened. " +
+        "It was most likely moved or deleted while the compiler was running");
+
+    internal virtual ErrorDefinition SourceFileDirectoryNotFound { get; } = new(3,
+        CompilerMessageCategory.SourceFile,
+        "The directory holding the source file \"{0}\" could not be found. " +
+        "It was most likely moved or deleted while the compiler was running");
+
+    internal virtual ErrorDefinition SourceFileReadFailure { get; } = new(4,
+        CompilerMessageCategory.SourceFile,
+        "The source file \"{0}\" could not be read. The file itself exists, so this is a problem with " +
+        "the file system rather than with the code in it");
+
+
+    /* Warnings. */
+    internal virtual WarningDefinition DuplicateUsingDirective { get; } = new(1,
+        WarningSeverity.Minor,
+        $"The namespace \"{{0}}\" is already imported by an earlier \"{KGVL.KEYWORD_USING}\" directive " +
+        "in this file, so this one does nothing and can be removed",
+        CompilerMessageCategory.SourceFileRoot);
 }

@@ -23,6 +23,8 @@ internal class CompilerMessageCategory
     public static CompilerMessageCategory Generics { get; } = new("Generics", "GE");
     public static CompilerMessageCategory Comment { get; } = new("Comment", "CO");
     public static CompilerMessageCategory Function { get; } = new("Function", "FN");
+    public static CompilerMessageCategory Literal { get; } = new("Literal", "LI");
+    public static CompilerMessageCategory SourceFile { get; } = new("Source File", "SF");
 
 
 

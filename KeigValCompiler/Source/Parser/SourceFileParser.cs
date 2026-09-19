@@ -26,17 +26,17 @@ internal class SourceFileParser
     internal void ParseFile(DataPack parentPack,
         ErrorRepository errorRepository,
         ParserUtilities utilities,
-        WarningCollection warnings)
+        CompilerMessageCollection messages)
     {
         try
         {
             string FileData = File.ReadAllText(FilePath, Encoding.UTF8);
 
-            SourceDataParser OriginalFileParser = new(FileData, FilePath);
+            SourceDataParser OriginalFileParser = new(FileData, FilePath, errorRepository);
             string StrippedFileData = new CommentStripper(OriginalFileParser, errorRepository)
                 .StripCommentsFromCode(FileData);
 
-            SourceDataParser SourceParser = new(StrippedFileData, FilePath);
+            SourceDataParser SourceParser = new(StrippedFileData, FilePath, errorRepository);
             PackSourceFile SourceFile = new(Pack, FilePath);
             Pack.AddSourceFile(SourceFile);
 
@@ -46,26 +46,37 @@ internal class SourceFileParser
                 SourceFile = SourceFile,
                 Parser = SourceParser,
                 Utilities = utilities,
-                Warnings = warnings
+                Messages = messages
             };
 
             new SourceFileRootParser(Context).ParseBase();
         }
         catch (PackContentException e)
         {
-            throw new SourceFileReadException($"Invalid pack content for file \"{FilePath}\": {e.Message}");
+            throw CreateFileException(errorRepository.SourceFileInvalidContent, e);
         }
         catch (FileNotFoundException e)
         {
-            throw new SourceFileReadException($"File \"{FilePath}\" not found.");
+            throw CreateFileException(errorRepository.SourceFileNotFound, e);
         }
         catch (DirectoryNotFoundException e)
         {
-            throw new SourceFileReadException($"Directory not found for file \"{FilePath}\". {e.Message}");
+            throw CreateFileException(errorRepository.SourceFileDirectoryNotFound, e);
         }
         catch (IOException e)
         {
-            throw new SourceFileReadException($"IOException reading file \"{FilePath}\". {e.Message}");
+            throw CreateFileException(errorRepository.SourceFileReadFailure, e);
         }
+    }
+
+
+    // Private methods.
+    /* These failures happen before or instead of reading the file, so there is no line or column to
+     * point at - only the path. The exception's own text goes into the notes. */
+    private SourceFileReadException CreateFileException(ErrorDefinition definition, Exception cause)
+    {
+        return new(new CompilerMessage(definition.CreateOptions(FilePath),
+            new CompilerMessageLocation(FilePath),
+            cause.Message));
     }
 }

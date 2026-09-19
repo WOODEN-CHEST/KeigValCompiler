@@ -11,15 +11,19 @@ public static class Compiler
     // Internal static fields.
     internal static Version CompilerVersion { get; } = new Version(1, 0, 0, 0);
 
+    /* Process exit codes. */
+    internal const int EXIT_CODE_SUCCESS = 0;
+    internal const int EXIT_CODE_FAILURE = 1;
+
 
     // Internal static methods.
-    internal static void Main(string[] args)
+    internal static int Main(string[] args)
     {
         if (args.Length == 0)
         {
             Console.WriteLine($"KeigVal Compiler Version {CompilerVersion}." +
                 $"\nCommand-line arguments: <source directory> <destination directory (optional)>");
-            return;
+            return EXIT_CODE_SUCCESS;
         }
 
         CompilerOptions Options;
@@ -30,7 +34,7 @@ public static class Compiler
         catch (CommandlineArgumentException e)
         {
             Console.WriteLine(e.Message);
-            return;
+            return EXIT_CODE_FAILURE;
         }
 
         try
@@ -39,33 +43,54 @@ public static class Compiler
             Stopwatch CompilationTimeMeasurer = new();
             CompilationTimeMeasurer.Start();
 
-            CompilePack(Options);
+            bool IsCompilationSuccessful = CompilePack(Options);
 
             CompilationTimeMeasurer.Stop();
-            Console.WriteLine($"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
+            if (!IsCompilationSuccessful)
+            {
+                Console.WriteLine($"Failed to compile the datapack after {CompilationTimeMeasurer.Elapsed}");
+                return EXIT_CODE_FAILURE;
+            }
 
+            Console.WriteLine($"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
+            return EXIT_CODE_SUCCESS;
         }
         catch (Exception e) when (e is PackContentException or SourceFileReadException)
         {
             Console.WriteLine(e.Message);
+            return EXIT_CODE_FAILURE;
         }
         catch (Exception e)
         {
             Console.WriteLine(e);
+            return EXIT_CODE_FAILURE;
         }
     }
 
 
 
     // Private static methods.
-    private static void CompilePack(CompilerOptions options)
+    /* Every stage reports everything it found before the next one is allowed to start. Running a
+     * stage on what a failed one left behind only buries its errors under invented ones. */
+    private static bool CompilePack(CompilerOptions options)
     {
-        WarningCollection Warnings = new();
+        CompilerMessageCollection Messages = new();
         ErrorRepository ErrorCreator = new();
         ParserUtilities ParserUtilities = new();
+        CompilerMessagePrinter MessagePrinter = new();
 
-        PackParser Parser = new PackParser(options.SourceDirectory, ErrorCreator, ParserUtilities, Warnings);
+        PackParser Parser = new PackParser(options.SourceDirectory, ErrorCreator, ParserUtilities, Messages);
         DataPack Pack = Parser.ParsePack();
+
+        MessagePrinter.PrintMessages(Messages);
+        MessagePrinter.PrintSummary(Messages);
+        if (Messages.HasErrors)
+        {
+            return false;
+        }
+
+        /* Resolving and emitting go here, each one reporting before the next is allowed to run. */
+        return true;
     }
 
     private static void Test()

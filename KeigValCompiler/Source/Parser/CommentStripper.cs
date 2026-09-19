@@ -115,7 +115,8 @@ internal class CommentStripper
 
         if (!_parser.IsMoreDataAvailable)
         {
-            throw new SourceFileReadException($"Expected end of quoted block with {targetEndQuote}");
+            throw new SourceFileReadException(_parser,
+                _errorRepository.ExpectedQuotedBlockEnd.CreateOptions(targetEndQuote));
         }
 
         strippedData.Append(Character);

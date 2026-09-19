@@ -47,6 +47,12 @@ project, not an accident.
 complete, must parse with zero errors. It does so today, and must keep doing so —
 treat a new parse error there as a regression.
 
+`tests-errors/recovery.kgvl` is the opposite fixture: every error in it is
+deliberate, and it exists to check that the compiler reports all of them in one
+run rather than stopping at the first. Its header comment lists what it should
+produce. It sits outside `tests/` because a source directory is read
+recursively. Neither fixture is automated — you run them and read the output.
+
 The `KeigValCompilerTest` project exists but is **not wired up** — it has no
 `ProjectReference` to the compiler and its `Main` prints `Hello, World!`. There
 is effectively no automated test coverage.

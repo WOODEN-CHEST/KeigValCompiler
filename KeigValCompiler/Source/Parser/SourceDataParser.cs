@@ -42,6 +42,7 @@ public class SourceDataParser
 
 
     // Private fields.
+    private readonly ErrorRepository _errorRepository;
     private string _data;
     private int _dataIndex = 0;
 
@@ -56,10 +57,11 @@ public class SourceDataParser
 
 
     // Constructors.
-    public SourceDataParser(string data, string? filePath)
+    internal SourceDataParser(string data, string? filePath, ErrorRepository errorRepository)
     {
         _data = data;
         FilePath = filePath;
+        _errorRepository = errorRepository ?? throw new ArgumentNullException(nameof(errorRepository));
     }
 
 
@@ -315,6 +317,75 @@ public class SourceDataParser
         return false;
     }
 
+    /* Skips forward to somewhere parsing can sensibly be tried again after an error, and says what it
+     * stopped on. Only characters at bracket depth zero relative to where the skip started count, so
+     * the skip never stops inside something it walked into. Quoted blocks are skipped whole; comments
+     * are already gone by this point.
+     *
+     * A bracketed block opened during the skip is a construct being abandoned, so its closing bracket
+     * is a place to resume at. A closing bracket found at depth zero was never opened here, so it
+     * belongs to whatever the parser is already inside of and ends the list it is reading.
+     *
+     * This is a guess and nothing more. It cannot know what was meant, only where it is not obviously
+     * wrong to start reading again. */
+    internal SyncPointKind SkipToSyncPoint(char[] resumeChars, char[] terminatorChars)
+    {
+        ArgumentNullException.ThrowIfNull(resumeChars, nameof(resumeChars));
+        ArgumentNullException.ThrowIfNull(terminatorChars, nameof(terminatorChars));
+
+        int BracketDepth = 0;
+
+        while (IsMoreDataAvailable)
+        {
+            char Character = GetCharAtDataIndex();
+
+            if ((Character == KGVL.DOUBLE_QUOTE) || (Character == KGVL.SINGLE_QUOTE))
+            {
+                SkipQuotedBlock(Character);
+                continue;
+            }
+
+            if (IsOpeningBracket(Character))
+            {
+                BracketDepth++;
+                IncrementDataIndex();
+                continue;
+            }
+
+            if (IsClosingBracket(Character))
+            {
+                if (BracketDepth == 0)
+                {
+                    return SyncPointKind.Terminator;
+                }
+
+                BracketDepth--;
+                if (BracketDepth == 0)
+                {
+                    return SyncPointKind.Resume;
+                }
+                IncrementDataIndex();
+                continue;
+            }
+
+            if (BracketDepth == 0)
+            {
+                if (terminatorChars.Contains(Character))
+                {
+                    return SyncPointKind.Terminator;
+                }
+                if (resumeChars.Contains(Character))
+                {
+                    return SyncPointKind.Resume;
+                }
+            }
+
+            IncrementDataIndex();
+        }
+
+        return SyncPointKind.None;
+    }
+
     internal bool HasStringAtIndex(int index, string stringToFind)
     {
         if (index < 0)
@@ -542,7 +613,8 @@ public class SourceDataParser
             catch (Exception e) when (e is FormatException or ArgumentException
                 or OverflowException or ArgumentOutOfRangeException)
             {
-                throw new SourceFileReadException(this, null, $"Invalid character in hex notation \"{sequence}\".");
+                throw new SourceFileReadException(this,
+                    _errorRepository.InvalidHexEscapeSequence.CreateOptions(sequence));
             }
         }
 
@@ -557,12 +629,52 @@ public class SourceDataParser
             "'" => '\'',
             "\"" => '"',
             "\\" => '\\',
-            _ => throw new SourceFileReadException(this, null, $"Unknown escape sequence \"\\{sequence}\"")
+            _ => throw new SourceFileReadException(this,
+                _errorRepository.UnknownEscapeSequence.CreateOptions(sequence))
         };
     }
 
 
     // Private methods.
+    private bool IsOpeningBracket(char character)
+    {
+        return (character == KGVL.OPEN_CURLY_BRACKET)
+            || (character == KGVL.OPEN_PARENTHESIS)
+            || (character == KGVL.OPEN_SQUARE_BRACKET);
+    }
+
+    private bool IsClosingBracket(char character)
+    {
+        return (character == KGVL.CLOSE_CURLY_BRACKET)
+            || (character == KGVL.CLOSE_PARENTHESIS)
+            || (character == KGVL.CLOSE_SQUARE_BRACKET);
+    }
+
+    /* Only used while recovering from an error, so it just needs to get past the quoted block without
+     * being fooled by brackets or escaped quotes inside it. A string interpolated into another string
+     * would confuse it, but by this point the file is already known to be wrong. */
+    private void SkipQuotedBlock(char quote)
+    {
+        IncrementDataIndex();
+
+        while (IsMoreDataAvailable)
+        {
+            char Character = GetCharAtDataIndex();
+
+            if (Character == KGVL.ESCAPE_CHAR)
+            {
+                IncrementDataIndexNTimes(2);
+                continue;
+            }
+
+            IncrementDataIndex();
+            if (Character == quote)
+            {
+                return;
+            }
+        }
+    }
+
     private string? ParseDecimalNumber(ErrorCreateOptions? error)
     {
         StringBuilder Number = new StringBuilder();

@@ -13,6 +13,17 @@ namespace KeigValCompiler.Source.Parser;
 
 internal class MemberParser : AbstractParserBase
 {
+    // Static fields.
+    /* A member ends at a semicolon; the closing bracket of the type holding it ends the whole list of
+     * members, so it is left alone for the loop reading them to stop on. */
+    private static readonly char[] _memberResumeChars = new char[] { KGVL.SEMICOLON };
+    private static readonly char[] _memberTerminatorChars = new char[] { KGVL.CLOSE_CURLY_BRACKET };
+
+    /* Enum constants are separated by commas rather than ended by semicolons. */
+    private static readonly char[] _enumResumeChars = new char[] { KGVL.COMMA };
+    private static readonly char[] _enumTerminatorChars = new char[] { KGVL.CLOSE_CURLY_BRACKET };
+
+
     // Private fields
     private readonly StatementParser _statementParser;
 
@@ -78,7 +89,7 @@ internal class MemberParser : AbstractParserBase
     {
         if ((appliedModifiers & newModifier) != PackMemberModifiers.None)
         {
-            throw new SourceFileReadException(Parser, ErrorCreator.DuplicateModifiers.CreateOptions(newModifier));
+            AddError(ErrorCreator.DuplicateModifiers.CreateOptions(newModifier));
         }
 
         appliedModifiers |= newModifier;
@@ -99,11 +110,18 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
             KGVL.KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
             KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
-            KGVL.KEYWORD_BUILTIN => throw new SourceFileReadException(Parser,
-                ErrorCreator.ReservedKeywordBuiltIn.CreateOptions()),
+            KGVL.KEYWORD_BUILTIN => ReportReservedBuiltInModifier(),
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
             _ => PackMemberModifiers.None
         };
+    }
+
+    /* Writing the modifier down is what is not allowed, not the modifier itself, so the parser knows
+     * exactly where it is and carries on with the modifier that the keyword names. */
+    private PackMemberModifiers ReportReservedBuiltInModifier()
+    {
+        AddError(ErrorCreator.ReservedKeywordBuiltIn.CreateOptions());
+        return PackMemberModifiers.BuiltIn;
     }
 
     private PackMemberModifiers ParseMemberModifiers(string memberTypeName, string memberName)
@@ -146,7 +164,7 @@ internal class MemberParser : AbstractParserBase
         {
             if (Name.TypeArguments.Length > 0)
             {
-                throw new SourceFileReadException(Parser, ErrorCreator.VoidCantHaveGenericArguments.CreateOptions());
+                AddError(ErrorCreator.VoidCantHaveGenericArguments.CreateOptions());
             }
             return null;
         }
@@ -227,7 +245,7 @@ internal class MemberParser : AbstractParserBase
     {
         if (isRecord)
         {
-            ErrorCreator.ExpectedRecordBodyStartOrEnd.CreateOptions(memberName);
+            return ErrorCreator.ExpectedRecordBodyStartOrEnd.CreateOptions(memberName);
         }
         return ErrorCreator.ExpectedMemberBodyStart.CreateOptions(memberTypeName, memberName);
     }
@@ -326,7 +344,17 @@ internal class MemberParser : AbstractParserBase
             && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
             && Parser.IsMoreDataAvailable)
         {
-            ParseMember(CreatedType, typeName, Name.SourceCodeName);
+            try
+            {
+                ParseMember(CreatedType, typeName, Name.SourceCodeName);
+            }
+            catch (SourceFileReadException e)
+            {
+                if (!RecoverFromError(e, _memberResumeChars, _memberTerminatorChars))
+                {
+                    break;
+                }
+            }
         }
 
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
@@ -461,34 +489,31 @@ internal class MemberParser : AbstractParserBase
         string EnumName = enumeration.SelfIdentifier.SourceCodeName;
 
         ErrorCreateOptions ConstantOrEndError = ErrorCreator.ExpectedEnumConstantOrEnd.CreateOptions(EnumName);
+        ErrorCreateOptions ExpectedConstantError = ErrorCreator.ExpectedEnumConstant.CreateOptions(EnumName);
 
         Parser.SkipUntilNonWhitespace(ConstantOrEndError);
         int CurrentEnumValue = ENUM_STARTING_VALUE;
         bool IsValueExpected = Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET;
         while (IsValueExpected)
         {
-            if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (enumeration.ConstantCount > 0))
+            try
             {
-                throw new SourceFileReadException(Parser, ErrorCreator.UnexpctedEnumNonConstantValue
-                    .CreateOptions(EnumName));
+                CurrentEnumValue = ParseEnumValue(enumeration, EnumName, CurrentEnumValue);
             }
-
-            ErrorCreateOptions ExpectedConstantError = ErrorCreator.ExpectedEnumConstant.CreateOptions(EnumName);
-            string ConstantName = Parser.ReadIdentifier(ExpectedConstantError);
-            ErrorCreateOptions AssignmentOrNextOrEndError = ErrorCreator.ExpectedEnumAssignmentOrNextOrEnd
-                .CreateOptions(ConstantName, EnumName);
-
-            Parser.SkipUntilNonWhitespace(AssignmentOrNextOrEndError);
-
-            if (Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
+            catch (SourceFileReadException e)
             {
-                ErrorCreateOptions ExpectedValueError = ErrorCreator.ExpectedEnumConstantValue.CreateOptions(ConstantName);
-                Parser.IncrementDataIndex();
-                Parser.SkipUntilNonWhitespace(ExpectedValueError);
-                IntegerNumber Number = Parser.ReadInteger(ExpectedValueError)!;
-                CurrentEnumValue = CastNumberToEnumConstantValue(enumeration, ConstantName, Number);
+                if (!RecoverFromError(e, _enumResumeChars, _enumTerminatorChars))
+                {
+                    return;
+                }
+
+                /* Recovery either ate the comma before the next constant or stopped on the enum's
+                 * closing bracket, so whether another constant follows is decided by what is there now. */
+                Parser.SkipUntilNonWhitespace(null);
+                IsValueExpected = Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex());
+                CurrentEnumValue++;
+                continue;
             }
-            enumeration.SetConstant(ConstantName, CurrentEnumValue);
 
             Parser.SkipUntilNonWhitespace(ConstantOrEndError);
             IsValueExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
@@ -501,12 +526,46 @@ internal class MemberParser : AbstractParserBase
         }
     }
 
+    private int ParseEnumValue(PackEnumeration enumeration, string enumName, int currentEnumValue)
+    {
+        if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (enumeration.ConstantCount > 0))
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.UnexpctedEnumNonConstantValue
+                .CreateOptions(enumName));
+        }
+
+        ErrorCreateOptions ExpectedConstantError = ErrorCreator.ExpectedEnumConstant.CreateOptions(enumName);
+        string ConstantName = Parser.ReadIdentifier(ExpectedConstantError);
+        ErrorCreateOptions AssignmentOrNextOrEndError = ErrorCreator.ExpectedEnumAssignmentOrNextOrEnd
+            .CreateOptions(ConstantName, enumName);
+
+        Parser.SkipUntilNonWhitespace(AssignmentOrNextOrEndError);
+
+        int ConstantValue = currentEnumValue;
+        if (Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
+        {
+            ErrorCreateOptions ExpectedValueError = ErrorCreator.ExpectedEnumConstantValue.CreateOptions(ConstantName);
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(ExpectedValueError);
+            IntegerNumber Number = Parser.ReadInteger(ExpectedValueError)!;
+            ConstantValue = CastNumberToEnumConstantValue(enumeration, ConstantName, Number);
+        }
+        enumeration.SetConstant(ConstantName, ConstantValue);
+
+        return ConstantValue;
+    }
+
     private int CastNumberToEnumConstantValue(PackEnumeration enumeration, string constantName, IntegerNumber number)
     {
+        /* The number is right here and the constant it belongs to is known, so there is nothing to
+         * recover from. A value still has to come back, and parsing the out of range one would throw. */
+        const int ENUM_ERROR_VALUE = 0;
+
         if (number.IsLong || number.IsUnsigned)
         {
-            throw new SourceFileReadException(Parser, ErrorCreator.EnumConstantOutOfRange
+            AddError(ErrorCreator.EnumConstantOutOfRange
                 .CreateOptions(constantName, enumeration.SelfIdentifier.SourceCodeName, number.Number));
+            return ENUM_ERROR_VALUE;
         }
 
         if (number.Base == NumberBase.Binary)

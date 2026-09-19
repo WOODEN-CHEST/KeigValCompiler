@@ -168,25 +168,49 @@ put new constants in the right one.
 
 ## Parser errors
 
-Parse failures throw `SourceFileReadException`, which formats file, line and
-column automatically. The intended form routes through `ErrorRepository`, so
-every error has a stable numeric code and a reusable message:
+Every message the compiler prints comes from a definition in
+[`ErrorRepository`](../KeigValCompiler/Error/ErrorRepository.cs), which gives it
+a stable code within its `CompilerMessageCategory` and a reusable message. To add
+one, add an `internal virtual ErrorDefinition` (or `WarningDefinition`) property
+with the next free code in its category, then reference it. They are `virtual` so
+tests can override them. Never write the message text at the place it is raised —
+the *notes* argument is for detail the definition cannot know, not for the
+message itself.
+
+There are two kinds of error, and picking the wrong one costs error quality:
+
+**The parser still knows where it is** — the construct was understood, it is just
+wrong. Queue it and carry straight on, so one mistake does not hide the rest of
+the file:
+
+```csharp
+AddError(ErrorCreator.DuplicateModifiers.CreateOptions(newModifier));
+```
+
+**The parser no longer knows where it is.** Throw, and let it unwind to the
+nearest recovery point:
 
 ```csharp
 throw new SourceFileReadException(Parser,
     ErrorCreator.RootNonActiveNamespace.CreateOptions(ExtractedKeyword));
 ```
 
-To add an error: add an `internal virtual ErrorDefinition` property to
-[`ErrorRepository`](../KeigValCompiler/Error/ErrorRepository.cs) with the next
-free code and a `CompilerMessageCategory`, then reference it. They are `virtual`
-so tests can override them.
+A recovery point is a loop over a repeatable construct which catches
+`SourceFileReadException` and calls `AbstractParserBase.RecoverFromError`. That
+queues the message and skips ahead to somewhere the next construct could start.
+If you add one, read the contract on `RecoverFromError` first: the loop **must**
+break when it sees one of the `terminatorChars`, because that is the one case
+where recovery returns without having moved the cursor, and a loop which
+continues anyway spins forever.
 
 **Known deviation:** `StatementParser.cs` has ~30 calls of the shape
 `new SourceFileReadException(Parser, null, "some literal message")`. That
 overload puts the text in the *notes* field with an empty error message — it is
 a placeholder from unfinished work, **not** the convention. Do not copy it into
-new code, and migrate those calls to `ErrorRepository` when you touch them.
+new code, and migrate those calls to `ErrorRepository` when you touch them. It is
+the only reason `SourceFileReadException` still accepts a null
+`ErrorCreateOptions`; once that file is done, make the parameter non-nullable and
+the compiler will refuse any future message written in place.
 
 Error messages in this codebase are long, specific and explain what the compiler
 expected and why. Match that register; terse messages like `"Unexpected token"`
