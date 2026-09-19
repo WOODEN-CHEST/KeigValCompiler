@@ -13,8 +13,13 @@ internal class IdentifiableAccessStatement : Statement
 
 
     // Constructors.
-    internal IdentifiableAccessStatement(string identifierName)
+    internal IdentifiableAccessStatement(Identifier memberIdentifier)
     {
-        MemberIdentifier = new(identifierName);
+        MemberIdentifier = memberIdentifier ?? throw new ArgumentNullException(nameof(memberIdentifier));
     }
+
+    internal IdentifiableAccessStatement(string identifierName) : this(new Identifier(identifierName)) { }
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => Array.Empty<Statement>();
 }

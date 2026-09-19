@@ -19,4 +19,16 @@ internal class WhileStatement : Statement
     {
         Condition = condition;
     }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => new Statement[] { Condition }.Concat(Body);
+
+
+    // Inherited methods.
+    internal override void TransformChildren(Func<Statement, Statement> transform)
+    {
+        Condition = transform(Condition);
+        Body.TransformAll(transform);
+    }
 }

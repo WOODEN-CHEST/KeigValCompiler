@@ -14,7 +14,11 @@ public enum StatementOperator
     Division,
     Modulo,
 
+    /* Unary. */
     Negation,
+    UnaryPlus,
+    Not,
+    BitwiseComplement,
 
     Increment,
     Decrement,
@@ -42,7 +46,5 @@ public enum StatementOperator
     EventSubscribe,
     EventUnsubscribe,
 
-    IsCheck,
-
-    Parenthesis
+    IsCheck
 }

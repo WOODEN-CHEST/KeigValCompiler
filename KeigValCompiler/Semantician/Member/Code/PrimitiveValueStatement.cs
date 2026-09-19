@@ -15,8 +15,6 @@ internal class PrimitiveValueStatement : Statement
         set => _value = value ?? throw new ArgumentNullException(nameof(value));
     }
 
-    internal Identifier PrimitiveValueType { get; set; }
-
 
     // Private fields.
     private object _value;
@@ -25,6 +23,10 @@ internal class PrimitiveValueStatement : Statement
     // Constructors.
     internal PrimitiveValueStatement(object value)
     {
-        Value = value;
+        _value = value ?? throw new ArgumentNullException(nameof(value));
     }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => Array.Empty<Statement>();
 }

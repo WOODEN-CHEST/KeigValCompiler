@@ -1,4 +1,5 @@
 ﻿using KeigValCompiler.Error;
+using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Member.Code;
 using System;
@@ -66,18 +67,22 @@ internal class StatementParser : AbstractParserBase
     private Statement ParseStatementInternal(char stopChar)
     {
         Parser.SkipUntilNonWhitespace(null);
+
+        /* Captured before anything is consumed so that the origin points at the statement's start. */
+        SourceFileOrigin Origin = new(Parser.Line);
+
         if (Parser.GetCharAtDataIndex() == stopChar)
         {
             Parser.IncrementDataIndex();
-            return new EmptyStatement();
+            return new EmptyStatement() { Origin = Origin };
         }
 
         int WordStartIndex = Parser.DataIndex;
         TypeTargetIdentifier FirstWord = Parser.ReadTypeTargetIdentifier(null);
-        string Keyword = FirstWord.MainTarget!.SourceCodeName;
-        if (Keyword == null)
+        string Keyword = FirstWord.MainTarget.SourceCodeName;
+        if (Keyword.Length == 0)
         {
-            return new EmptyStatement();
+            return new EmptyStatement() { Origin = Origin };
         }
 
         Statement? ReturnedStatement = ParseKeywordStatement(Keyword);
@@ -86,6 +91,7 @@ internal class StatementParser : AbstractParserBase
             Parser.DataIndex = WordStartIndex;
             ReturnedStatement = ParseNonKeywordStatement();
         }
+        ReturnedStatement.Origin = Origin;
 
         if (Parser.GetCharAtDataIndex() != stopChar)
         {
@@ -108,6 +114,7 @@ internal class StatementParser : AbstractParserBase
             KGVL.KEYWORD_WHILE => ParseWhileStatement(),
             KGVL.KEYWORD_DO => ParseDoWhileStatement(),
             KGVL.KEYWORD_FOR => ParseForStatement(),
+            KGVL.KEYWORD_FOREACH => ParseForEachStatement(),
             KGVL.KEYWORD_SWITCH => ParseSwitchStatement(),
             KGVL.KEYWORD_THROW => ParseThrowStatement(),
             _ => null
@@ -171,6 +178,10 @@ internal class StatementParser : AbstractParserBase
         while (Keyword == KGVL.KEYWORD_CATCH)
         {
             Clauses.Add(ParseSingleCatchClause());
+
+            Parser.SkipUntilNonWhitespace(null);
+            SavedIndex = Parser.DataIndex;
+            Keyword = Parser.ReadIdentifier(null);
         }
         Parser.DataIndex = SavedIndex;
 
@@ -192,22 +203,18 @@ internal class StatementParser : AbstractParserBase
                 $"Expected catch clause start '{KGVL.OPEN_PARENTHESIS}'");
         }
         Parser.IncrementDataIndex();
-
-
-        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
-        {
-            throw new SourceFileReadException(Parser, null,
-                $"Expected catch clause start '{KGVL.OPEN_PARENTHESIS}'");
-        }
-        Parser.IncrementDataIndex();
+        Parser.SkipUntilNonWhitespace(null);
 
         TypeTargetIdentifier ExceptionType = Parser.ReadTypeTargetIdentifier(null);
         Parser.SkipUntilNonWhitespace(null);
 
-        Identifier? ExceptionIdentifier = new(Parser.ReadIdentifier(null));
+        /* The exception identifier is optional, as in "catch (SomeException)". */
+        string ExceptionIdentifierName = Parser.ReadIdentifier(null);
+        Identifier? ExceptionIdentifier = ExceptionIdentifierName.Length > 0
+            ? new(ExceptionIdentifierName) : null;
 
         Parser.SkipUntilNonWhitespace(null);
-        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
         {
             throw new SourceFileReadException(Parser, null,
                 $"Expected catch clause end '{KGVL.CLOSE_PARENTHESIS}'");
@@ -328,7 +335,7 @@ internal class StatementParser : AbstractParserBase
 
         Parser.SkipUntilNonWhitespace(null);
         Statement Assignment = ParseStatementInternal(KGVL.SEMICOLON);
-        if (Assignment is not VariableAssignmentStatement or EmptyStatement)
+        if (Assignment is not (VariableDeclarationStatement or AssignmentStatement or EmptyStatement))
         {
             throw new SourceFileReadException(Parser, null,
                 $"Expected variable assignment statement (for assignment section) or nothing in for loop");
@@ -339,7 +346,7 @@ internal class StatementParser : AbstractParserBase
 
         Parser.SkipUntilNonWhitespace(null);
         Statement Increment = ParseStatementInternal(KGVL.CLOSE_PARENTHESIS);
-        if (Increment is not VariableAssignmentStatement or EmptyStatement)
+        if (Increment is not (AssignmentStatement or UnaryOperatorStatement or EmptyStatement))
         {
             throw new SourceFileReadException(Parser, null,
                 $"Expected variable assignment statement (for increment section) or nothing in for loop");
@@ -361,8 +368,51 @@ internal class StatementParser : AbstractParserBase
         return TargetStatement;
     }
 
+    private ForEachStatement ParseForEachStatement()
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected foreach statement header start '{KGVL.OPEN_PARENTHESIS}'");
+        }
+        Parser.IncrementDataIndex();
+        Parser.SkipUntilNonWhitespace(null);
+
+        TypeTargetIdentifier ElementType = Parser.ReadTypeTargetIdentifier(null);
+        Parser.SkipUntilNonWhitespace(null);
+
+        Identifier ElementName = new(Parser.ReadIdentifier(null));
+        Parser.SkipUntilNonWhitespace(null);
+
+        string InKeyword = Parser.ReadIdentifier(null);
+        if (InKeyword != KGVL.KEYWORD_IN)
+        {
+            throw new SourceFileReadException(Parser, null,
+                $"Expected keyword \"{KGVL.KEYWORD_IN}\" between the element and the collection " +
+                $"of a foreach statement");
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        Statement EnumeratorProvider = ParseStatementInternal(KGVL.CLOSE_PARENTHESIS);
+
+        Parser.SkipUntilNonWhitespace(null);
+        StatementCollection Body = ParseVariableLengthStatement();
+
+        ForEachStatement TargetStatement = new(ElementName, EnumeratorProvider)
+        {
+            /* The "var" keyword leaves the element type to be inferred. */
+            ElementType = ElementType.MainTarget.SourceCodeName == KGVL.KEYWORD_VAR ? null : ElementType
+        };
+        TargetStatement.Body.SetFrom(Body);
+        return TargetStatement;
+    }
+
     private SwitchStatement ParseSwitchStatement()
     {
+        Parser.SkipUntilNonWhitespace(null);
+        Statement SwitchTarget = ParseSimpleCondition();
+
         Parser.SkipUntilNonWhitespace(null);
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
         {
@@ -371,7 +421,8 @@ internal class StatementParser : AbstractParserBase
         }
         Parser.IncrementDataIndex();
 
-        List<SwitchCase> Cases = ParseSwitchCases();
+        SwitchStatement TargetStatement = new(SwitchTarget);
+        ParseSwitchCases(TargetStatement);
 
         Parser.SkipUntilNonWhitespace(null);
         if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
@@ -381,37 +432,23 @@ internal class StatementParser : AbstractParserBase
         }
         Parser.IncrementDataIndex();
 
-        SwitchStatement TargetStatement = new();
-        foreach (SwitchCase Case in Cases)
-        {
-            TargetStatement.AddCase(Case);
-        }
         return TargetStatement;
     }
 
-    private List<SwitchCase> ParseSwitchCases()
+    private void ParseSwitchCases(SwitchStatement targetStatement)
     {
-        List<SwitchCase> Cases = new();
-
         Parser.SkipUntilNonWhitespace(null);
         while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
         {
-            SwitchCase? Case = ParseSingleSwitchCase();
-            if (Case != null)
-            {
-                Cases.Add(Case);
-            }
+            ParseSingleSwitchCase(targetStatement);
+            Parser.SkipUntilNonWhitespace(null);
         }
-
-        return Cases;
     }
 
-    private SwitchCase? ParseSingleSwitchCase()
+    private void ParseSingleSwitchCase(SwitchStatement targetStatement)
     {
         SwitchCase Case = new();
         Parser.SkipUntilNonWhitespace(null);
-
-        StatementCollection Conditions = new();
 
         bool IsDefaultCase = false;
         int StartIndex = Parser.DataIndex;
@@ -461,7 +498,17 @@ internal class StatementParser : AbstractParserBase
             BodyStatement = ParseStatement();
             Case.Body.AddStatement(BodyStatement);
             Parser.SkipUntilNonWhitespace(null);
-        } while (BodyStatement is not BreakStatement or ThrowStatement);
+        } while (Parser.IsMoreDataAvailable
+            && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
+            && (BodyStatement is not (BreakStatement or ThrowStatement)));
+
+        Case.IsBrokenOutOf = BodyStatement is BreakStatement;
+
+        if (IsDefaultCase)
+        {
+            targetStatement.DefaultCase.SetFrom(Case.Body);
+            return;
+        }
 
         if (Case.CaseConditions.IsEmpty)
         {
@@ -469,8 +516,7 @@ internal class StatementParser : AbstractParserBase
                 $"Expected at least 1 switch case condition.");
         }
 
-        Case.CaseConditions.SetFrom(Conditions);
-        return Case;
+        targetStatement.AddCase(Case);
     }
 
     private ThrowStatement ParseThrowStatement()
@@ -485,36 +531,37 @@ internal class StatementParser : AbstractParserBase
         throw new NotImplementedException();
     }
 
+    /* A parenthesised section is ambiguous until the expression parser exists: "(Abc)" may be a cast
+     * to the type Abc or a parenthesised access of the variable Abc, and telling them apart requires
+     * parsing what follows. The partial attempt below is kept as a record of that intent. */
     private Statement ParseParenthesisStatement()
     {
-        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
-        {
-            throw new SourceFileReadException(Parser, null, $"Expected '{KGVL.OPEN_PARENTHESIS}'");
-        }
-        Parser.IncrementDataIndex();
+        //if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        //{
+        //    throw new SourceFileReadException(Parser, null, $"Expected '{KGVL.OPEN_PARENTHESIS}'");
+        //}
+        //Parser.IncrementDataIndex();
 
-        int StartIndex = Parser.DataIndex;
-        Parser.SkipUntilNonWhitespace(null);
-        TypeTargetIdentifier Keyword = Parser.ReadTypeTargetIdentifier(null);
-        Parser.SkipUntilNonWhitespace(null);
+        //int StartIndex = Parser.DataIndex;
+        //Parser.SkipUntilNonWhitespace(null);
+        //TypeTargetIdentifier Keyword = Parser.ReadTypeTargetIdentifier(null);
+        //Parser.SkipUntilNonWhitespace(null);
 
-        if (Parser.GetCharAtDataIndex() == KGVL.CLOSE_PARENTHESIS)
-        {
-            if (Keyword.MainTarget!.SourceCodeName.Length == 0)
-            {
-                throw new SourceFileReadException(Parser, null,
-                     $"Expected statement inside of parenthesis.");
-            }
-            Parser.IncrementDataIndex();
-            Parser.SkipUntilNonWhitespace(null);
-        }
-        else
-        {
+        //if (Parser.GetCharAtDataIndex() == KGVL.CLOSE_PARENTHESIS)
+        //{
+        //    if (Keyword.MainTarget.SourceCodeName.Length == 0)
+        //    {
+        //        throw new SourceFileReadException(Parser, null,
+        //             $"Expected statement inside of parenthesis.");
+        //    }
+        //    Parser.IncrementDataIndex();
+        //    Parser.SkipUntilNonWhitespace(null);
+        //}
 
-        }
+        throw new NotImplementedException();
     }
 
-    private VariableAssignmentStatement ParseAssignmentStatement()
+    private Statement ParseAssignmentStatement()
     {
         throw new NotImplementedException();
     }

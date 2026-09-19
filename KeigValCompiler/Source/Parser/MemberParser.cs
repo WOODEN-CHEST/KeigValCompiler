@@ -33,7 +33,7 @@ internal class MemberParser : AbstractParserBase
         int StartParserIndex = Parser.DataIndex;
         TypeTargetIdentifier TypeTarget = Parser.ReadTypeTargetIdentifier(ExpectedMemberError);
 
-        string FirstSegment = TypeTarget.MainTarget!.SourceCodeName;
+        string FirstSegment = TypeTarget.MainTarget.SourceCodeName;
 
         bool IsRecord = (Modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
         if (FirstSegment == KGVL.KEYWORD_CLASS)
@@ -142,7 +142,7 @@ internal class MemberParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(ErrorOptions);
         TypeTargetIdentifier Name = Parser.ReadTypeTargetIdentifier(ErrorOptions);
 
-        if (Name.MainTarget!.SourceCodeName == KGVL.KEYWORD_VOID)
+        if (Name.MainTarget.SourceCodeName == KGVL.KEYWORD_VOID)
         {
             if (Name.TypeArguments.Length > 0)
             {
@@ -745,7 +745,7 @@ internal class MemberParser : AbstractParserBase
 
             TypeTargetIdentifier ConstraintType = Parser.ReadTypeTargetIdentifier(ExpectedConstraintError);
             SpecialGenericConstraint? SpecialConstraint = TryGetSpecialConstraint(
-                ConstraintType.MainTarget!.SourceCodeName);
+                ConstraintType.MainTarget.SourceCodeName);
             GenericConstraint Constraint = SpecialConstraint != null ? new(SpecialConstraint.Value) : new(ConstraintType);
             Constraints.Add(Constraint);
 

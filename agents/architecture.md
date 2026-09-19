@@ -39,6 +39,12 @@ on. `AbstractParserBase` gives the sub-parsers access to the shared
 
 ### Stage 2 — Resolve (`KeigValCompiler/Semantician/Resolver/`)
 
+**This whole directory is excluded from compilation** by
+`<Compile Remove="Semantician\Resolver\**" />` in the `.csproj`. It is not merely
+uninvoked — it does not build. It references `MemberRetrieveStatement`, a class
+that does not exist, and `Statement.SubStatements`, which was removed and later
+replaced by `Children`. Expect a wave of errors when re-enabling it.
+
 `FullPackResolver` runs three passes **in a fixed order that must not change**:
 `NameSpaceResolver` → `ParentItemResolver` → `IdentifierResolver`.
 
@@ -59,6 +65,14 @@ before resolution, and records them in `BuiltInTypeRegistry`.
 
 ## Current state (as of 2026-09-19)
 
+The build is **green**. The statement object model has been repaired and
+completed: every node carries `Children`/`TransformChildren` for generic
+traversal and rewriting, type references in the `Code` namespace all use
+`TypeTargetIdentifier`, assignment accepts arbitrary lvalue targets, operators
+are split into unary and binary forms, and the nodes needed for arrays,
+indexing, lambdas, `yield`, switch expressions and interpolated strings exist.
+What remains missing is the *parser* code to build most of them.
+
 ### Works
 Comment stripping; namespaces and usings; classes, structs, interfaces, records
 (including primary constructors), enums, delegates, events; generic parameters
@@ -73,17 +87,18 @@ sequences, and strings.
    `break`, `continue`) but `ParseNonKeywordStatement()` and
    `ParseAssignmentStatement()` both throw `NotImplementedException`. There is
    no precedence-climbing or expression-tree construction anywhere.
-   `OperatorStatement`, `TernaryStatement` and `StatementOperator` are defined
-   but never constructed. This blocks all real code parsing.
+   The node types it would build all exist now, but nothing constructs them.
+   This blocks all real code parsing and is the next task.
 
 2. **Member bodies are switched off.** In `MemberParser`,
    `ParseReturnTypedMember` is entirely commented out, and `ParseFunction`,
    `ParseField` and `ParseProperty` have empty bodies. The parser therefore
    walks type declarations and silently produces *nothing* for their contents.
 
-3. **The resolver is orphaned.** `Compiler.CompilePack` parses and returns. The
-   wiring that constructs a `PackResolutionContext` and calls `FullPackResolver`
-   exists only inside the commented-out `Compiler.Test()`. Also
+3. **The resolver is excluded from the build.** See stage 2 above.
+   `Compiler.CompilePack` parses and returns; the wiring that constructs a
+   `PackResolutionContext` and calls `FullPackResolver` exists only inside the
+   commented-out `Compiler.Test()`. Also
    `DefaultIdentifierSearcher.SearchForIdentifier` throws
    `NotImplementedException` — the actual lookup is missing.
 
@@ -92,17 +107,21 @@ sequences, and strings.
    and `TwoIntDecimalTester` exist but nothing runs them.
 
 ### Smaller known gaps
-- `ParseParenthesisStatement` is half-written (empty `else`) — this is usually
-  the one thing breaking the build.
+- `ParseParenthesisStatement`, `ParseNonKeywordStatement` and
+  `ParseAssignmentStatement` are honest `NotImplementedException` stubs awaiting
+  the expression parser.
 - `SourceDataParser.ReadInterpolatedString` is a stub.
 - `TwoIntDecimal` has several unimplemented operator/conversion members.
-- `tests/test.kgvl` is corrupted around line 76.
+- `tests/test.kgvl` is corrupted at lines 72-77; everything else in it parses.
+- `CatchClause.WhenCondition` exists but `catch ... when (...)` is not parsed.
+- `FunctionParameterModifier` is `[Flags]` yet `Ref = 3` collides with
+  `In | Out`. Nothing ORs them today, so it is latent rather than live.
 
 ## Suggested order of work
 
 Roughly dependency-ordered; the owner decides priorities.
 
-1. Get the build green.
+1. ~~Get the build green.~~ Done.
 2. Wire up `KeigValCompilerTest` and make it parse `tests/test.kgvl`. A feedback
    loop should come before more features.
 3. Build the expression parser — it unblocks gap 1 and much of gap 2.

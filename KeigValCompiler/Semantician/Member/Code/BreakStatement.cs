@@ -6,4 +6,8 @@ using System.Threading.Tasks;
 
 namespace KeigValCompiler.Semantician.Member.Code;
 
-internal class BreakStatement : Statement { }
+internal class BreakStatement : Statement
+{
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => Array.Empty<Statement>();
+}

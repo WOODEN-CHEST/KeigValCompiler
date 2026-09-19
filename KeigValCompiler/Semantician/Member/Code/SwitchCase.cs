@@ -11,5 +11,5 @@ internal class SwitchCase
     // Fields.
     internal StatementCollection CaseConditions { get; } = new();
     internal StatementCollection Body { get; } = new();
-    internal bool IsBrokenOutOf = false;
+    internal bool IsBrokenOutOf { get; set; } = false;
 }

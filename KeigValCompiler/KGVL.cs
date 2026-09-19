@@ -35,6 +35,9 @@ internal static class KGVL
     public const char GENERIC_TYPE_START = '<';
     public const char GENERIC_TYPE_END = '>';
 
+    public const char OPEN_SQUARE_BRACKET = '[';
+    public const char CLOSE_SQUARE_BRACKET = ']';
+
     public const char TYPE_NULLABLE_INDICATOR = '?';
 
     public const char ESCAPE_SEQUENCE_CODEPOINT_INDICATOR = 'u';

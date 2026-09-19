@@ -1,6 +1,7 @@
 ﻿using KeigValCompiler.Error;
 using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Member.Code;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -436,11 +437,29 @@ public class SourceDataParser
     internal TypeTargetIdentifier ReadTypeTargetIdentifier(ErrorCreateOptions? error)
     {
         string BaseName = ReadIdentifier(error);
-        if (GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
+
+        TypeTargetIdentifier[]? TypeArguments = null;
+        if (GetCharAtDataIndex() == KGVL.GENERIC_TYPE_START)
         {
-            return new TypeTargetIdentifier(new(BaseName), null) { IsNullable = GetIsNullable() };
+            TypeArguments = ReadGenericTypeArguments(error);
         }
 
+        /* A nullable indicator before the brackets makes the element nullable ("int?[]"), while one
+         * after the brackets makes the array itself nullable ("int[]?"). */
+        bool IsNullableBeforeBrackets = GetIsNullable();
+        int ArrayRank = ReadArrayRank();
+        bool IsNullable = ArrayRank > 0 ? GetIsNullable() : IsNullableBeforeBrackets;
+
+        return new TypeTargetIdentifier(new(BaseName), TypeArguments)
+        {
+            ArrayRank = ArrayRank,
+            IsNullable = IsNullable,
+            IsElementNullable = (ArrayRank > 0) && IsNullableBeforeBrackets
+        };
+    }
+
+    private TypeTargetIdentifier[] ReadGenericTypeArguments(ErrorCreateOptions? error)
+    {
         IncrementDataIndex();
         List<TypeTargetIdentifier> SubTypes = new();
         bool IsTypeNameExpected = true;
@@ -468,7 +487,7 @@ public class SourceDataParser
             IncrementDataIndex();
         }
 
-        return new(new(BaseName), SubTypes.ToArray()) { IsNullable = GetIsNullable() };
+        return SubTypes.ToArray();
     }
 
     internal CharConstant? ReadCharacter(ErrorCreateOptions? error)
@@ -507,7 +526,7 @@ public class SourceDataParser
         return new(Character);
     }
 
-    internal InterpolatedString? ReadInterpolatedString(ErrorCreateOptions? error)
+    internal InterpolatedStringStatement? ReadInterpolatedString(ErrorCreateOptions? error)
     {
         throw new NotImplementedException();
     }
@@ -728,6 +747,35 @@ public class SourceDataParser
     {
         return $"Unexpected end of file while looking for one of these characters: " +
                 $"[{string.Join(", ", characters)}].";
+    }
+
+    /* Reads a run of "[]" pairs and returns how many were found, rewinding if none are present.
+     * A lone '[' that is not immediately closed is left unconsumed, so that an index access like
+     * "a[i]" is not mistaken for an array type. */
+    private int ReadArrayRank()
+    {
+        int Rank = 0;
+        int EndIndex = DataIndex;
+        SkipUntilNonWhitespace(null);
+
+        while (GetCharAtDataIndex() == KGVL.OPEN_SQUARE_BRACKET)
+        {
+            IncrementDataIndex();
+            SkipUntilNonWhitespace(null);
+
+            if (GetCharAtDataIndex() != KGVL.CLOSE_SQUARE_BRACKET)
+            {
+                break;
+            }
+
+            IncrementDataIndex();
+            Rank++;
+            EndIndex = DataIndex;
+            SkipUntilNonWhitespace(null);
+        }
+
+        DataIndex = EndIndex;
+        return Rank;
     }
 
     private bool GetIsNullable()

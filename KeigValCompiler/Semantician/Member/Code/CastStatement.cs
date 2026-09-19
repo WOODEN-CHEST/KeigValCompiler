@@ -20,4 +20,15 @@ internal class CastStatement : Statement
         TargetCastType = targetCastType ?? throw new ArgumentNullException(nameof(targetCastType));
         StatementToCast = statementToCast;
     }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => new Statement[] { StatementToCast };
+
+
+    // Inherited methods.
+    internal override void TransformChildren(Func<Statement, Statement> transform)
+    {
+        StatementToCast = transform(StatementToCast);
+    }
 }

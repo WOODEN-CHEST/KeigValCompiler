@@ -43,15 +43,27 @@ internal class StatementCollection : IEnumerable<Statement>
         _statements.RemoveAt(index);
     }
 
-    public void ClearStataements()
+    public void ClearStatements()
     {
         _statements.Clear();
     }
 
     public void SetFrom(IEnumerable<Statement> body)
     {
-        ClearStataements();
+        ClearStatements();
         _statements.AddRange(body);
+    }
+
+    /* Replaces every statement in the collection with the result of running it through the given
+     * function, in place. Used by Statement.TransformChildren for bodies. */
+    public void TransformAll(Func<Statement, Statement> transform)
+    {
+        ArgumentNullException.ThrowIfNull(transform, nameof(transform));
+
+        for (int i = 0; i < _statements.Count; i++)
+        {
+            _statements[i] = transform(_statements[i]);
+        }
     }
 
     public IEnumerator<Statement> GetEnumerator()

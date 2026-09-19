@@ -17,11 +17,30 @@ internal class ForStatement : Statement
 
     // Constructors.
     internal ForStatement(Statement assignment,
-    Statement condition,
-    Statement increment)
+        Statement? condition,
+        Statement increment)
     {
         Assignment = assignment;
         Condition = condition;
         Increment = increment;
+    }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => (Condition == null
+        ? new Statement[] { Assignment, Increment }
+        : new Statement[] { Assignment, Condition, Increment }).Concat(Body);
+
+
+    // Inherited methods.
+    internal override void TransformChildren(Func<Statement, Statement> transform)
+    {
+        Assignment = transform(Assignment);
+        if (Condition != null)
+        {
+            Condition = transform(Condition);
+        }
+        Increment = transform(Increment);
+        Body.TransformAll(transform);
     }
 }

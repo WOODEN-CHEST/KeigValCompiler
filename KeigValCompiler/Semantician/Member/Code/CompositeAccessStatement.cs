@@ -41,4 +41,18 @@ internal class CompositeAccessStatement : Statement
     {
         _statements.Clear();
     }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => _statements;
+
+
+    // Inherited methods.
+    internal override void TransformChildren(Func<Statement, Statement> transform)
+    {
+        for (int i = 0; i < _statements.Count; i++)
+        {
+            _statements[i] = transform(_statements[i]);
+        }
+    }
 }

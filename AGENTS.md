@@ -44,8 +44,10 @@ otherwise; a compiler with no dependencies is a deliberate property of this
 project, not an accident.
 
 `tests/test.kgvl` is the parser fixture: a KGVL file which, once the parser is
-complete, must parse with zero errors. It is currently corrupted around line 76
-(an accidental paste inside `TestInterface2`).
+complete, must parse with zero errors. It is corrupted at lines 72-77, where an
+editing accident dropped characters (`: Interface1` missing its leading `I`,
+`TestInterface3<T> ace1,` mangled) and left a duplicate `TestClass3` line with an
+orphaned continuation. Repair those and the whole file parses cleanly today.
 
 The `KeigValCompilerTest` project exists but is **not wired up** — it has no
 `ProjectReference` to the compiler and its `Main` prints `Hello, World!`. There

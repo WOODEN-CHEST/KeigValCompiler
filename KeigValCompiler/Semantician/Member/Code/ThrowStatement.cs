@@ -11,4 +11,15 @@ internal class ThrowStatement : Statement
     {
         StatementToThrow = statementToThrow ?? throw new ArgumentNullException(nameof(statementToThrow));
     }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => new Statement[] { StatementToThrow };
+
+
+    // Inherited methods.
+    internal override void TransformChildren(Func<Statement, Statement> transform)
+    {
+        StatementToThrow = transform(StatementToThrow);
+    }
 }

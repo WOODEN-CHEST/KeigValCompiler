@@ -1,20 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace KeigValCompiler.Semantician.Member.Code;
 
 internal abstract class FunctionCallStatement : Statement
 {
     // Internal fields.
-    internal IEnumerable<Statement> Arguments => _arguments;
+    internal IEnumerable<FunctionArgument> Arguments => _arguments;
     internal int ArgumentCount => _arguments.Count;
 
 
     // Private fields.
-    private readonly List<Statement> _arguments = new();
+    private readonly List<FunctionArgument> _arguments = new();
 
 
     // Constructors.
@@ -22,33 +16,38 @@ internal abstract class FunctionCallStatement : Statement
     {
         if (arguments != null)
         {
-            _arguments.AddRange(arguments);
+            _arguments.AddRange(arguments.Select(argument => new FunctionArgument(argument)));
         }
     }
 
 
     // Methods.
-    public Statement GetArgument(int index)
+    public FunctionArgument GetArgument(int index)
     {
         return _arguments[index];
     }
 
-    public void AddArgument(Statement argument)
+    public void AddArgument(FunctionArgument argument)
     {
         _arguments.Add(argument ?? throw new ArgumentNullException(nameof(argument)));
     }
 
-    public void RemoveArgument(Statement argument)
+    public void AddArgument(Statement argument)
+    {
+        AddArgument(new FunctionArgument(argument ?? throw new ArgumentNullException(nameof(argument))));
+    }
+
+    public void RemoveArgument(FunctionArgument argument)
     {
         _arguments.Remove(argument ?? throw new ArgumentNullException(nameof(argument)));
     }
 
-    public void AddArgumentAt(int index)
+    public void RemoveArgumentAt(int index)
     {
         _arguments.RemoveAt(index);
     }
 
-    public void InsertArgument(int index, Statement argument)
+    public void InsertArgument(int index, FunctionArgument argument)
     {
         _arguments.Insert(index, argument ?? throw new ArgumentNullException(nameof(argument)));
     }
@@ -56,5 +55,19 @@ internal abstract class FunctionCallStatement : Statement
     public void ClearArguments()
     {
         _arguments.Clear();
+    }
+
+
+    // Inherited fields.
+    internal override IEnumerable<Statement> Children => _arguments.Select(argument => argument.Value);
+
+
+    // Inherited methods.
+    internal override void TransformChildren(Func<Statement, Statement> transform)
+    {
+        foreach (FunctionArgument Argument in _arguments)
+        {
+            Argument.Value = transform(Argument.Value);
+        }
     }
 }

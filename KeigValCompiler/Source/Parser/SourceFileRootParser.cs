@@ -31,7 +31,7 @@ internal class SourceFileRootParser : AbstractParserBase
         {
             int PreWordIndex = Parser.DataIndex;
             TypeTargetIdentifier Word = Parser.ReadTypeTargetIdentifier(GetRootKeywordError());
-            string ExtractedKeyword = Word.MainTarget!.SourceCodeName;
+            string ExtractedKeyword = Word.MainTarget.SourceCodeName;
 
             if (ExtractedKeyword == KGVL.KEYWORD_NAMESPACE)
             {
