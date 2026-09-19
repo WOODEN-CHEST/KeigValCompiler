@@ -82,19 +82,29 @@ decides nothing. KGVL uses C#'s rule: after a name, the type arguments are read
 speculatively and kept **only when a `(` follows the closing `>`**. Everything
 else rewinds and stays a pair of comparisons.
 
+Two tokens may follow: `(` for a generic call, and `.` for a static member of a
+closed generic type.
+
 ```
 Foo<int>(x)        call, one type argument
 obj.Method<int>(x) call on a member
-a < b > c          two comparisons -- no '(' after '>'
+Cache<int>.Value   static member of a closed generic type
+Result<int>.Ok(5)  static factory on a closed generic type
+a < b > c          two comparisons -- nothing usable follows '>'
 a < 5 > (c)        two comparisons -- 5 cannot start a type name
 a < b > (c)        CLAIMED AS A CALL, the one wrong case
 (a < b) > (c)      comparisons again, which is how to force it
 ```
 
-Only a genuine comparison written as `a < b > (c)`, with type-name-shaped
-operands, is misread, and bracketing either side takes it back. Generic type
-access such as `Foo<int>.Bar` is not parsed yet; that would mean adding `.` to
-the set of tokens allowed to follow the `>`.
+Only `(` is genuinely ambiguous: a real comparison can be written `a < b > (c)`,
+and bracketing either side takes it back. `.` costs nothing, because no valid
+comparison has `>` followed by `.` — `.5` is not a number literal here and
+`.name` cannot start a value.
+
+Static members are worth the syntax because a static member of a generic type
+belongs to **one instantiation**: `Cache<int>.Value` and `Cache<string>.Value`
+are different storage. The backend has to monomorphise generics anyway, since
+the target has no runtime type system, so this costs it nothing extra.
 
 ## `TwoIntDecimal`
 

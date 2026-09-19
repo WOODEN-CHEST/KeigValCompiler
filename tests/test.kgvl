@@ -363,4 +363,14 @@ public class StatementTests
         bool bracketed = (_count < _count) > _count;
         bool notAType = _count < 5 > (_count);
     }
+
+    /* A static member belongs to one instantiation of a generic type, so the types are part of
+     * naming it. A '.' after the '>' is unambiguous, unlike the '(' of a generic call. */
+    public void GenericTypeAccess()
+    {
+        int value = Cache<int>.Value;
+        int nested = Cache<int>.Inner.Deep;
+        int paired = Map<string, int>.Empty;
+        Result<int>.Ok(_count);
+    }
 }

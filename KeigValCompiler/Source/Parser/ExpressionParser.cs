@@ -354,7 +354,7 @@ internal class ExpressionParser : AbstractParserBase
                 continue;
             }
 
-            if ((Character == KGVL.GENERIC_TYPE_START) && TryParseGenericCall(ref Current))
+            if ((Character == KGVL.GENERIC_TYPE_START) && TryParseGenericSuffix(ref Current))
             {
                 continue;
             }
@@ -471,19 +471,23 @@ internal class ExpressionParser : AbstractParserBase
     }
 
     /* "Foo<int>(x)" and "a < b > (c)" are the same run of characters, so '<' on its own cannot
-     * decide anything. The type arguments are read speculatively and only kept when a '(' follows
-     * them, which is the same rule C# uses. Everything else, "a < b > c" included, rewinds and
-     * stays a pair of comparisons.
+     * decide anything. The type arguments are read speculatively and only kept when what follows
+     * them could follow a type argument list, which is the same rule C# uses. Everything else,
+     * "a < b > c" included, rewinds and stays a pair of comparisons.
      *
-     * The one case this claims wrongly is a real comparison written as "a < b > (c)". Bracketing
-     * one side, as "(a < b) > (c)", takes it back. */
-    private bool TryParseGenericCall(ref Statement current)
+     * Two things may follow: '(' makes it a generic call, and '.' makes it a static member of a
+     * closed generic type. Only '(' is ambiguous, because a real comparison can be written as
+     * "a < b > (c)"; bracketing one side, as "(a < b) > (c)", takes that back. No valid comparison
+     * has '>' followed by '.', so that case costs nothing. */
+    private bool TryParseGenericSuffix(ref Statement current)
     {
-        bool IsCallable = (current is IdentifiableAccessStatement)
-            || ((current is CompositeAccessStatement Composite)
-                && (Composite.Components.LastOrDefault() is IdentifiableAccessStatement));
+        IdentifiableAccessStatement? Target = current as IdentifiableAccessStatement;
+        if ((Target == null) && (current is CompositeAccessStatement Composite))
+        {
+            Target = Composite.Components.LastOrDefault() as IdentifiableAccessStatement;
+        }
 
-        if (!IsCallable)
+        if (Target == null)
         {
             return false;
         }
@@ -496,14 +500,24 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         Parser.SkipUntilNonWhitespace(null);
-        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        char Following = Parser.GetCharAtDataIndex();
+
+        if (Following == KGVL.OPEN_PARENTHESIS)
         {
-            Parser.DataIndex = StartIndex;
-            return false;
+            current = ConvertToCall(current, Arguments);
+            return true;
         }
 
-        current = ConvertToCall(current, Arguments);
-        return true;
+        if (Following == KGVL.MEMBER_ACCESS)
+        {
+            /* The name keeps the types and the cursor is left on the '.', which the loop calling
+             * this reads as the next link in the chain. */
+            Target.GenericArguments = Arguments!;
+            return true;
+        }
+
+        Parser.DataIndex = StartIndex;
+        return false;
     }
 
     private bool TryReadGenericArguments(out TypeTargetIdentifier[]? arguments)
