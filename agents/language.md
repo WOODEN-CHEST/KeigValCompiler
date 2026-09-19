@@ -19,8 +19,9 @@ Divergences from C# worth knowing:
 - **`byte` is signed, `ubyte` is unsigned.** KGVL's integer keywords are
   `byte`/`ubyte`, `short`/`ushort`, `int`/`uint`, `long`/`ulong`. Do not assume
   C#'s `sbyte`/`byte` pairing.
-- **No floating point.** `decimal` is the only fractional type, and it is
-  fixed-point — see below.
+- **No binary floating point.** There is no `float` or `double`. `decimal` is
+  the only fractional type, and it is a *base-10* floating-point number — see
+  below.
 - **Extra modifiers** exist that C# lacks: `builtin` and `inline` (both parsed
   today, as `PackMemberModifiers.BuiltIn` and `.Inline`).
 - **`raw` and `constalloc`** are reserved in `KGVL.cs` but referenced nowhere
@@ -37,12 +38,41 @@ keywords above are shorthands registered against them in `BuiltInTypeRegistry`.
 
 ## `TwoIntDecimal`
 
-Minecraft scoreboards hold **32-bit signed integers and nothing else**. There is
-no float. `decimal` is therefore implemented as fixed-point across two integers,
-in [`TwoIntDecimal.cs`](../KeigValCompiler/Semantician/TwoIntDecimal.cs) — 668
-lines, mirroring the arithmetic the datapack backend will eventually have to
-emit as commands. That is why it looks over-engineered for a compiler-internal
-number type: it is a specification of the runtime behaviour, not a convenience.
+Minecraft scoreboards hold **32-bit signed integers and nothing else** — there
+is no hardware float. `decimal` is therefore a **software floating-point number
+in base 10**, built from two ints, in
+[`TwoIntDecimal.cs`](../KeigValCompiler/Semantician/TwoIntDecimal.cs).
+
+It is a float, not fixed-point: the exponent is stored, not implied.
+
+| Field | Meaning |
+|---|---|
+| `Mantissa` (`int`) | 9 significant **decimal** digits, normalised to a magnitude in `[100_000_000, 999_999_999]`. Carries the sign. |
+| `Exponent` (`int`) | Base-10 exponent. |
+
+```
+value = Mantissa × 10^(Exponent − 8)
+```
+
+Because the radix is 10 rather than 2, values like `0.1` are exact, which binary
+IEEE-754 cannot do. It is the same family as C#'s `decimal` (also base-10
+floating point) but much narrower — 9 digits against C#'s 28–29 — and unlike
+C#'s `decimal` it carries the full set of IEEE-style special values:
+
+- `NaN` — encoded as `|Mantissa| > 999_999_999`
+- `PositiveInfinity` / `NegativeInfinity` — encoded as `Exponent == int.MaxValue`
+- `Epsilon`, `MaxValue`, `MinValue`, plus `Pi`, `E` and `Tau`
+- division by zero yields ±Infinity rather than throwing
+
+Scientific notation (`1.5e10`) parses and round-trips through `ToString`.
+
+The 668 lines are not over-engineering. The comment on `operator /` —
+*"Implemented as is in DataPacks (which is why it is so complex)"* — is the key
+to the whole file: these algorithms are written the way the datapack backend
+will have to emit them as commands. `TwoIntDecimal` is a **specification of the
+runtime's arithmetic**, executable in C# so it can be tested, not merely a
+convenience type for the compiler's own use. Changing its behaviour changes the
+language's arithmetic semantics.
 
 ## The target, and why it constrains everything
 
