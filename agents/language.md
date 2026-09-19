@@ -75,6 +75,27 @@ A constructor is recognised as a member with no return type whose name matches
 the type holding it, so it needs no keyword of its own. `PackConstructor`
 derives from `PackFunction` and carries the `this`/`base` chain.
 
+## Generic calls and the `<` ambiguity
+
+`Foo<int>(x)` and `a < b > (c)` are the same run of characters, so `<` alone
+decides nothing. KGVL uses C#'s rule: after a name, the type arguments are read
+speculatively and kept **only when a `(` follows the closing `>`**. Everything
+else rewinds and stays a pair of comparisons.
+
+```
+Foo<int>(x)        call, one type argument
+obj.Method<int>(x) call on a member
+a < b > c          two comparisons -- no '(' after '>'
+a < 5 > (c)        two comparisons -- 5 cannot start a type name
+a < b > (c)        CLAIMED AS A CALL, the one wrong case
+(a < b) > (c)      comparisons again, which is how to force it
+```
+
+Only a genuine comparison written as `a < b > (c)`, with type-name-shaped
+operands, is misread, and bracketing either side takes it back. Generic type
+access such as `Foo<int>.Bar` is not parsed yet; that would mean adding `.` to
+the set of tokens allowed to follow the `>`.
+
 ## `TwoIntDecimal`
 
 Minecraft scoreboards hold **32-bit signed integers and nothing else** — there

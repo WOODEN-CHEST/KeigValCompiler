@@ -350,7 +350,12 @@ internal class ExpressionParser : AbstractParserBase
 
             if (Character == KGVL.OPEN_PARENTHESIS)
             {
-                Current = ConvertToCall(Current);
+                Current = ConvertToCall(Current, null);
+                continue;
+            }
+
+            if ((Character == KGVL.GENERIC_TYPE_START) && TryParseGenericCall(ref Current))
+            {
                 continue;
             }
 
@@ -436,11 +441,14 @@ internal class ExpressionParser : AbstractParserBase
 
     /* A call is written as a name followed by brackets, so by the time the brackets are seen the
      * name has already been read as an access. The access becomes the call's name. */
-    private Statement ConvertToCall(Statement current)
+    private Statement ConvertToCall(Statement current, TypeTargetIdentifier[]? genericArguments)
     {
         if (current is IdentifiableAccessStatement DirectAccess)
         {
-            NamedFunctionCallStatement Call = new(DirectAccess.MemberIdentifier);
+            NamedFunctionCallStatement Call = new(DirectAccess.MemberIdentifier)
+            {
+                GenericArguments = genericArguments ?? Array.Empty<TypeTargetIdentifier>()
+            };
             ParseCallArguments(Call);
             return Call;
         }
@@ -448,7 +456,10 @@ internal class ExpressionParser : AbstractParserBase
         if ((current is CompositeAccessStatement Composite)
             && (Composite.Components.LastOrDefault() is IdentifiableAccessStatement LastAccess))
         {
-            NamedFunctionCallStatement Call = new(LastAccess.MemberIdentifier);
+            NamedFunctionCallStatement Call = new(LastAccess.MemberIdentifier)
+            {
+                GenericArguments = genericArguments ?? Array.Empty<TypeTargetIdentifier>()
+            };
             ParseCallArguments(Call);
 
             Composite.RemoveStatement(LastAccess);
@@ -457,6 +468,80 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         throw new SourceFileReadException(Parser, ErrorCreator.UncallableStatement.CreateOptions());
+    }
+
+    /* "Foo<int>(x)" and "a < b > (c)" are the same run of characters, so '<' on its own cannot
+     * decide anything. The type arguments are read speculatively and only kept when a '(' follows
+     * them, which is the same rule C# uses. Everything else, "a < b > c" included, rewinds and
+     * stays a pair of comparisons.
+     *
+     * The one case this claims wrongly is a real comparison written as "a < b > (c)". Bracketing
+     * one side, as "(a < b) > (c)", takes it back. */
+    private bool TryParseGenericCall(ref Statement current)
+    {
+        bool IsCallable = (current is IdentifiableAccessStatement)
+            || ((current is CompositeAccessStatement Composite)
+                && (Composite.Components.LastOrDefault() is IdentifiableAccessStatement));
+
+        if (!IsCallable)
+        {
+            return false;
+        }
+
+        int StartIndex = Parser.DataIndex;
+        if (!TryReadGenericArguments(out TypeTargetIdentifier[]? Arguments))
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        current = ConvertToCall(current, Arguments);
+        return true;
+    }
+
+    private bool TryReadGenericArguments(out TypeTargetIdentifier[]? arguments)
+    {
+        arguments = null;
+        if (Parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_START)
+        {
+            return false;
+        }
+        Parser.IncrementDataIndex();
+
+        List<TypeTargetIdentifier> Found = new();
+        while (true)
+        {
+            Parser.SkipUntilNonWhitespace(null);
+            if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
+            {
+                return false;
+            }
+
+            Found.Add(Parser.ReadTypeTargetIdentifier(null));
+            Parser.SkipUntilNonWhitespace(null);
+
+            if (Parser.GetCharAtDataIndex() != KGVL.COMMA)
+            {
+                break;
+            }
+            Parser.IncrementDataIndex();
+        }
+
+        if (Parser.GetCharAtDataIndex() != KGVL.GENERIC_TYPE_END)
+        {
+            return false;
+        }
+        Parser.IncrementDataIndex();
+
+        arguments = Found.ToArray();
+        return Found.Count > 0;
     }
 
     private void ParseCallArguments(FunctionCallStatement call)

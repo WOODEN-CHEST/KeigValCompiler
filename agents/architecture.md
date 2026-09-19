@@ -124,9 +124,6 @@ interpolated strings and all literal forms.
 
 ### Smaller known gaps
 - `TwoIntDecimal` has several unimplemented operator/conversion members.
-- Generic *calls* (`Foo<int>(x)`) are not parsed. In expression position `<` is
-  always read as less-than, which is the classic C# ambiguity; resolving it needs
-  speculative parsing that is not there yet.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
 

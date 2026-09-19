@@ -349,4 +349,18 @@ public class StatementTests
         yield return 1;
         yield break;
     }
+
+    /* Generic calls share their spelling with a pair of comparisons, so "Name<A>(x)" is read as a
+     * call and "a < b > c" stays a comparison. The deciding factor is the '(' after the '>'. */
+    public void GenericCalls()
+    {
+        Convert<int>(_count);
+        Combine<int, string>(_count, "text");
+        Wrap<List<int>>(_count);
+        this.Convert<int>(_count);
+
+        bool comparison = _count < _count > _count;
+        bool bracketed = (_count < _count) > _count;
+        bool notAType = _count < 5 > (_count);
+    }
 }
