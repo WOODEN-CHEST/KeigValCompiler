@@ -7,14 +7,14 @@ internal class FunctionParameter : IIdentifiable
 
 
     // Internal fields.
-    internal TypeTargetIdentifier Type { get; private init; }
+    internal TypeTargetIdentifier? Type { get; private init; }
     internal FunctionParameterModifier Modifiers { get; private init; }
 
 
     // Constructors.
-    internal FunctionParameter(TypeTargetIdentifier type, Identifier selfIdentifier, FunctionParameterModifier modifier)
+    internal FunctionParameter(TypeTargetIdentifier? type, Identifier selfIdentifier, FunctionParameterModifier modifier)
     {
-        Type = type ?? throw new ArgumentNullException(nameof(type));
+        Type = type;
         SelfIdentifier = selfIdentifier ?? throw new ArgumentNullException(nameof(selfIdentifier));
         Modifiers = modifier;
     }

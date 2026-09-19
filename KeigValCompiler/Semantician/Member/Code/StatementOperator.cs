@@ -36,7 +36,7 @@ public enum StatementOperator
     BitwiseOr,
     BitwiseXor,
 
-    NullSelection,
+    NotNullOrElse,
     ContinueIfNotNull,
 
     EventSubscribe,

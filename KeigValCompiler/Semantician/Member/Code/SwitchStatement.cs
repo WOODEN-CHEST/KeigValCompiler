@@ -11,6 +11,7 @@ internal class SwitchStatement : Statement
     // Fields.
     internal IEnumerable<SwitchCase> Cases => _cases;
     internal int CaseCount => _cases.Count;
+    internal StatementCollection DefaultCase { get; } = new();
 
 
     // Private fields.
