@@ -78,6 +78,7 @@ is effectively no automated test coverage.
    NotImplementedException()`, not silently return a wrong value or do nothing.
    Empty method bodies that pretend to succeed have already cost this project
    real debugging time.
+7. **Do not run git commands.** Those will be run by me manually.
 
 ## Documents
 

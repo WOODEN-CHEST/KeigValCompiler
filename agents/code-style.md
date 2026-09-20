@@ -1,7 +1,7 @@
 # Code style
 
-These conventions are **consistently applied across all ~8,000 lines** of this
-codebase. They are not suggestions and several of them deliberately contradict
+These conventions are **consistently applied across all of this codebase**.
+They are not suggestions and several of them deliberately contradict
 common C# style. Follow them exactly.
 
 ## Naming
@@ -61,11 +61,6 @@ Target-typed `new()` on the right-hand side **is** used and is preferred:
   is `namespace KeigValCompiler.Semantician.Member.Code`.
 - **File-scoped namespaces** (`namespace X;`), used in all 118 files. Never
   brace-scoped.
-- **Files are saved with a UTF-8 BOM.** Every existing `.cs` file starts with
-  `EF BB BF`. Preserve it when editing; new files should have it too.
-- Unused `using` blocks from the Visual Studio file template (`System.Linq`,
-  `System.Threading.Tasks`, …) are common. Leave them alone in files you are not
-  otherwise restructuring — removing them creates noise diffs.
 
 ## Section comments
 
@@ -120,7 +115,7 @@ Within a long section, sub-groups use a block comment:
 - Line length is kept near **~110 characters**; long expressions wrap with the
   continuation indented one level.
 - **Parenthesise the operands of `&&` and `||`**, even when precedence makes it
-  unnecessary:
+  unnecessary. Basically, they are used to make it 100% clear what's going on:
   ```csharp
   while ((Keyword == KGVL.KEYWORD_CASE) || (Keyword == KGVL.KEYWORD_DEFAULT))
   if ((ReturnType == null) || (NextChar == KGVL.GENERIC_TYPE_START))
@@ -203,15 +198,26 @@ break when it sees one of the `terminatorChars`, because that is the one case
 where recovery returns without having moved the cursor, and a loop which
 continues anyway spins forever.
 
-**Known deviation:** `StatementParser.cs` has ~30 calls of the shape
-`new SourceFileReadException(Parser, null, "some literal message")`. That
-overload puts the text in the *notes* field with an empty error message — it is
-a placeholder from unfinished work, **not** the convention. Do not copy it into
-new code, and migrate those calls to `ErrorRepository` when you touch them. It is
-the only reason `SourceFileReadException` still accepts a null
-`ErrorCreateOptions`; once that file is done, make the parameter non-nullable and
-the compiler will refuse any future message written in place.
-
 Error messages in this codebase are long, specific and explain what the compiler
 expected and why. Match that register; terse messages like `"Unexpected token"`
 are out of place here.
+
+
+## Booleans.
+Always make sure booleans are named in a way that answers a question.
+For example, DON'T do `Writing` or `Cancelled`. Instead do `IsWriting` / `WasWriting`, `IsCancelled`.
+The 'is', 'was', 'has', etc. part is important.
+
+
+## Architecture.
+Try to keep the code clean and follow best coding practices. The project must survive long-term,
+so hacky solutions have no place here. If a feature you're writing requires some major changes or doesn't cleanly
+integrate into the codebase, it's best to stop and report that so it can be fixed and the codebase prepared.
+
+
+## Refactoring.
+If you see an issue with the codebase or just find stray bugs, it's best to first report them to me
+before doing anything. If I confirm that they can be fixed or refactored, then you can go ahead and do that.
+If the bug you found directly affects what you're tasked to do, then you can fix it. For potential refactors
+or architecture changes you notice could help, better to also just report them than do silently. If you do report
+refactor ideas, explain what exactly you think would work better, why, and how it helps.

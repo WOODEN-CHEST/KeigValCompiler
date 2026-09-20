@@ -25,9 +25,14 @@ Divergences from C# worth knowing:
 - **Extra modifiers** exist that C# lacks: `builtin` and `inline` (both parsed
   today, as `PackMemberModifiers.BuiltIn` and `.Inline`).
 - **`params`** marks a variadic final parameter, alongside `ref`, `out` and `in`.
-- **`raw` and `constalloc`** are reserved in `KGVL.cs` but referenced nowhere
-  else — no parsing, no modifier flag, no semantics. Their intended meaning is
-  not recorded anywhere; ask before assuming.
+- **`raw` and `constalloc`** keywords.
+`raw` currently does nothing, but the intended idea is to allow running "raw"
+minecraft commands in the code. As of now, this isn't implemented.
+`constalloc` is an optimization modifier that makes something (not yet decided if
+function or field, or class, or what specifically) be compiled into code where
+collection members and loop iterations are hardcoded into the mcfunction file itself.
+This drastically increases the size of the output function, but can also massively optimize
+the code if the "normal" code is expensive.
 - **Arrays are jagged and nullable at every level.** A type of array depth N has
   N + 1 independently nullable positions, so `int?[]?[]?` is a nullable array of
   nullable arrays of nullable ints. The reading rule is that each `[]` wraps
@@ -40,11 +45,19 @@ Divergences from C# worth knowing:
 - Namespaces are file-scoped and *reassignable mid-file* — a `.kgvl` file may
   contain several `namespace X;` statements, each switching the active namespace
   for what follows.
-
-The built-in type names, as synthesised by `DefaultInternalContentProvider`,
-live in the `KGVL` namespace: `Int8`, `UInt8`, `Int16`, `UInt16`, `Int32`,
-`UInt32`, `Int64`, `UInt64`, `TwoIntDecimal`, `Boolean`, `String`, `Null`. The
-keywords above are shorthands registered against them in `BuiltInTypeRegistry`.
+- Namespaces may contain members such as fields, properties and functions.
+When imported or active, these members can be used in expressions. For example, if
+a namespace that's been imported has a field `XYZ` and a function `Foo`, then a function in any member in
+this file can do 
+```
+{
+    int a = XYZ;
+    XYZ++;
+    if (XYZ > 5) { ... }
+    Foo();
+    // etc.
+}
+```
 
 ## Member syntax
 
