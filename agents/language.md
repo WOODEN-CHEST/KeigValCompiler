@@ -124,14 +124,16 @@ the target has no runtime type system, so this costs it nothing extra.
 Minecraft scoreboards hold **32-bit signed integers and nothing else** — there
 is no hardware float. `decimal` is therefore a **software floating-point number
 in base 10**, built from two ints, in
-[`TwoIntDecimal.cs`](../KeigValCompiler/Semantician/TwoIntDecimal.cs).
+[`TwoIntDecimal.cs`](../KeigValCompiler/Semantician/TwoIntDecimal.cs), with the
+mathematical functions over it in
+[`TwoIntDecimalMath.cs`](../KeigValCompiler/Semantician/TwoIntDecimalMath.cs).
 
 It is a float, not fixed-point: the exponent is stored, not implied.
 
 | Field | Meaning |
 |---|---|
 | `Mantissa` (`int`) | 9 significant **decimal** digits, normalised to a magnitude in `[100_000_000, 999_999_999]`. Carries the sign. |
-| `Exponent` (`int`) | Base-10 exponent. |
+| `Exponent` (`int`) | Base-10 exponent, restricted to `[-999_999_999, 999_999_999]`. |
 
 ```
 value = Mantissa × 10^(Exponent − 8)
@@ -144,18 +146,57 @@ C#'s `decimal` it carries the full set of IEEE-style special values:
 
 - `NaN` — encoded as `|Mantissa| > 999_999_999`
 - `PositiveInfinity` / `NegativeInfinity` — encoded as `Exponent == int.MaxValue`
-- `Epsilon`, `MaxValue`, `MinValue`, plus `Pi`, `E` and `Tau`
-- division by zero yields ±Infinity rather than throwing
+- `Epsilon`, `MaxValue`, `MinValue`, plus `Zero`, `One`, `Pi`, `E` and `Tau`
+- division by zero yields ±Infinity rather than throwing; `0 / 0`, `∞ − ∞` and
+  `∞ × 0` yield NaN
 
-Scientific notation (`1.5e10`) parses and round-trips through `ToString`.
+Nothing in the type throws. Overflow saturates to an infinity, underflow flushes
+to zero, and every undefined operation is a NaN. Two deliberate departures from
+IEEE-754: rounding is **half away from zero** rather than half to even, because
+it costs one comparison in commands instead of three, and there is **no negative
+zero**, because distinguishing it would need a field the two ints do not have.
 
-The 668 lines are not over-engineering. The comment on `operator /` —
-*"Implemented as is in DataPacks (which is why it is so complex)"* — is the key
-to the whole file: these algorithms are written the way the datapack backend
-will have to emit them as commands. `TwoIntDecimal` is a **specification of the
-runtime's arithmetic**, executable in C# so it can be tested, not merely a
-convenience type for the compiler's own use. Changing its behaviour changes the
-language's arithmetic semantics.
+Scientific notation (`1.5e10`) parses, and `ToString` round-trips through
+`TryParse` for every representable value.
+
+The reason these two files are as long as they are is the comment on
+`operator /` — *"Implemented as is in DataPacks"*. These algorithms are written
+the way the datapack backend will have to emit them as commands, so **every
+method a compiled program could reach at runtime uses only int `+ - * / %`, and
+no intermediate ever leaves the 32-bit range**. That is what forces the
+three-digit limb multiplication, the paired remainder in long division, and the
+hardcoded CORDIC tables. Division and remainder are applied to non-negative
+operands only, because C# truncates towards zero where a scoreboard floors and
+the two agree only there.
+
+`TryParse`, `ToString` and the `double`/`float`/`long` conversions are the
+exception, and are marked as such: they turn source literals into constants and
+back, which happens in the compiler and never in a datapack.
+
+`TwoIntDecimal` holds the number and the operations that are exact — the four
+operators, `%`, comparison, and `Floor`/`Ceil`/`Round`/`Truncate`/`Abs`/`Min`/
+`Max`. `TwoIntDecimalMath` holds everything that approximates: roots, `Pow`,
+`Exp`, the logarithms, the trigonometric and hyperbolic functions. Every
+approximating function takes an **iteration count**, so the standard library can
+expose the accuracy-for-commands trade to KGVL code, alongside an overload using
+a default that reaches the nine digits the format holds.
+
+Measured against `Math` over hundreds of thousands of exactly representable
+inputs, everything lands within **1 to 5 units in the last place**. Three limits
+come from the format rather than the iteration count, and no amount of extra
+work moves them:
+
+- Trigonometry reduces against a 9-digit `π/2`, losing about one digit per power
+  of ten in `|x|`; past `1e9` nothing is left and it returns NaN rather than a
+  number with no correct digits in it.
+- `Pow` with a fractional exponent goes through a 9-digit logarithm, so a large
+  exponent eats the low digits of the fraction — about `1e-7` relative at
+  exponent magnitude 30.
+- `%` is exact only while the quotient is, which means while `|a / b| < 1e9`.
+
+`TwoIntDecimal` is a **specification of the runtime's arithmetic**, executable in
+C# so it can be tested, not merely a convenience type for the compiler's own use.
+Changing its behaviour changes the language's arithmetic semantics.
 
 ## The target, and why it constrains everything
 

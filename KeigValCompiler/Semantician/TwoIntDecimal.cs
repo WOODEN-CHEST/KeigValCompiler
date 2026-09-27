@@ -1,123 +1,211 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 
 namespace KeigValCompiler.Semantician;
 
-/* A lot of magic numbers in here :) */
+/* A base-10 software floating point number built from two 32 bit signed integers.
+ *
+ *     value = Mantissa * 10^(Exponent - MANTISSA_EXPONENT)
+ *
+ * The mantissa holds nine significant decimal digits and carries the sign, so a finite non-zero
+ * value always has a magnitude in [MIN_MANTISSA, MAX_MANTISSA]. Zero is the single representation
+ * (0, 0); there is no negative zero.
+ *
+ * This type is a specification of the runtime's arithmetic rather than a convenience for the
+ * compiler. The datapack backend has to emit the same algorithms as scoreboard commands, so every
+ * method that a compiled program could reach at runtime obeys two rules:
+ *
+ *   1. Only int addition, subtraction, multiplication, division and remainder are used. No long,
+ *      no double, no Math.* helper that a scoreboard cannot express.
+ *   2. No intermediate value ever leaves the 32 bit signed range, and division and remainder are
+ *      only ever applied to non-negative operands. C# truncates towards zero while a Minecraft
+ *      scoreboard '/=' floors, and on non-negative operands the two agree.
+ *
+ * TryParse, ToString and the double/float conversions are the exception: they turn source literals
+ * into constants and constants back into text, which happens in the compiler and never in a
+ * datapack. They are marked as such where they appear.
+ *
+ * Special values follow IEEE-754 in spirit: arithmetic never throws, overflow saturates to an
+ * infinity, underflow flushes to zero, and every undefined operation produces NaN. Rounding is
+ * round-half-away-from-zero rather than IEEE's round-half-to-even, because it costs one comparison
+ * in commands instead of three. */
 internal readonly struct TwoIntDecimal
 {
     // Internal static fields.
+    /* Mantissa shape. */
     internal const int MAX_MANTISSA = 999_999_999;
+    internal const int MIN_MANTISSA = 100_000_000;
     internal const int MANTISSA_LIMIT = 1_000_000_000;
-    internal const int MANTISSA_DEFAULT_VALUE = 100_000_000;
     internal const int MANTISSA_DIGIT_COUNT = 9;
     internal const int MANTISSA_EXPONENT = MANTISSA_DIGIT_COUNT - 1;
+
+    /* Exponent range. The usable range is deliberately narrower than int so that every exponent
+     * sum, difference and adjustment this type performs stays inside 32 bits without a check:
+     * the widest of them is MAX_EXPONENT - MIN_EXPONENT, which is still below int.MaxValue. */
+    internal const int MAX_EXPONENT = 999_999_999;
+    internal const int MIN_EXPONENT = -MAX_EXPONENT;
+    internal const int INFINITY_EXPONENT = int.MaxValue;
+
+    /* Text. */
     internal const char DECIMAL_SEPARATOR_PERIOD = '.';
     internal const char DECIMAL_SEPARATOR_COMMA = ',';
     internal const char NEGATION_SYMBOL = '-';
+    internal const char POSITIVE_SYMBOL = '+';
+    internal const char EXPONENT_SYMBOL = 'e';
+    internal const string NAN_TEXT = "NaN";
+    internal const string POSITIVE_INFINITY_TEXT = "Infinity";
+    internal const string NEGATIVE_INFINITY_TEXT = "-Infinity";
 
-    internal static TwoIntDecimal Pi { get; } = new(double.Pi);
-    internal static TwoIntDecimal E { get; } = new(double.E);
-    internal static TwoIntDecimal Tau { get; } = new(double.Tau);
-    internal static TwoIntDecimal MaxValue { get; } = new(MAX_MANTISSA, int.MaxValue - 1);
-    internal static TwoIntDecimal MinValue { get; } = new(-MAX_MANTISSA, int.MaxValue - 1);
-    internal static TwoIntDecimal Epsilon { get; } = new(MANTISSA_DEFAULT_VALUE, int.MinValue);
-    internal static TwoIntDecimal PositiveInfinity { get; } = new(MAX_MANTISSA, int.MaxValue);
-    internal static TwoIntDecimal NegativeInfinity { get; } = new(-MAX_MANTISSA, int.MaxValue);
+    /* Special values. */
     internal static TwoIntDecimal NaN { get; } = new(MANTISSA_LIMIT, 0);
+    internal static TwoIntDecimal PositiveInfinity { get; } = new(MAX_MANTISSA, INFINITY_EXPONENT);
+    internal static TwoIntDecimal NegativeInfinity { get; } = new(-MAX_MANTISSA, INFINITY_EXPONENT);
+    internal static TwoIntDecimal MaxValue { get; } = new(MAX_MANTISSA, MAX_EXPONENT);
+    internal static TwoIntDecimal MinValue { get; } = new(-MAX_MANTISSA, MAX_EXPONENT);
+    internal static TwoIntDecimal Epsilon { get; } = new(MIN_MANTISSA, MIN_EXPONENT);
+
+    /* Common values. */
+    internal static TwoIntDecimal Zero { get; } = new(0, 0);
+    internal static TwoIntDecimal One { get; } = new(MIN_MANTISSA, 0);
+    internal static TwoIntDecimal Two { get; } = new(200_000_000, 0);
+    internal static TwoIntDecimal Ten { get; } = new(MIN_MANTISSA, 1);
+    internal static TwoIntDecimal Half { get; } = new(500_000_000, -1);
+
+    /* Mathematical constants. */
+    internal static TwoIntDecimal Pi { get; } = new(314_159_265, 0);
+    internal static TwoIntDecimal Tau { get; } = new(628_318_531, 0);
+    internal static TwoIntDecimal E { get; } = new(271_828_183, 0);
+
+
+    // Private static fields.
+    private static readonly int[] POWERS_OF_TEN = new int[]
+    {
+        1, 10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000
+    };
 
 
     // Fields.
-    public int Mantissa { get; private init; }
-    public int Exponent
-    {
-        get => _exponent;
-        private init
-        {
-            _exponent = Mantissa != 0 ? value : 0;
-        }
-    }
-
-
-    // Private fields.
-    private readonly int _exponent;
+    internal int Mantissa { get; }
+    internal int Exponent { get; }
 
 
     // Constructors.
-    internal TwoIntDecimal(int mantissa, int exponent)
+    /* The raw constructor trusts its arguments and normalises nothing, so it is private. Everything
+     * outside this type builds values through FromComponents, which normalises. */
+    private TwoIntDecimal(int mantissa, int exponent)
     {
         Mantissa = mantissa;
         Exponent = exponent;
     }
 
-    internal TwoIntDecimal(long value)
+    internal TwoIntDecimal(int value)
     {
-        int DigitsInLong = CountDigitsInLong(value);
-        int RequiredDigitsInLong = MANTISSA_DIGIT_COUNT;
-        long NormalizedValue = value;
-
-        for (int i = DigitsInLong; i > RequiredDigitsInLong; i--)
-        {
-            NormalizedValue /= 10L;
-        }
-        for (int i = DigitsInLong; i < RequiredDigitsInLong; i++)
-        {
-            NormalizedValue *= 10L;
-        }
-
-
-        Mantissa = (int)NormalizedValue;
-        Exponent = DigitsInLong - 1;
-    }
-
-    internal TwoIntDecimal(double value)
-    {
-        if (double.IsInfinity(value))
-        {
-            Mantissa = value > 0 ? PositiveInfinity.Mantissa : NegativeInfinity.Mantissa;
-            Exponent = value > 0 ? PositiveInfinity.Exponent : NegativeInfinity.Exponent;
-            return;
-        }
-        if (double.IsNaN(value))
-        {
-            Mantissa = NaN.Mantissa;
-            Exponent = NaN.Exponent;
-            return;
-        }
-
-        Mantissa = GetMantissaFromDouble(value);
-        Exponent = (int)Math.Floor(Math.Log10(Math.Abs(value)));
+        TwoIntDecimal Converted = FromInt32(value);
+        Mantissa = Converted.Mantissa;
+        Exponent = Converted.Exponent;
     }
 
 
     // Internal static methods.
-    internal static bool TryParse(string number, out TwoIntDecimal dec)
+    /* Construction. */
+    /* Builds a value from a mantissa of any magnitude and an exponent, normalising the mantissa
+     * back into [MIN_MANTISSA, MAX_MANTISSA] and saturating an exponent that leaves the usable
+     * range to an infinity or to zero. This is the only way to create a value from raw parts. */
+    internal static TwoIntDecimal FromComponents(int mantissa, int exponent)
     {
-        if (string.IsNullOrWhiteSpace(number))
+        if (mantissa == 0)
         {
-            dec = default;
-            return false;
+            return Zero;
         }
 
-        if (number.Contains('e'))
+        int Sign = mantissa < 0 ? -1 : 1;
+        int Magnitude = GetMagnitude(mantissa);
+        int ResultExponent = exponent;
+
+        int DroppedDigit = 0;
+        while (Magnitude > MAX_MANTISSA)
         {
-            return TryParseScientificNotation(number, out dec);
+            DroppedDigit = Magnitude % 10;
+            Magnitude /= 10;
+            ResultExponent++;
         }
-        return TryParseRegular(number, out dec);
+        if (DroppedDigit >= 5)
+        {
+            Magnitude++;
+            if (Magnitude > MAX_MANTISSA)
+            {
+                Magnitude /= 10;
+                ResultExponent++;
+            }
+        }
+
+        while (Magnitude < MIN_MANTISSA)
+        {
+            Magnitude *= 10;
+            ResultExponent--;
+        }
+
+        if (ResultExponent > MAX_EXPONENT)
+        {
+            return Sign < 0 ? NegativeInfinity : PositiveInfinity;
+        }
+        if (ResultExponent < MIN_EXPONENT)
+        {
+            return Zero;
+        }
+        return new(Sign * Magnitude, ResultExponent);
     }
 
+    /* Multiplies by a power of ten. The mantissa is untouched, so this is exact whenever the
+     * result is representable at all. */
+    internal static TwoIntDecimal ScaleByPowerOfTen(TwoIntDecimal dec, int power)
+    {
+        if (IsNaN(dec) || IsInfinity(dec) || (dec.Mantissa == 0))
+        {
+            return dec;
+        }
+
+        /* Both operands are inside the usable exponent range, so the sum cannot wrap. */
+        int ResultExponent = dec.Exponent + Clamp(power, MIN_EXPONENT, MAX_EXPONENT);
+        if (ResultExponent > MAX_EXPONENT)
+        {
+            return dec.Mantissa < 0 ? NegativeInfinity : PositiveInfinity;
+        }
+        if (ResultExponent < MIN_EXPONENT)
+        {
+            return Zero;
+        }
+        return new(dec.Mantissa, ResultExponent);
+    }
+
+    /* Classification. */
     internal static bool IsNaN(TwoIntDecimal dec)
     {
-        return Math.Abs(dec.Mantissa) > MAX_MANTISSA;
+        return (dec.Mantissa > MAX_MANTISSA) || (dec.Mantissa < -MAX_MANTISSA);
     }
 
     internal static bool IsInfinity(TwoIntDecimal dec)
     {
-        return dec.Exponent == int.MaxValue;
+        return (dec.Exponent == INFINITY_EXPONENT) && !IsNaN(dec);
     }
 
-    internal static bool IsInteger(TwoIntDecimal dec) => GetFractionDigits(dec) == 0;
+    internal static bool IsPositiveInfinity(TwoIntDecimal dec) => IsInfinity(dec) && (dec.Mantissa > 0);
+
+    internal static bool IsNegativeInfinity(TwoIntDecimal dec) => IsInfinity(dec) && (dec.Mantissa < 0);
+
+    internal static bool IsFinite(TwoIntDecimal dec) => !IsNaN(dec) && !IsInfinity(dec);
+
+    internal static bool IsZero(TwoIntDecimal dec) => dec.Mantissa == 0;
+
+    internal static bool IsInteger(TwoIntDecimal dec)
+    {
+        if (!IsFinite(dec))
+        {
+            return false;
+        }
+        return GetFractionDigits(dec) == 0;
+    }
 
     internal static int Sign(TwoIntDecimal dec)
     {
@@ -132,218 +220,766 @@ internal readonly struct TwoIntDecimal
         return 0;
     }
 
-    internal static TwoIntDecimal Pow(TwoIntDecimal dec, TwoIntDecimal power)
+    /* Selection. */
+    internal static TwoIntDecimal Abs(TwoIntDecimal dec)
     {
-        throw new NotImplementedException();
-    }
-
-    internal static TwoIntDecimal Log10(TwoIntDecimal dec)
-    {
-        throw new NotImplementedException();
-    }
-
-    internal static TwoIntDecimal Log(TwoIntDecimal value, TwoIntDecimal numberBase)
-    {
-        throw new NotImplementedException();
-    }
-
-    internal static TwoIntDecimal DegToRad(TwoIntDecimal deg)
-    {
-        throw new NotImplementedException();
-    }
-
-    internal static TwoIntDecimal RadToDeg(TwoIntDecimal rad)
-    {
-        throw new NotImplementedException();
-    }
-
-    internal static TwoIntDecimal Sqrt(TwoIntDecimal dec)
-    {
-        int Iterations = Math.Min(10 + dec.Exponent / 10, 1000);
-
-        TwoIntDecimal OneSecond = 0.5d;
-        TwoIntDecimal X = 1d;
-
-        for (int i = 0; i < Iterations; i++)
+        if (IsNaN(dec) || (dec.Mantissa >= 0))
         {
-            X = OneSecond * (X + (dec / X));
+            return dec;
+        }
+        return new(-dec.Mantissa, dec.Exponent);
+    }
+
+    internal static TwoIntDecimal Min(TwoIntDecimal a, TwoIntDecimal b)
+    {
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return NaN;
+        }
+        return Compare(a, b) <= 0 ? a : b;
+    }
+
+    internal static TwoIntDecimal Max(TwoIntDecimal a, TwoIntDecimal b)
+    {
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return NaN;
+        }
+        return Compare(a, b) >= 0 ? a : b;
+    }
+
+    internal static TwoIntDecimal Clamp(TwoIntDecimal dec, TwoIntDecimal min, TwoIntDecimal max)
+    {
+        return Min(Max(dec, min), max);
+    }
+
+    /* Rounding. */
+    internal static TwoIntDecimal Truncate(TwoIntDecimal dec) =>
+        RoundAtDecimalPoint(dec, RoundingMode.TowardsZero);
+
+    internal static TwoIntDecimal Floor(TwoIntDecimal dec) => RoundAtDecimalPoint(dec, RoundingMode.Down);
+
+    internal static TwoIntDecimal Ceil(TwoIntDecimal dec) => RoundAtDecimalPoint(dec, RoundingMode.Up);
+
+    internal static TwoIntDecimal Round(TwoIntDecimal dec) =>
+        RoundAtDecimalPoint(dec, RoundingMode.HalfAwayFromZero);
+
+    /* Rounds to a number of digits after the decimal point. Shifting by a power of ten is exact,
+     * so this is the integer rounding above applied at a moved decimal point. */
+    internal static TwoIntDecimal Round(TwoIntDecimal dec, int decimalPlaces)
+    {
+        if (!IsFinite(dec) || (dec.Mantissa == 0))
+        {
+            return dec;
+        }
+        if (decimalPlaces >= MANTISSA_DIGIT_COUNT)
+        {
+            return dec;
         }
 
-        return X;
+        TwoIntDecimal Shifted = ScaleByPowerOfTen(dec, decimalPlaces);
+        return ScaleByPowerOfTen(Round(Shifted), -decimalPlaces);
     }
 
-    internal static TwoIntDecimal Cbrt(TwoIntDecimal dec)
+    /* Ordering. Returns -1, 0 or 1 and must not be handed a NaN, which has no place in an order. */
+    internal static int Compare(TwoIntDecimal a, TwoIntDecimal b)
     {
-        int Iterations = Math.Min(10 + dec.Exponent / 10, 1000);
+        int SignA = Sign(a);
+        int SignB = Sign(b);
 
-        TwoIntDecimal OneThird = 1d / 3d;
-        TwoIntDecimal X = 1d;
-
-        for (int i = 0; i < Iterations; i++)
+        if (SignA != SignB)
         {
-            X = OneThird * ((dec / (X * X)) + (2 * X));
+            return SignA < SignB ? -1 : 1;
+        }
+        if (SignA == 0)
+        {
+            return 0;
+        }
+        if (a.Exponent != b.Exponent)
+        {
+            /* A larger exponent means a larger magnitude, which for two negative values means the
+             * smaller number. */
+            return (a.Exponent < b.Exponent) == (SignA > 0) ? -1 : 1;
+        }
+        if (a.Mantissa != b.Mantissa)
+        {
+            return a.Mantissa < b.Mantissa ? -1 : 1;
+        }
+        return 0;
+    }
+
+    internal static bool TryParse(string number, out TwoIntDecimal dec)
+    {
+        dec = default;
+
+        if (string.IsNullOrWhiteSpace(number))
+        {
+            return false;
         }
 
-        return X;
-    }
+        string Text = number.Trim();
+        if (string.Equals(Text, NAN_TEXT, StringComparison.OrdinalIgnoreCase))
+        {
+            dec = NaN;
+            return true;
+        }
+        if (string.Equals(Text, POSITIVE_INFINITY_TEXT, StringComparison.OrdinalIgnoreCase))
+        {
+            dec = PositiveInfinity;
+            return true;
+        }
+        if (string.Equals(Text, NEGATIVE_INFINITY_TEXT, StringComparison.OrdinalIgnoreCase))
+        {
+            dec = NegativeInfinity;
+            return true;
+        }
 
-    internal static TwoIntDecimal NthRoot(TwoIntDecimal dec)
-    {
-        throw new NotImplementedException();
-    }
-
-    internal static TwoIntDecimal Ceil(TwoIntDecimal dec) => MoveTowardsSign(dec, 1);
-
-    internal static TwoIntDecimal Floor(TwoIntDecimal dec) => MoveTowardsSign(dec, -1);
-
-    internal static TwoIntDecimal Round(TwoIntDecimal dec)
-    {
-        int LeadingDigits = GetFractionDigits(dec);
-
-        int TargetSign = (LeadingDigits >= 5 ? 1 : -1) * Sign(dec);
-        return MoveTowardsSign(dec, TargetSign);
-    }
-
-    internal static TwoIntDecimal Truncate(TwoIntDecimal dec)
-    {
-        return new(dec.Mantissa - GetFractionDigits(dec) * Sign(dec), dec.Exponent);
+        return TryParseNumber(Text, out dec);
     }
 
 
     // Private static methods.
-    private static int CountDigitsInLong(long value)
+    /* Primitives. */
+    /* The magnitude of a mantissa. int.MinValue has no positive counterpart, so it saturates; it is
+     * outside the mantissa range and therefore already a NaN encoding by the time it gets here. */
+    private static int GetMagnitude(int value)
     {
-        int Digits = 0;
-
-        while (value != 0)
+        if (value == int.MinValue)
         {
-            value /= 10;
-            Digits++;
+            return int.MaxValue;
         }
-
-        return Digits;
+        return value < 0 ? -value : value;
     }
 
-    private static int GetDigitAtIndex(long value, int indexFromLSD)
+    private static int Clamp(int value, int min, int max)
     {
-        long Divisor = 1;
-        for (int i = 0; i < indexFromLSD; i++)
+        if (value < min)
         {
-            Divisor *= 10L;
+            return min;
         }
-
-        return (int)(Math.Abs(value) / Divisor % 10L) * Math.Sign(value);
+        if (value > max)
+        {
+            return max;
+        }
+        return value;
     }
 
-    private static int GetMantissaFromDouble(double value)
+    /* Floor division by a positive divisor. C# truncates towards zero, a scoreboard floors, and
+     * this is the shape both agree on. */
+    private static int FloorDivide(int value, int divisor)
     {
-        if ((value == 0d) || (value == -0d))
+        if (value >= 0)
+        {
+            return value / divisor;
+        }
+        return -((divisor - 1 - value) / divisor);
+    }
+
+    /* Produces the next decimal digit of remainder / divisor and leaves the remainder of the
+     * following digit position behind. The tenfold scaling of the remainder would need 34 bits, so
+     * it is carried as a high part in [0, 9] and a low part below MANTISSA_LIMIT, and the digit is
+     * found by subtracting the divisor at most nine times. Both arguments stay non-negative and the
+     * remainder stays below the divisor. */
+    private static int TakeNextQuotientDigit(int divisor, ref int remainder)
+    {
+        int ScaledHigh = remainder / MIN_MANTISSA;
+        int ScaledLow = (remainder % MIN_MANTISSA) * 10;
+        int Digit = 0;
+
+        while ((ScaledHigh > 0) || (ScaledLow >= divisor))
+        {
+            if (ScaledLow >= divisor)
+            {
+                ScaledLow -= divisor;
+            }
+            else
+            {
+                ScaledHigh--;
+                ScaledLow += MANTISSA_LIMIT - divisor;
+            }
+            Digit++;
+        }
+
+        remainder = ScaledLow;
+        return Digit;
+    }
+
+    /* Arithmetic. */
+    private static TwoIntDecimal Add(TwoIntDecimal a, TwoIntDecimal b)
+    {
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return NaN;
+        }
+        if (IsInfinity(a))
+        {
+            if (IsInfinity(b) && (Sign(a) != Sign(b)))
+            {
+                return NaN;
+            }
+            return a;
+        }
+        if (IsInfinity(b))
+        {
+            return b;
+        }
+        if (a.Mantissa == 0)
+        {
+            return b;
+        }
+        if (b.Mantissa == 0)
+        {
+            return a;
+        }
+
+        TwoIntDecimal High = a;
+        TwoIntDecimal Low = b;
+        if (b.Exponent > a.Exponent)
+        {
+            High = b;
+            Low = a;
+        }
+
+        /* Both exponents are inside the usable range, so the difference cannot wrap. Past nine
+         * digits of separation the smaller value cannot reach even half of the larger one's last
+         * digit, so it changes nothing. */
+        int ExponentDifference = High.Exponent - Low.Exponent;
+        if (ExponentDifference > MANTISSA_DIGIT_COUNT)
+        {
+            return High;
+        }
+
+        int HighMagnitude = GetMagnitude(High.Mantissa);
+        int LowMagnitude = GetMagnitude(Low.Mantissa);
+        bool IsSameSign = (High.Mantissa < 0) == (Low.Mantissa < 0);
+        int ResultSign = High.Mantissa < 0 ? -1 : 1;
+        int ResultExponent = High.Exponent;
+
+        /* Value is the result in units of the high operand's last mantissa digit, and what the
+         * alignment shifted off the low operand is kept exactly as Remainder / Divisor so that a
+         * cancelling subtraction can shift those digits back in. Both sums stay below 2e9. */
+        int Value;
+        int Remainder = 0;
+        int Divisor = 1;
+
+        if (ExponentDifference == 0)
+        {
+            Value = IsSameSign ? (HighMagnitude + LowMagnitude) : (HighMagnitude - LowMagnitude);
+            if (Value == 0)
+            {
+                return Zero;
+            }
+            if (Value < 0)
+            {
+                Value = -Value;
+                ResultSign = -ResultSign;
+            }
+        }
+        else
+        {
+            Divisor = POWERS_OF_TEN[ExponentDifference];
+            int AlignedLow = LowMagnitude / Divisor;
+            Remainder = LowMagnitude % Divisor;
+
+            if (IsSameSign)
+            {
+                Value = HighMagnitude + AlignedLow;
+            }
+            else
+            {
+                /* AlignedLow is below MIN_MANTISSA and HighMagnitude is at least MIN_MANTISSA, so
+                 * the difference cannot go negative and the sign cannot flip. */
+                Value = HighMagnitude - AlignedLow;
+                if (Remainder != 0)
+                {
+                    Value--;
+                    Remainder = Divisor - Remainder;
+                }
+            }
+        }
+
+        if (Value > MAX_MANTISSA)
+        {
+            /* Only a same-sign addition can carry, and it can carry by at most one digit. */
+            int DroppedDigit = Value % 10;
+            Value /= 10;
+            ResultExponent++;
+            if (DroppedDigit >= 5)
+            {
+                Value++;
+            }
+            return FromComponents(ResultSign * Value, ResultExponent);
+        }
+
+        while (Value < MIN_MANTISSA)
+        {
+            int NextDigit = 0;
+            if (Divisor > 1)
+            {
+                Divisor /= 10;
+                NextDigit = Remainder / Divisor;
+                Remainder %= Divisor;
+            }
+            Value = (Value * 10) + NextDigit;
+            ResultExponent--;
+        }
+
+        if (Divisor > 1)
+        {
+            int RoundDigit = Remainder / (Divisor / 10);
+            if (RoundDigit >= 5)
+            {
+                Value++;
+            }
+        }
+        return FromComponents(ResultSign * Value, ResultExponent);
+    }
+
+    /* Multiplies two nine digit mantissas. The exact product needs eighteen digits, so it is built
+     * from three digit limbs whose partial products all stay below 1e7, then split into a high and
+     * a low nine digit half from which the nine significant digits and a rounding digit are read.
+     * Nothing here exceeds 32 bits. */
+    private static TwoIntDecimal Multiply(TwoIntDecimal a, TwoIntDecimal b)
+    {
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return NaN;
+        }
+
+        int ResultSign = ((a.Mantissa < 0) == (b.Mantissa < 0)) ? 1 : -1;
+
+        if (IsInfinity(a) || IsInfinity(b))
+        {
+            if ((a.Mantissa == 0) || (b.Mantissa == 0))
+            {
+                return NaN;
+            }
+            return ResultSign < 0 ? NegativeInfinity : PositiveInfinity;
+        }
+        if ((a.Mantissa == 0) || (b.Mantissa == 0))
+        {
+            return Zero;
+        }
+
+        int LeftMagnitude = GetMagnitude(a.Mantissa);
+        int RightMagnitude = GetMagnitude(b.Mantissa);
+
+        int LeftLow = LeftMagnitude % 1_000;
+        int LeftMiddle = (LeftMagnitude / 1_000) % 1_000;
+        int LeftHigh = LeftMagnitude / 1_000_000;
+        int RightLow = RightMagnitude % 1_000;
+        int RightMiddle = (RightMagnitude / 1_000) % 1_000;
+        int RightHigh = RightMagnitude / 1_000_000;
+
+        int Column0 = LeftLow * RightLow;
+        int Column1 = (LeftLow * RightMiddle) + (LeftMiddle * RightLow);
+        int Column2 = (LeftLow * RightHigh) + (LeftMiddle * RightMiddle) + (LeftHigh * RightLow);
+        int Column3 = (LeftMiddle * RightHigh) + (LeftHigh * RightMiddle);
+        int Column4 = LeftHigh * RightHigh;
+
+        int Limb0 = Column0 % 1_000;
+        int Carry = Column0 / 1_000;
+        Column1 += Carry;
+        int Limb1 = Column1 % 1_000;
+        Carry = Column1 / 1_000;
+        Column2 += Carry;
+        int Limb2 = Column2 % 1_000;
+        Carry = Column2 / 1_000;
+        Column3 += Carry;
+        int Limb3 = Column3 % 1_000;
+        Carry = Column3 / 1_000;
+        Column4 += Carry;
+        int Limb4 = Column4 % 1_000;
+        int Limb5 = Column4 / 1_000;
+
+        int ProductLow = (Limb2 * 1_000_000) + (Limb1 * 1_000) + Limb0;
+        int ProductHigh = (Limb5 * 1_000_000) + (Limb4 * 1_000) + Limb3;
+
+        /* The product of two values in [1e8, 1e9) lies in [1e16, 1e18), so it is seventeen or
+         * eighteen digits long and the nine digit result is one shift away in either case. */
+        int ResultMantissa;
+        int RoundDigit;
+        int ResultExponent = a.Exponent + b.Exponent;
+
+        if (ProductHigh >= MIN_MANTISSA)
+        {
+            ResultMantissa = ProductHigh;
+            RoundDigit = ProductLow / MIN_MANTISSA;
+            ResultExponent++;
+        }
+        else
+        {
+            ResultMantissa = (ProductHigh * 10) + (ProductLow / MIN_MANTISSA);
+            RoundDigit = (ProductLow % MIN_MANTISSA) / 10_000_000;
+        }
+
+        if (RoundDigit >= 5)
+        {
+            ResultMantissa++;
+        }
+        return FromComponents(ResultSign * ResultMantissa, ResultExponent);
+    }
+
+    /* Long division, one decimal digit at a time, exactly the way the backend has to emit it. */
+    private static TwoIntDecimal Divide(TwoIntDecimal a, TwoIntDecimal b)
+    {
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return NaN;
+        }
+
+        int ResultSign = ((a.Mantissa < 0) == (b.Mantissa < 0)) ? 1 : -1;
+
+        if (IsInfinity(a))
+        {
+            if (IsInfinity(b))
+            {
+                return NaN;
+            }
+            return ResultSign < 0 ? NegativeInfinity : PositiveInfinity;
+        }
+        if (IsInfinity(b))
+        {
+            return Zero;
+        }
+        if (b.Mantissa == 0)
+        {
+            if (a.Mantissa == 0)
+            {
+                return NaN;
+            }
+            return ResultSign < 0 ? NegativeInfinity : PositiveInfinity;
+        }
+        if (a.Mantissa == 0)
+        {
+            return Zero;
+        }
+
+        int Numerator = GetMagnitude(a.Mantissa);
+        int Denominator = GetMagnitude(b.Mantissa);
+        int ResultExponent = a.Exponent - b.Exponent;
+
+        int Quotient;
+        int Remainder;
+        if (Numerator >= Denominator)
+        {
+            Quotient = Numerator / Denominator;
+            Remainder = Numerator % Denominator;
+        }
+        else
+        {
+            /* The quotient starts below one, so its first significant digit is one position lower. */
+            Quotient = 0;
+            Remainder = Numerator;
+            ResultExponent--;
+        }
+
+        while (Quotient < MIN_MANTISSA)
+        {
+            Quotient = (Quotient * 10) + TakeNextQuotientDigit(Denominator, ref Remainder);
+        }
+
+        if (TakeNextQuotientDigit(Denominator, ref Remainder) >= 5)
+        {
+            Quotient++;
+        }
+        return FromComponents(ResultSign * Quotient, ResultExponent);
+    }
+
+    /* Rounding helpers. */
+    /* The number of mantissa digits that sit after the decimal point. */
+    private static int GetFractionDigitCount(TwoIntDecimal dec)
+    {
+        return Clamp(MANTISSA_EXPONENT - dec.Exponent, 0, MANTISSA_DIGIT_COUNT);
+    }
+
+    /* The mantissa digits after the decimal point, as a non-negative number. */
+    private static int GetFractionDigits(TwoIntDecimal dec)
+    {
+        return GetMagnitude(dec.Mantissa) % POWERS_OF_TEN[GetFractionDigitCount(dec)];
+    }
+
+    private static TwoIntDecimal RoundAtDecimalPoint(TwoIntDecimal dec, RoundingMode mode)
+    {
+        if (!IsFinite(dec) || (dec.Mantissa == 0))
+        {
+            return dec;
+        }
+
+        int Sign = dec.Mantissa < 0 ? -1 : 1;
+
+        /* One step at the integer position is 10^FractionDigitCount in mantissa units. Once that
+         * passes the width of the mantissa the value is below a tenth, so its integer part is zero
+         * and a step can only ever be one whole unit. */
+        int FractionDigitCount = MANTISSA_EXPONENT - dec.Exponent;
+        if (FractionDigitCount <= 0)
+        {
+            return dec;
+        }
+        if (FractionDigitCount > MANTISSA_DIGIT_COUNT)
+        {
+            bool IsWholeStepNeeded = mode switch
+            {
+                RoundingMode.Down => Sign < 0,
+                RoundingMode.Up => Sign > 0,
+                /* Anything below a tenth is well short of the halfway point. */
+                _ => false
+            };
+
+            if (!IsWholeStepNeeded)
+            {
+                return Zero;
+            }
+            return Sign < 0 ? -One : One;
+        }
+
+        int Scale = POWERS_OF_TEN[FractionDigitCount];
+        int Magnitude = GetMagnitude(dec.Mantissa);
+        int Dropped = Magnitude % Scale;
+        int Kept = Magnitude - Dropped;
+
+        if (Dropped != 0)
+        {
+            bool IsStepNeeded = mode switch
+            {
+                RoundingMode.TowardsZero => false,
+                RoundingMode.Down => Sign < 0,
+                RoundingMode.Up => Sign > 0,
+                /* Scale is at most 1e9, so doubling the dropped digits stays inside 32 bits. */
+                RoundingMode.HalfAwayFromZero => (Dropped * 2) >= Scale,
+                _ => false
+            };
+
+            if (IsStepNeeded)
+            {
+                /* Kept + Scale can pass MAX_MANTISSA, which FromComponents normalises away. */
+                Kept += Scale;
+            }
+        }
+
+        return FromComponents(Sign * Kept, dec.Exponent);
+    }
+
+    /* Conversion. */
+    private static TwoIntDecimal FromInt32(int value)
+    {
+        if (value == 0)
+        {
+            return Zero;
+        }
+        if (value == int.MinValue)
+        {
+            /* int.MinValue has no positive counterpart, and its nine digit rounding is a constant. */
+            return new(-214_748_365, 9);
+        }
+
+        int Sign = value < 0 ? -1 : 1;
+        int Magnitude = value < 0 ? -value : value;
+        int Exponent = 0;
+
+        /* An int is at most ten digits long, so at most one digit is ever dropped. */
+        if (Magnitude > MAX_MANTISSA)
+        {
+            int DroppedDigit = Magnitude % 10;
+            Magnitude /= 10;
+            Exponent++;
+            if (DroppedDigit >= 5)
+            {
+                Magnitude++;
+            }
+        }
+        while (Magnitude < MIN_MANTISSA)
+        {
+            Magnitude *= 10;
+            Exponent--;
+        }
+
+        return new(Sign * Magnitude, Exponent + MANTISSA_EXPONENT);
+    }
+
+    /* KGVL's 64 bit integers do not exist on the target yet -- they will have to be synthesised
+     * from pairs of scoreboard values just as this type is -- so the two long conversions run on
+     * the host only, and the backend will need its own lowering once that type exists. */
+    private static TwoIntDecimal FromInt64(long value)
+    {
+        if (value == 0L)
+        {
+            return Zero;
+        }
+
+        int Sign = value < 0L ? -1 : 1;
+        ulong Magnitude = value < 0L ? ((ulong)(-(value + 1L)) + 1UL) : (ulong)value;
+        int Exponent = 0;
+
+        ulong DroppedDigit = 0UL;
+        while (Magnitude > MAX_MANTISSA)
+        {
+            DroppedDigit = Magnitude % 10UL;
+            Magnitude /= 10UL;
+            Exponent++;
+        }
+        if (DroppedDigit >= 5UL)
+        {
+            Magnitude++;
+        }
+        while (Magnitude < MIN_MANTISSA)
+        {
+            Magnitude *= 10UL;
+            Exponent--;
+        }
+
+        return FromComponents(Sign * (int)Magnitude, Exponent + MANTISSA_EXPONENT);
+    }
+
+    private static long ToInt64(TwoIntDecimal dec)
+    {
+        if (!IsFinite(dec) || (dec.Mantissa == 0))
+        {
+            return 0L;
+        }
+
+        TwoIntDecimal Truncated = Truncate(dec);
+        if (Truncated.Mantissa == 0)
+        {
+            return 0L;
+        }
+        if (Truncated.Exponent > 18)
+        {
+            return Truncated.Mantissa < 0 ? long.MinValue : long.MaxValue;
+        }
+
+        int Sign = Truncated.Mantissa < 0 ? -1 : 1;
+        long Magnitude = GetMagnitude(Truncated.Mantissa);
+        int Shift = Truncated.Exponent - MANTISSA_EXPONENT;
+
+        if (Shift < 0)
+        {
+            Magnitude /= POWERS_OF_TEN[-Shift];
+        }
+        else
+        {
+            for (int i = 0; i < Shift; i++)
+            {
+                if (Magnitude > (long.MaxValue / 10L))
+                {
+                    return Sign < 0 ? long.MinValue : long.MaxValue;
+                }
+                Magnitude *= 10L;
+            }
+        }
+        return Sign * Magnitude;
+    }
+
+    /* Truncates towards zero into an int, saturating at the int range. Only the mantissa digits
+     * that sit before the decimal point survive, so the shift never exceeds nine positions. */
+    private static int ToInt32(TwoIntDecimal dec)
+    {
+        if (!IsFinite(dec) || (dec.Mantissa == 0))
         {
             return 0;
         }
 
-        int CurrentExponent = (int)Math.Log10(Math.Abs(value));
-        return (int)(value * Math.Pow(10d, MANTISSA_EXPONENT - CurrentExponent));
-    }
-
-    private static (TwoIntDecimal Bigger, TwoIntDecimal Smaller) GetAdjustedTwoIntDecimals(TwoIntDecimal a, TwoIntDecimal b)
-    {
-        TwoIntDecimal A = a;
-        TwoIntDecimal B = b;
-
-        if (a.Exponent < b.Exponent)
+        TwoIntDecimal Truncated = Truncate(dec);
+        if (Truncated.Mantissa == 0)
         {
-            (A, B) = (B, A);
+            return 0;
+        }
+        if (Truncated.Exponent > 9)
+        {
+            return Truncated.Mantissa < 0 ? int.MinValue : int.MaxValue;
         }
 
-        int NewBMantissa = B.Mantissa;
-        for (int i = 0; i < Math.Min(MANTISSA_DIGIT_COUNT, a.Exponent - b.Exponent); i++)
-        {
-            NewBMantissa /= 10;
-        }
+        int Sign = Truncated.Mantissa < 0 ? -1 : 1;
+        int Magnitude = GetMagnitude(Truncated.Mantissa);
+        int Shift = Truncated.Exponent - MANTISSA_EXPONENT;
 
-        return (a, new TwoIntDecimal(NewBMantissa, B.Exponent));
-    }
-
-    private static bool TryParseScientificNotation(string number, out TwoIntDecimal result)
-    {
-        result = default;
-
-        if (number.EndsWith('e'))
+        if (Shift < 0)
         {
-            return false;
-        }
-
-        string MantissaStr = number.Substring(0, number.IndexOf('e'));
-        string ExponentStr = number.Substring(number.IndexOf('e') + 1);
-
-        if ((MantissaStr.Length == 0) || ExponentStr.Length == 0)
-        {
-            return false;
-        }
-
-        if (!double.TryParse(MantissaStr, CultureInfo.InvariantCulture, out double Mantissa))
-        {
-            return false;
-        }
-        if (!int.TryParse(ExponentStr, out int Exponent))
-        {
-            return false;
-        }
-
-        if (double.IsNaN(Mantissa))
-        {
-            result = NaN;
-        }
-        else if (double.IsInfinity(Mantissa))
-        {
-            result = Mantissa > 0 ? PositiveInfinity : NegativeInfinity;
+            Magnitude /= POWERS_OF_TEN[-Shift];
         }
         else
         {
-            result = new(GetMantissaFromDouble(Mantissa), Exponent);
+            for (int i = 0; i < Shift; i++)
+            {
+                if (Magnitude > (int.MaxValue / 10))
+                {
+                    return Sign < 0 ? int.MinValue : int.MaxValue;
+                }
+                Magnitude *= 10;
+            }
         }
-        return true;
+        return Sign * Magnitude;
     }
 
-    private static bool TryParseRegular(string number, out TwoIntDecimal result)
+    /* Text helpers. Compiler side only. */
+    private static bool TryParseNumber(string text, out TwoIntDecimal dec)
     {
-        result = default;
+        dec = default;
+
+        int Index = 0;
+        bool IsNegative = false;
+        if ((text[0] == NEGATION_SYMBOL) || (text[0] == POSITIVE_SYMBOL))
+        {
+            IsNegative = text[0] == NEGATION_SYMBOL;
+            Index = 1;
+        }
 
         int Mantissa = 0;
-        int MantissaDigitWeight = MANTISSA_DEFAULT_VALUE;
-        int Exponent = 0;
-        bool FoundSeparator = false;
-        bool IsNegative = false;
+        int TakenDigitCount = 0;
+        int RoundDigit = 0;
+        int DigitStreamIndex = 0;
+        int IntegerDigitCount = 0;
+        int FirstSignificantIndex = 0;
+        bool HasFoundSignificantDigit = false;
+        bool HasSeparator = false;
+        bool HasAnyDigit = false;
 
-        foreach (char Character in number)
+        while (Index < text.Length)
         {
-            if (!IsNegative && (Character == NEGATION_SYMBOL))
-            {
-                IsNegative = true;
-            }
-            else if (char.IsAsciiDigit(Character))
+            char Character = text[Index];
+
+            if (char.IsAsciiDigit(Character))
             {
                 int Digit = Character - '0';
+                HasAnyDigit = true;
 
-                if ((Mantissa == 0) && FoundSeparator)
+                if (!HasSeparator)
                 {
-                    Exponent--;
+                    IntegerDigitCount++;
                 }
-                else if ((Mantissa != 0) && !FoundSeparator)
+                if (!HasFoundSignificantDigit && (Digit != 0))
                 {
-                    Exponent++;
+                    HasFoundSignificantDigit = true;
+                    FirstSignificantIndex = DigitStreamIndex;
                 }
-
-                if (MantissaDigitWeight != 0)
+                if (HasFoundSignificantDigit)
                 {
-                    Mantissa += MantissaDigitWeight * Digit;
-                    MantissaDigitWeight /= 10;
+                    if (TakenDigitCount < MANTISSA_DIGIT_COUNT)
+                    {
+                        Mantissa = (Mantissa * 10) + Digit;
+                        TakenDigitCount++;
+                    }
+                    else if (TakenDigitCount == MANTISSA_DIGIT_COUNT)
+                    {
+                        RoundDigit = Digit;
+                        TakenDigitCount++;
+                    }
                 }
+                DigitStreamIndex++;
+                Index++;
             }
-            else if (!FoundSeparator && ((Character == DECIMAL_SEPARATOR_PERIOD) || (Character == DECIMAL_SEPARATOR_COMMA)))
+            else if ((Character == DECIMAL_SEPARATOR_PERIOD) || (Character == DECIMAL_SEPARATOR_COMMA))
             {
-                FoundSeparator = true;
+                if (HasSeparator)
+                {
+                    return false;
+                }
+                HasSeparator = true;
+                Index++;
+            }
+            else if ((Character == EXPONENT_SYMBOL) || (Character == char.ToUpperInvariant(EXPONENT_SYMBOL)))
+            {
+                break;
             }
             else
             {
@@ -351,73 +987,156 @@ internal readonly struct TwoIntDecimal
             }
         }
 
-        result = new(Mantissa * (IsNegative ? -1 : 1), Exponent);
+        if (!HasAnyDigit)
+        {
+            return false;
+        }
 
+        long WrittenExponent = 0L;
+        if (Index < text.Length)
+        {
+            if (!TryParseExponent(text.Substring(Index + 1), out WrittenExponent))
+            {
+                return false;
+            }
+        }
+
+        if (!HasFoundSignificantDigit)
+        {
+            dec = Zero;
+            return true;
+        }
+
+        while (TakenDigitCount < MANTISSA_DIGIT_COUNT)
+        {
+            Mantissa *= 10;
+            TakenDigitCount++;
+        }
+        if (RoundDigit >= 5)
+        {
+            Mantissa++;
+        }
+
+        /* The digit stream index of the first significant digit measures how far that digit sits
+         * from the last digit before the decimal point. A long literal could push this past the
+         * usable exponent range, which FromComponents saturates. */
+        long Exponent = (IntegerDigitCount - 1L) - FirstSignificantIndex + WrittenExponent;
+        int SaturatedExponent = (int)Math.Clamp(Exponent, MIN_EXPONENT - 1L, MAX_EXPONENT + 1L);
+
+        dec = FromComponents(IsNegative ? -Mantissa : Mantissa, SaturatedExponent);
         return true;
     }
 
-    private static int GetFractionDigits(TwoIntDecimal dec)
+    private static bool TryParseExponent(string text, out long exponent)
     {
-        int Digits = dec.Mantissa;
-        int DigitMask = 1;
-        int DigitCountInFraction = GetMantissaDigitCountInFraction(dec);
-        for (int i = 0; i < DigitCountInFraction; i++)
+        exponent = 0L;
+
+        if (text.Length == 0)
         {
-            DigitMask *= 10;
+            return false;
         }
-        return dec.Mantissa % DigitMask;
+
+        int Index = 0;
+        bool IsNegative = false;
+        if ((text[0] == NEGATION_SYMBOL) || (text[0] == POSITIVE_SYMBOL))
+        {
+            IsNegative = text[0] == NEGATION_SYMBOL;
+            Index = 1;
+        }
+        if (Index >= text.Length)
+        {
+            return false;
+        }
+
+        long Value = 0L;
+        while (Index < text.Length)
+        {
+            if (!char.IsAsciiDigit(text[Index]))
+            {
+                return false;
+            }
+            /* Anything past the usable exponent range saturates anyway, so it stops accumulating. */
+            if (Value <= MAX_EXPONENT)
+            {
+                Value = (Value * 10L) + (text[Index] - '0');
+            }
+            Index++;
+        }
+
+        exponent = IsNegative ? -Value : Value;
+        return true;
     }
 
-    private static TwoIntDecimal MoveTowardsSign(TwoIntDecimal dec, int sign)
+    private static string TrimTrailingZeros(string digits)
     {
-        int FractionDigits = GetFractionDigits(dec);
-
-        int NewMantissa = dec.Mantissa - FractionDigits + Sign(dec);
-        int NewExponent = dec.Exponent + (Math.Sign(NewMantissa) * (NewMantissa / MANTISSA_LIMIT));
-
-        return new(NewMantissa, NewExponent);
+        int Length = digits.Length;
+        while ((Length > 0) && (digits[Length - 1] == '0'))
+        {
+            Length--;
+        }
+        return digits.Substring(0, Length);
     }
 
-    private static int GetMantissaDigitCountInFraction(TwoIntDecimal dec) =>
-        Math.Clamp(MANTISSA_EXPONENT - dec.Exponent, 0, MANTISSA_DIGIT_COUNT);
-
-    private static string GetScientificNotationString(TwoIntDecimal dec)
-    {
-        return $"{(dec.Mantissa > 0 ? null : '-')}{Math.Abs(dec.Mantissa) / MANTISSA_DEFAULT_VALUE}" +
-                $".{Math.Abs(dec.Mantissa).ToString().Substring(1)}e{dec.Exponent}";
-    }
-
-    private static string GetRegularString(TwoIntDecimal dec)
+    private static string GetScientificNotationString(TwoIntDecimal dec, string digits)
     {
         StringBuilder Builder = new();
 
         if (dec.Mantissa < 0)
         {
-            Builder.Append('-');
+            Builder.Append(NEGATION_SYMBOL);
+        }
+        Builder.Append(digits[0]);
+
+        string Fraction = TrimTrailingZeros(digits.Substring(1));
+        if (Fraction.Length > 0)
+        {
+            Builder.Append(DECIMAL_SEPARATOR_PERIOD);
+            Builder.Append(Fraction);
+        }
+
+        Builder.Append(EXPONENT_SYMBOL);
+        Builder.Append(dec.Exponent.ToString(CultureInfo.InvariantCulture));
+        return Builder.ToString();
+    }
+
+    private static string GetRegularString(TwoIntDecimal dec, string digits)
+    {
+        StringBuilder Builder = new();
+
+        if (dec.Mantissa < 0)
+        {
+            Builder.Append(NEGATION_SYMBOL);
         }
 
         if (dec.Exponent < 0)
         {
-            Builder.Append("0.");
+            Builder.Append('0');
+            Builder.Append(DECIMAL_SEPARATOR_PERIOD);
             for (int i = dec.Exponent + 1; i < 0; i++)
             {
                 Builder.Append('0');
             }
-            Builder.Append(Math.Abs(dec.Mantissa));
+            Builder.Append(TrimTrailingZeros(digits));
+            return Builder.ToString();
         }
-        else
+
+        if (dec.Exponent >= MANTISSA_EXPONENT)
         {
-            Builder.Append(Math.Abs(dec.Mantissa));
-            if ((dec.Exponent < MANTISSA_EXPONENT) && dec.Mantissa != 0)
-            {
-                Builder.Insert(dec.Exponent + (dec.Mantissa < 0 ? 2 : 1), '.');
-            }
+            Builder.Append(digits);
             for (int i = MANTISSA_EXPONENT; i < dec.Exponent; i++)
             {
                 Builder.Append('0');
             }
+            return Builder.ToString();
         }
 
+        Builder.Append(digits.Substring(0, dec.Exponent + 1));
+        string Fraction = TrimTrailingZeros(digits.Substring(dec.Exponent + 1));
+        if (Fraction.Length > 0)
+        {
+            Builder.Append(DECIMAL_SEPARATOR_PERIOD);
+            Builder.Append(Fraction);
+        }
         return Builder.ToString();
     }
 
@@ -427,196 +1146,169 @@ internal readonly struct TwoIntDecimal
     {
         if (IsNaN(this))
         {
-            return "NaN";
+            return NAN_TEXT;
         }
-        else if (IsInfinity(this))
+        if (IsInfinity(this))
         {
-            return Mantissa >= 0 ? "Positive Infinity" : "Negative Infinity";
+            return Mantissa < 0 ? NEGATIVE_INFINITY_TEXT : POSITIVE_INFINITY_TEXT;
+        }
+        if (Mantissa == 0)
+        {
+            return "0";
         }
 
-        const int SCIENTIFIC_NOTATION_MIN_EXPONENT = 18;
-        if (Math.Abs(Exponent) >= SCIENTIFIC_NOTATION_MIN_EXPONENT)
+        string Digits = GetMagnitude(Mantissa).ToString("D9", CultureInfo.InvariantCulture);
+
+        const int SCIENTIFIC_NOTATION_MAX_EXPONENT = 17;
+        const int SCIENTIFIC_NOTATION_MIN_EXPONENT = -9;
+        if ((Exponent > SCIENTIFIC_NOTATION_MAX_EXPONENT) || (Exponent < SCIENTIFIC_NOTATION_MIN_EXPONENT))
         {
-            return GetScientificNotationString(this);
+            return GetScientificNotationString(this, Digits);
         }
-        return GetRegularString(this);
+        return GetRegularString(this, Digits);
     }
 
     public override bool Equals([NotNullWhen(true)] object? obj)
     {
-        if (obj is TwoIntDecimal)
+        if (obj is TwoIntDecimal Other)
         {
-            return this == (TwoIntDecimal)obj;
+            /* Unlike the == operator this is reflexive even for NaN, because a value has to be able
+             * to find itself again in a dictionary. */
+            return (Mantissa == Other.Mantissa) && (Exponent == Other.Exponent);
         }
         return false;
     }
 
     public override int GetHashCode()
     {
-        return Mantissa.GetHashCode() + Exponent.GetHashCode();
+        return HashCode.Combine(Mantissa, Exponent);
     }
 
 
     // Operators.
     public static bool operator ==(TwoIntDecimal a, TwoIntDecimal b)
     {
-        return (a.Mantissa == b.Mantissa) && (a.Exponent == b.Exponent) && !IsNaN(a) && !IsNaN(b);
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return false;
+        }
+        return (a.Mantissa == b.Mantissa) && (a.Exponent == b.Exponent);
     }
 
     public static bool operator !=(TwoIntDecimal a, TwoIntDecimal b)
     {
-        return ((a.Mantissa != b.Mantissa) || (a.Exponent != b.Exponent)) && !IsNaN(a) && !IsNaN(b);
+        return !(a == b);
     }
 
     public static bool operator >(TwoIntDecimal a, TwoIntDecimal b)
     {
-        return (a.Exponent != b.Exponent ? (a.Exponent > b.Exponent) : (a.Mantissa > b.Mantissa)) && !IsNaN(a) && !IsNaN(b);
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return false;
+        }
+        return Compare(a, b) > 0;
     }
 
     public static bool operator <(TwoIntDecimal a, TwoIntDecimal b)
     {
-        return (a.Exponent != b.Exponent ? (a.Exponent < b.Exponent) : (a.Mantissa < b.Mantissa)) && !IsNaN(a) && !IsNaN(b);
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return false;
+        }
+        return Compare(a, b) < 0;
     }
 
     public static bool operator >=(TwoIntDecimal a, TwoIntDecimal b)
     {
-        return (a.Exponent != b.Exponent ? (a.Exponent >= b.Exponent) : (a.Mantissa >= b.Mantissa)) && !IsNaN(a) && !IsNaN(b);
+        if (IsNaN(a) || IsNaN(b))
+        {
+            return false;
+        }
+        return Compare(a, b) >= 0;
     }
 
     public static bool operator <=(TwoIntDecimal a, TwoIntDecimal b)
     {
-        return (a.Exponent != b.Exponent ? (a.Exponent <= b.Exponent) : (a.Mantissa <= b.Mantissa)) && !IsNaN(a) && !IsNaN(b);
-    }
-
-    public static TwoIntDecimal operator +(TwoIntDecimal a, TwoIntDecimal b)
-    {
         if (IsNaN(a) || IsNaN(b))
         {
-            return NaN;
+            return false;
         }
-
-        (a, b) = GetAdjustedTwoIntDecimals(a, b);
-
-        int NewMantissa = a.Mantissa + b.Mantissa;
-        int NewExponent = a.Exponent;
-        if (Math.Abs(a.Mantissa) > MAX_MANTISSA)
-        {
-            NewExponent++;
-            NewMantissa /= 10;
-        }
-
-        return new(NewMantissa, NewExponent);
+        return Compare(a, b) <= 0;
     }
+
+    public static TwoIntDecimal operator +(TwoIntDecimal a) => a;
 
     public static TwoIntDecimal operator -(TwoIntDecimal a)
     {
+        if (IsNaN(a) || (a.Mantissa == 0))
+        {
+            return a;
+        }
         return new(-a.Mantissa, a.Exponent);
     }
 
-    public static TwoIntDecimal operator -(TwoIntDecimal a, TwoIntDecimal b)
+    public static TwoIntDecimal operator +(TwoIntDecimal a, TwoIntDecimal b) => Add(a, b);
+
+    public static TwoIntDecimal operator -(TwoIntDecimal a, TwoIntDecimal b) => Add(a, -b);
+
+    public static TwoIntDecimal operator *(TwoIntDecimal a, TwoIntDecimal b) => Multiply(a, b);
+
+    public static TwoIntDecimal operator /(TwoIntDecimal a, TwoIntDecimal b) => Divide(a, b);
+
+    /* The truncated remainder. It is exact only while the quotient itself is representable, which
+     * means while |a / b| stays below 1e9; past that the quotient loses its low digits and takes
+     * the remainder with it. */
+    public static TwoIntDecimal operator %(TwoIntDecimal a, TwoIntDecimal b)
     {
-        if (IsNaN(a) || IsNaN(b))
+        if (IsNaN(a) || IsNaN(b) || IsInfinity(a) || (b.Mantissa == 0))
         {
             return NaN;
         }
+        if (IsInfinity(b) || (a.Mantissa == 0))
+        {
+            return a;
+        }
 
-        return a + (-b);
+        return Add(a, -Multiply(b, Truncate(Divide(a, b))));
     }
 
-    public static TwoIntDecimal operator *(TwoIntDecimal a, TwoIntDecimal b)
+    public static TwoIntDecimal operator ++(TwoIntDecimal dec) => Add(dec, One);
+
+    public static TwoIntDecimal operator --(TwoIntDecimal dec) => Add(dec, -One);
+
+    public static implicit operator TwoIntDecimal(byte number) => FromInt32(number);
+
+    public static implicit operator TwoIntDecimal(short number) => FromInt32(number);
+
+    public static implicit operator TwoIntDecimal(int number) => FromInt32(number);
+
+    public static explicit operator int(TwoIntDecimal dec) => ToInt32(dec);
+
+    public static explicit operator short(TwoIntDecimal dec) => (short)ToInt32(dec);
+
+    public static explicit operator byte(TwoIntDecimal dec) => (byte)ToInt32(dec);
+
+    /* Host side conversions. These exist so that the compiler and its tests can move values in and
+     * out of the type; a datapack has no double and the backend must never emit them. Both go
+     * through the decimal text form rather than through binary floating point arithmetic, so no
+     * base-2 rounding is introduced on the way. */
+    public static explicit operator TwoIntDecimal(double number)
     {
-        if (IsNaN(a) || IsNaN(b))
+        if (double.IsNaN(number))
         {
             return NaN;
         }
-
-        double Mantissa = a.Mantissa * ((double)b.Mantissa / MANTISSA_DEFAULT_VALUE);
-        int NewExponent = a.Exponent + b.Exponent;
-        int NormalizedMantissa;
-        if (Math.Abs(Mantissa) > MAX_MANTISSA)
+        if (double.IsPositiveInfinity(number))
         {
-            NormalizedMantissa = (int)(Mantissa * 0.1d);
-            NewExponent++;
+            return PositiveInfinity;
         }
-        else
+        if (double.IsNegativeInfinity(number))
         {
-            NormalizedMantissa = (int)Mantissa;
-        }
-       
-        return new(NormalizedMantissa, NewExponent);
-    }
-
-    public static TwoIntDecimal operator /(TwoIntDecimal a, TwoIntDecimal b)
-    {
-        // Implemented as is in DataPacks (which is why it is so complex).
-        if (IsNaN(a) || IsNaN(b))
-        {
-            return NaN;
-        }
-        if (b.Mantissa == 0)
-        {
-            return Sign(a) == 1 ? PositiveInfinity : NegativeInfinity;
+            return NegativeInfinity;
         }
 
-        int ResultingMantissa = 0;
-        long PickedNumber = a.Mantissa;
-        int NewExponent = a.Exponent - b.Exponent - (a.Mantissa < b.Mantissa ? 1 : 0);
-
-        while (Math.Abs(ResultingMantissa) < MANTISSA_DEFAULT_VALUE)
-        {
-            while ((PickedNumber < b.Mantissa) && (Math.Abs(ResultingMantissa) < MANTISSA_DEFAULT_VALUE / 10))
-            {
-                PickedNumber *= 10L;
-                ResultingMantissa *= 10;
-            }
-
-            ResultingMantissa *= 10;
-            ResultingMantissa += (int)(PickedNumber / b.Mantissa);
-            PickedNumber %= b.Mantissa;
-            PickedNumber *= 10L;
-        }
-
-        return new(ResultingMantissa, NewExponent);
-    }
-
-    public static TwoIntDecimal operator ++(TwoIntDecimal dec)
-    {
-        return dec += 1;
-    }
-
-    public static TwoIntDecimal operator --(TwoIntDecimal dec)
-    {
-        return dec -= 1;
-    }
-
-    public static implicit operator TwoIntDecimal(byte number)
-    {
-        return new TwoIntDecimal((double)number);
-    }
-
-    public static implicit operator TwoIntDecimal(short number)
-    {
-        return new TwoIntDecimal((double)number);
-    }
-
-    public static implicit operator TwoIntDecimal(int number)
-    {
-        return new TwoIntDecimal((double)number);
-    }
-
-    public static implicit operator TwoIntDecimal(long number)
-    {
-        return new TwoIntDecimal((double)number);
-    }
-
-    public static implicit operator TwoIntDecimal(float number)
-    {
-        return new TwoIntDecimal((double)number);
-    }
-
-    public static implicit operator TwoIntDecimal(double number)
-    {
-        return new TwoIntDecimal(number);
+        TryParse(number.ToString("R", CultureInfo.InvariantCulture), out TwoIntDecimal Result);
+        return Result;
     }
 
     public static explicit operator double(TwoIntDecimal dec)
@@ -627,43 +1319,31 @@ internal readonly struct TwoIntDecimal
         }
         if (IsInfinity(dec))
         {
-            return Sign(dec) == 1 ? double.PositiveInfinity : double.NegativeInfinity;
+            return dec.Mantissa < 0 ? double.NegativeInfinity : double.PositiveInfinity;
         }
-
-        return (double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10f, dec.Exponent);
-    }
-
-    public static explicit operator float(TwoIntDecimal dec)
-    {
-        if (IsNaN(dec))
+        if (dec.Mantissa == 0)
         {
-            return float.NaN;
-        }
-        if (IsInfinity(dec))
-        {
-            return Sign(dec) == 1 ? float.PositiveInfinity : float.NegativeInfinity;
+            return 0d;
         }
 
-        return (float)dec.Mantissa / MANTISSA_DEFAULT_VALUE * MathF.Pow(10f, dec.Exponent);
+        string Digits = GetMagnitude(dec.Mantissa).ToString("D9", CultureInfo.InvariantCulture);
+        return double.Parse(GetScientificNotationString(dec, Digits), NumberStyles.Float,
+            CultureInfo.InvariantCulture);
     }
 
-    public static explicit operator long(TwoIntDecimal dec)
-    {
-        return (long)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
-    }
+    public static implicit operator TwoIntDecimal(long number) => FromInt64(number);
 
-    public static explicit operator int(TwoIntDecimal dec)
-    {
-        return (int)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
-    }
+    public static explicit operator long(TwoIntDecimal dec) => ToInt64(dec);
 
-    public static explicit operator short(TwoIntDecimal dec)
-    {
-        return (short)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
-    }
+    public static explicit operator float(TwoIntDecimal dec) => (float)(double)dec;
 
-    public static explicit operator byte(TwoIntDecimal dec)
+
+    // Types.
+    private enum RoundingMode
     {
-        return (byte)((double)dec.Mantissa / MANTISSA_DEFAULT_VALUE * Math.Pow(10d, dec.Exponent));
+        TowardsZero,
+        Down,
+        Up,
+        HalfAwayFromZero
     }
 }

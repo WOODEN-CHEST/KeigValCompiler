@@ -272,6 +272,8 @@ public class StatementTests
         uint unsigned = 5u;
         decimal fractional = 1.5m;
         decimal exponent = 1.5e3m;
+        decimal shortDecimal = .35;
+        decimal shortDecimalExponent = .35e3;
         string text = "plain";
         string escaped = "line\nbreak\ttab\\slash\"quote";
         string interpolated = $"count is {_count} and doubled {_count * 2}";
