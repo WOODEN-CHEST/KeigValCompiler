@@ -36,7 +36,12 @@ internal abstract class AbstractParserBase
      * construct is understood, it is just wrong. Parsing carries straight on from the call. */
     protected void AddError(ErrorCreateOptions error)
     {
-        Messages.AddError(error, GetCurrentLocation(), null);
+        AddError(error, GetCurrentLocation());
+    }
+
+    protected void AddError(ErrorCreateOptions error, CompilerMessageLocation location)
+    {
+        Messages.AddError(error, location, null);
     }
 
     protected void AddWarning(WarningCreateOptions warning)

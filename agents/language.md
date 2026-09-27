@@ -110,9 +110,9 @@ a < b > (c)        CLAIMED AS A CALL, the one wrong case
 ```
 
 Only `(` is genuinely ambiguous: a real comparison can be written `a < b > (c)`,
-and bracketing either side takes it back. `.` costs nothing, because no valid
-comparison has `>` followed by `.` — `.5` is not a number literal here and
-`.name` cannot start a value.
+and bracketing either side takes it back. `.` costs nothing: followed by a name
+it cannot start a value, and followed by a digit it is a number such as `.5`,
+which leaves `a < b > .5` a pair of comparisons, as in C#.
 
 Static members are worth the syntax because a static member of a generic type
 belongs to **one instantiation**: `Cache<int>.Value` and `Cache<string>.Value`
@@ -159,6 +159,13 @@ zero**, because distinguishing it would need a field the two ints do not have.
 Scientific notation (`1.5e10`) parses, and `ToString` round-trips through
 `TryParse` for every representable value.
 
+`TryParse` is also the **one parser for decimal literals** in KGVL source. The
+source parser only finds where a literal ends and hands its text over, so a
+valid literal and a valid parsed string are the same thing, and a malformed
+literal is reported with the reason `TryParse` gives. Literal forms follow C#:
+`1.5`, `.5`, `1.5e-3`, `5m`. A point not followed by a digit is member access,
+so `3.ToString()` and `3.4.ToString()` call a method on the number.
+
 The reason these two files are as long as they are is the comment on
 `operator /` — *"Implemented as is in DataPacks"*. These algorithms are written
 the way the datapack backend will have to emit them as commands, so **every
@@ -169,30 +176,36 @@ hardcoded CORDIC tables. Division and remainder are applied to non-negative
 operands only, because C# truncates towards zero where a scoreboard floors and
 the two agree only there.
 
-`TryParse`, `ToString` and the `double`/`float`/`long` conversions are the
-exception, and are marked as such: they turn source literals into constants and
+`TryParse`, `Parse`, `ToString` and the `double`/`float`/`long` conversions are
+the exception, and are marked as such: they turn source literals into constants and
 back, which happens in the compiler and never in a datapack.
 
-`TwoIntDecimal` holds the number and the operations that are exact — the four
-operators, `%`, comparison, and `Floor`/`Ceil`/`Round`/`Truncate`/`Abs`/`Min`/
-`Max`. `TwoIntDecimalMath` holds everything that approximates: roots, `Pow`,
+`TwoIntDecimal` holds the number and the operations that need no iteration —
+the four operators, `%`, comparison, and `Floor`/`Ceil`/`Round`/`Truncate`/`Abs`/
+`Min`/`Max`. `TwoIntDecimalMath` holds everything that approximates: roots, `Pow`,
 `Exp`, the logarithms, the trigonometric and hyperbolic functions. Every
 approximating function takes an **iteration count**, so the standard library can
 expose the accuracy-for-commands trade to KGVL code, alongside an overload using
 a default that reaches the nine digits the format holds.
 
 Measured against `Math` over hundreds of thousands of exactly representable
-inputs, everything lands within **1 to 5 units in the last place**. Three limits
-come from the format rather than the iteration count, and no amount of extra
-work moves them:
+inputs, everything lands within **1 to 5 units in the last place**, except:
 
-- Trigonometry reduces against a 9-digit `π/2`, losing about one digit per power
-  of ten in `|x|`; past `1e9` nothing is left and it returns NaN rather than a
-  number with no correct digits in it.
+- Trigonometry reduces its argument against a 9-digit `π/2`, losing about one
+  digit per power of ten in `|x|`; past `1e9` it returns NaN rather than a number
+  with no correct digits in it. A longer `π` split across several ints would
+  recover the lost digits, at the cost of multi-word arithmetic in the reduction.
 - `Pow` with a fractional exponent goes through a 9-digit logarithm, so a large
-  exponent eats the low digits of the fraction — about `1e-7` relative at
-  exponent magnitude 30.
-- `%` is exact only while the quotient is, which means while `|a / b| < 1e9`.
+  result eats the low digits of the fraction — about `1e-7` relative for results
+  near `1e30`.
+- **`%` is wrong, not merely imprecise.** It computes `a - b * Truncate(a / b)`
+  with every step rounded to 9 digits, so the remainder loses its low digits
+  whenever `b` times the quotient needs more than 9, and a quotient that rounds
+  up across a whole number breaks it outright: `8.99999999 % 3` gives
+  `-0.00000001`. An exact remainder, one digit of long division per unit of
+  exponent difference, is the fix.
+- `Pow` decides the sign of a negative base with `% 2`, so it inherits that bug:
+  integer powers of `1e9` and above can come out with the wrong sign.
 
 `TwoIntDecimal` is a **specification of the runtime's arithmetic**, executable in
 C# so it can be tested, not merely a convenience type for the compiler's own use.

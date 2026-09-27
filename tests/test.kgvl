@@ -274,6 +274,10 @@ public class StatementTests
         decimal exponent = 1.5e3m;
         decimal shortDecimal = .35;
         decimal shortDecimalExponent = .35e3;
+        decimal negativeExponent = 2.5e-3;
+        string decimalMember = 3.4.ToString();
+        string integerMember = 3.ToString();
+        string exponentMember = 1e5.ToString();
         string text = "plain";
         string escaped = "line\nbreak\ttab\\slash\"quote";
         string interpolated = $"count is {_count} and doubled {_count * 2}";

@@ -343,6 +343,30 @@ internal class ErrorRepository
         $"'{KGVL.ESCAPE_CHAR}' followed by one of a, b, f, n, t, v, ', \" or {KGVL.ESCAPE_CHAR}, or by " +
         $"the prefix '{KGVL.PREFIX_HEX_CHAR}' and a hexadecimal character code");
 
+    internal virtual ErrorDefinition DecimalMissingDigits { get; } = new(3,
+        CompilerMessageCategory.Literal,
+        "The decimal number \"{0}\" has no digits. A decimal needs at least one digit, either before " +
+        $"or after its point '{KGVL.DECIMAL_SEPARATOR}'");
+
+    internal virtual ErrorDefinition DecimalMultipleSeparators { get; } = new(4,
+        CompilerMessageCategory.Literal,
+        $"The decimal number \"{{0}}\" has more than one point '{KGVL.DECIMAL_SEPARATOR}'. A decimal has " +
+        "at most one, between its whole part and its fraction");
+
+    internal virtual ErrorDefinition DecimalMissingExponentDigits { get; } = new(5,
+        CompilerMessageCategory.Literal,
+        $"The exponent of the decimal number \"{{0}}\" has no digits. An exponent is " +
+        $"'{KGVL.DECIMAL_EXPONENT}', then optionally '{KGVL.DECIMAL_EXPONENT_POSITIVE_SIGN}' or " +
+        $"'{KGVL.DECIMAL_EXPONENT_NEGATIVE_SIGN}', then at least one digit");
+
+    internal virtual ErrorDefinition DecimalUnexpectedCharacter { get; } = new(6,
+        CompilerMessageCategory.Literal,
+        $"The decimal number \"{{0}}\" contains the character '{{1}}' where it cannot stand. A decimal " +
+        $"is digits with at most one point '{KGVL.DECIMAL_SEPARATOR}', then optionally an exponent " +
+        $"'{KGVL.DECIMAL_EXPONENT}' with its own sign and digits, then optionally the suffix " +
+        $"'{KGVL.SUFFIX_DECIMAL}' at the very end. There is no suffix for any other fractional type, " +
+        $"because {KGVL.KEYWORD_DECIMAL} is the only one KGVL has");
+
 
     /* Source files. */
     internal virtual ErrorDefinition SourceFileInvalidContent { get; } = new(1,

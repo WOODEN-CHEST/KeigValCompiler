@@ -138,7 +138,7 @@ internal class ExpressionParser : AbstractParserBase
          * ParsePostfix, so anything still starting with '?' can only be this. */
         if ((Parser.GetCharAtDataIndex() != KGVL.TYPE_NULLABLE_INDICATOR)
             || Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_NULL_COALESCE)
-            || Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_CONDITIONAL_ACCESS))
+            || IsConditionalAccessAhead())
         {
             return Condition;
         }
@@ -301,7 +301,7 @@ internal class ExpressionParser : AbstractParserBase
     private bool CanStartValue()
     {
         char Character = Parser.GetCharAtDataIndex();
-        if (Parser.IsIdentifierFirstChar(Character) || char.IsAsciiDigit(Character))
+        if (Parser.IsIdentifierFirstChar(Character) || Parser.HasNumberAtIndex(Parser.DataIndex))
         {
             return true;
         }
@@ -323,7 +323,7 @@ internal class ExpressionParser : AbstractParserBase
             Parser.SkipUntilNonWhitespace(null);
             char Character = Parser.GetCharAtDataIndex();
 
-            if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_CONDITIONAL_ACCESS))
+            if (IsConditionalAccessAhead())
             {
                 Parser.IncrementDataIndexNTimes(KGVL.OPERATOR_CONDITIONAL_ACCESS.Length);
                 Parser.SkipUntilNonWhitespace(null);
@@ -477,8 +477,9 @@ internal class ExpressionParser : AbstractParserBase
      *
      * Two things may follow: '(' makes it a generic call, and '.' makes it a static member of a
      * closed generic type. Only '(' is ambiguous, because a real comparison can be written as
-     * "a < b > (c)"; bracketing one side, as "(a < b) > (c)", takes that back. No valid comparison
-     * has '>' followed by '.', so that case costs nothing. */
+     * "a < b > (c)"; bracketing one side, as "(a < b) > (c)", takes that back. A '.' costs nothing:
+     * followed by a name it cannot start a value, and followed by a digit it is a number such as .5,
+     * which leaves "a < b > .5" a pair of comparisons, as in C#. */
     private bool TryParseGenericSuffix(ref Statement current)
     {
         IdentifiableAccessStatement? Target = current as IdentifiableAccessStatement;
@@ -508,7 +509,7 @@ internal class ExpressionParser : AbstractParserBase
             return true;
         }
 
-        if (Following == KGVL.MEMBER_ACCESS)
+        if ((Following == KGVL.MEMBER_ACCESS) && !Parser.HasNumberAtIndex(Parser.DataIndex))
         {
             /* The name keeps the types and the cursor is left on the '.', which the loop calling
              * this reads as the next link in the chain. */
@@ -740,7 +741,7 @@ internal class ExpressionParser : AbstractParserBase
         {
             return ParseCharacter();
         }
-        if (char.IsAsciiDigit(Character))
+        if (Parser.HasNumberAtIndex(Parser.DataIndex))
         {
             return ParseNumber();
         }
@@ -857,6 +858,14 @@ internal class ExpressionParser : AbstractParserBase
                 ErrorCreator.ExpectedCloseParenthesis.CreateOptions());
         }
         Parser.IncrementDataIndex();
+    }
+
+    /* "?." is conditional access unless a digit follows it: "a?.5:b" is a conditional whose true
+     * value is .5, as in C#. */
+    private bool IsConditionalAccessAhead()
+    {
+        return Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_CONDITIONAL_ACCESS)
+            && !Parser.HasNumberAtIndex(Parser.DataIndex + 1);
     }
 
     /* Longest match wins, so the spellings array must stay ordered longest first. */
@@ -1139,7 +1148,16 @@ internal class ExpressionParser : AbstractParserBase
     /* Literals. */
     private Statement ParseNumber()
     {
-        object? Number = Parser.ReadNumber(ErrorCreator.ExpectedNumberValue.CreateOptions());
+        /* Taken before the number is read, so that an error about it points at its start. */
+        CompilerMessageLocation Location = GetCurrentLocation();
+        object? Number = Parser.ReadNumber(ErrorCreator.ExpectedNumberValue.CreateOptions(),
+            out ErrorCreateOptions? MalformedError);
+
+        if (MalformedError.HasValue)
+        {
+            /* The whole number was consumed, so the parser still knows exactly where it is. */
+            AddError(MalformedError.Value, Location);
+        }
         return new PrimitiveValueStatement(Number ?? 0);
     }
 

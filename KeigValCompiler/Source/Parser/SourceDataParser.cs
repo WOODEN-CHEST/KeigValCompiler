@@ -435,6 +435,18 @@ public class SourceDataParser
         return true;
     }
 
+    /* Whether a number starts at the index: a digit, or a point directly followed by one, as in ".5".
+     * A point followed by anything else is member access, never a number. */
+    internal bool HasNumberAtIndex(int index)
+    {
+        char Character = GetCharAtDataIndex(index);
+        if (char.IsAsciiDigit(Character))
+        {
+            return true;
+        }
+        return (Character == KGVL.DECIMAL_SEPARATOR) && char.IsAsciiDigit(GetCharAtDataIndex(index + 1));
+    }
+
     internal IntegerNumber? ReadInteger(ErrorCreateOptions? error)
     {
         StringBuilder Number = new();
@@ -465,44 +477,31 @@ public class SourceDataParser
         return new(Number.ToString(), Base, IsLong, IsUnsigned);
     }
 
-    internal DecimalNumber? ReadDecimal(ErrorCreateOptions? error)
+    /* Integers are read by ReadInteger. A decimal is only delimited here and then handed to
+     * TwoIntDecimal, which is the one place that decides what a valid decimal is and what it is worth.
+     * A malformed decimal is still consumed whole, and what is wrong with it comes back in
+     * malformedError rather than being thrown: the cursor is exactly where it should be, so the caller
+     * can queue the error and carry straight on. The error argument is thrown only when there is no
+     * number here at all. */
+    internal object? ReadNumber(ErrorCreateOptions? error, out ErrorCreateOptions? malformedError)
     {
-        string? DecimalString = ParseDecimalNumber(error);
+        malformedError = null;
 
-        if ((DecimalString == null) || !TwoIntDecimal.TryParse(DecimalString, out _))
+        if (!HasNumberAtIndex(DataIndex))
         {
             if (error.HasValue)
             {
-                throw new SourceFileReadException(this, error, $"Invalid decimal number {DecimalString}");
+                throw new SourceFileReadException(this, error);
             }
             return null;
         }
-         
-        return new(DecimalString);
-    }
 
-    internal object? ReadNumber(ErrorCreateOptions? error)
-    {
-        int StartIndex = DataIndex;
-
-        DecimalNumber? DecNumber = ReadDecimal(null);
-        if (DecNumber != null)
+        int EndIndex = FindNumberEnd(DataIndex);
+        if (!IsDecimalNumber(DataIndex, EndIndex))
         {
-            return DecNumber;
+            return ReadInteger(error);
         }
-
-        DataIndex = StartIndex;
-        IntegerNumber? IntNumber = ReadInteger(null);
-        if (IntNumber != null)
-        {
-            return IntNumber;
-        }
-        
-        if (error.HasValue)
-        {
-            throw new SourceFileReadException(this, error, "Invalid number.");
-        }
-        return null;
+        return ReadDecimal(EndIndex, out malformedError);
     }
 
     internal TypeTargetIdentifier ReadTypeTargetIdentifier(ErrorCreateOptions? error)
@@ -673,94 +672,106 @@ public class SourceDataParser
         }
     }
 
-    private string? ParseDecimalNumber(ErrorCreateOptions? error)
+    /* The suffix marks the number as a decimal but is not part of its value, so it is left out of the
+     * text TwoIntDecimal sees. */
+    private DecimalNumber ReadDecimal(int endIndex, out ErrorCreateOptions? malformedError)
     {
-        StringBuilder Number = new StringBuilder();
+        malformedError = null;
 
-        bool HasDecimalIndicator = false;
-        bool HasSeparator = false;
-        bool HasExponent = false;
+        string Token = _data.Substring(DataIndex, endIndex - DataIndex);
+        IncrementDataIndexNTimes(Token.Length);
 
-        char Character = char.ToLowerInvariant(GetCharAtDataIndex());
-        while (!HasDecimalIndicator && (char.IsAsciiDigit(Character) 
-            || (Character == KGVL.DECIMAL_SEPARATOR) 
-            || (Character == KGVL.DECIMAL_EXPONENT)
-            || (Character == KGVL.SUFFIX_DECIMAL)))
+        string ValueText = Token;
+        if (char.ToLowerInvariant(Token[^1]) == KGVL.SUFFIX_DECIMAL)
         {
-            if (Character == KGVL.DECIMAL_SEPARATOR)
-            {
-                if (HasSeparator)
-                {
-                    if ((Number.Length > 0) && (Number[^1] == KGVL.DECIMAL_SEPARATOR))
-                    {
-                        if (error.HasValue)
-                        {
-                            throw new SourceFileReadException(this, error, $"Multiple decimal separators " +
-                                $"'{KGVL.DECIMAL_SEPARATOR}' are not allowed (Number \"{Number}\")");
-                        }
-                        return null;
-                    }
-                    return Number.ToString();
-                }
-                HasSeparator = true;
-            }
-            else if (Character == KGVL.DECIMAL_EXPONENT)
-            {
-                if (HasExponent)
-                {
-                    if (error.HasValue)
-                    {
-                        throw new SourceFileReadException(this, error, $"Multiple exponend indicators " +
-                            $"'{KGVL.DECIMAL_EXPONENT}' are not allowed (Number \"{Number}\")");
-                    }
-                    return null;
-                }
-                HasExponent = true;
-            }
-            else if (Character == KGVL.SUFFIX_DECIMAL)
-            {
-                if ((Number.Length == 0) || (Number[^1] == KGVL.DECIMAL_SEPARATOR) || (Number[^1] == KGVL.DECIMAL_EXPONENT))
-                {
-                    if (error.HasValue)
-                    {
-                        throw new SourceFileReadException(this, error, $"The decimal number suffix {KGVL.SUFFIX_DECIMAL} " +
-                            $"is used incorrectly. It must not appear after a separator '{KGVL.DECIMAL_SEPARATOR}' " +
-                            $"or an exponent indicator '{KGVL.DECIMAL_EXPONENT}' (Number \"{Number}\")");
-                    }
-                    return null;
-                }
-
-                /* The suffix says the number is a decimal but is not part of its value, so it is
-                 * stepped over instead of being appended, and nothing may follow it. */
-                HasDecimalIndicator = true;
-                IncrementDataIndex();
-                break;
-            }
-
-            Number.Append(Character);
-            IncrementDataIndex();
-            Character = char.ToLowerInvariant(GetCharAtDataIndex());
+            ValueText = Token.Substring(0, Token.Length - 1);
         }
 
-        if ((Number.Length == 0) || (Number[^1] == KGVL.DECIMAL_EXPONENT))
+        if (!TwoIntDecimal.TryParse(ValueText, out TwoIntDecimal Value, out DecimalParseError Error))
         {
-            if (error != null)
+            malformedError = GetMalformedDecimalError(Token, Error);
+            return new(ValueText, TwoIntDecimal.NaN);
+        }
+        return new(ValueText, Value);
+    }
+
+    /* Where the number starting at the index ends. The rule is loose on purpose, much like a C
+     * preprocessing number: every letter, digit and underscore counts, and so do a point followed by
+     * a digit and a sign directly after an exponent. Taking in everything a number could be made of,
+     * rather than stopping at the first character a valid one could not contain, is what lets a
+     * malformed number such as "1.5x" be reported as one, instead of the parser tripping over a stray
+     * name after it.
+     *
+     * A point followed by anything but a digit ends the number, which is what makes "3.ToString()" and
+     * "3.4.ToString()" member access on a number, as in C#. */
+    private int FindNumberEnd(int startIndex)
+    {
+        int Index = startIndex;
+        while (true)
+        {
+            char Character = GetCharAtDataIndex(Index);
+
+            if (IsIdentifierChar(Character))
             {
-                throw new SourceFileReadException(this, error, $"Invalid decimal number \"{Number}\". " +
-                    $"Decimal numbers must not be empty or end with an exponent indicator '{KGVL.DECIMAL_EXPONENT}'");
+                Index++;
+                char Following = GetCharAtDataIndex(Index);
+                if ((char.ToLowerInvariant(Character) == KGVL.DECIMAL_EXPONENT)
+                    && ((Following == KGVL.DECIMAL_EXPONENT_POSITIVE_SIGN)
+                        || (Following == KGVL.DECIMAL_EXPONENT_NEGATIVE_SIGN)))
+                {
+                    Index++;
+                }
             }
-            return null;
+            else if ((Character == KGVL.DECIMAL_SEPARATOR)
+                && char.IsAsciiDigit(GetCharAtDataIndex(Index + 1)))
+            {
+                Index++;
+            }
+            else
+            {
+                return Index;
+            }
         }
+    }
 
-        /* Digits on their own are an integer. Only a separator, an exponent or the suffix make the
-         * number a decimal, and without one of them this has to fail so that the caller falls
-         * through to reading an integer instead. */
-        if (!HasSeparator && !HasExponent && !HasDecimalIndicator)
+    /* A number is a decimal when what follows its leading digits is a point, an exponent or the decimal
+     * suffix. That also sends hexadecimal and binary numbers to ReadInteger, since their prefix letter
+     * is none of those, which matters because "0x1e+1" has to stay an addition. Underscores are skipped
+     * along with the digits so that "1_000.5" is read as the decimal it was meant to be and gets an
+     * error about the underscore, rather than splitting into an integer and a member access. */
+    private bool IsDecimalNumber(int startIndex, int endIndex)
+    {
+        int Index = startIndex;
+        while ((Index < endIndex) && (char.IsAsciiDigit(GetCharAtDataIndex(Index))
+            || (GetCharAtDataIndex(Index) == KGVL.UNDERSCORE)))
         {
-            return null;
+            Index++;
+        }
+        if (Index >= endIndex)
+        {
+            return false;
         }
 
-        return Number.ToString();
+        char Following = char.ToLowerInvariant(GetCharAtDataIndex(Index));
+        return (Following == KGVL.DECIMAL_SEPARATOR)
+            || (Following == KGVL.DECIMAL_EXPONENT)
+            || (Following == KGVL.SUFFIX_DECIMAL);
+    }
+
+    private ErrorCreateOptions GetMalformedDecimalError(string token, DecimalParseError error)
+    {
+        return error.Kind switch
+        {
+            DecimalParseErrorKind.Empty or DecimalParseErrorKind.MissingDigits =>
+                _errorRepository.DecimalMissingDigits.CreateOptions(token),
+            DecimalParseErrorKind.MultipleSeparators =>
+                _errorRepository.DecimalMultipleSeparators.CreateOptions(token),
+            DecimalParseErrorKind.MissingExponentDigits =>
+                _errorRepository.DecimalMissingExponentDigits.CreateOptions(token),
+            DecimalParseErrorKind.UnexpectedCharacter =>
+                _errorRepository.DecimalUnexpectedCharacter.CreateOptions(token, token[error.Index]),
+            _ => throw new ArgumentOutOfRangeException(nameof(error), $"Not a parse failure: {error}")
+        };
     }
 
     private (char[] characters, NumberBase numberBase) GetNumberBase()

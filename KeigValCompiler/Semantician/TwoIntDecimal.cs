@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 
@@ -22,9 +22,9 @@ namespace KeigValCompiler.Semantician;
  *      only ever applied to non-negative operands. C# truncates towards zero while a Minecraft
  *      scoreboard '/=' floors, and on non-negative operands the two agree.
  *
- * TryParse, ToString and the double/float conversions are the exception: they turn source literals
- * into constants and constants back into text, which happens in the compiler and never in a
- * datapack. They are marked as such where they appear.
+ * TryParse, Parse, ToString and the double, float and long conversions are the exception: they turn
+ * source literals into constants and constants back into text, which happens in the compiler and
+ * never in a datapack. They are marked as such where they appear.
  *
  * Special values follow IEEE-754 in spirit: arithmetic never throws, overflow saturates to an
  * infinity, underflow flushes to zero, and every undefined operation produces NaN. Rounding is
@@ -48,11 +48,11 @@ internal readonly struct TwoIntDecimal
     internal const int INFINITY_EXPONENT = int.MaxValue;
 
     /* Text. */
-    internal const char DECIMAL_SEPARATOR_PERIOD = '.';
+    internal const char DECIMAL_SEPARATOR_PERIOD = KGVL.DECIMAL_SEPARATOR;
     internal const char DECIMAL_SEPARATOR_COMMA = ',';
     internal const char NEGATION_SYMBOL = '-';
     internal const char POSITIVE_SYMBOL = '+';
-    internal const char EXPONENT_SYMBOL = 'e';
+    internal const char EXPONENT_SYMBOL = KGVL.DECIMAL_EXPONENT;
     internal const string NAN_TEXT = "NaN";
     internal const string POSITIVE_INFINITY_TEXT = "Infinity";
     internal const string NEGATIVE_INFINITY_TEXT = "-Infinity";
@@ -308,16 +308,41 @@ internal readonly struct TwoIntDecimal
         return 0;
     }
 
+    /* Text. This is the one parser for decimal text, and that includes the literals in KGVL source:
+     * the source parser only finds where a literal starts and ends and hands its text over, so what
+     * counts as a valid decimal is decided here and nowhere else. */
     internal static bool TryParse(string number, out TwoIntDecimal dec)
     {
-        dec = default;
+        return TryParse(number, out dec, out _);
+    }
+
+    /* Reports what was wrong and where instead of throwing, so that the compiler can queue a
+     * malformed literal as an error and carry on parsing. */
+    internal static bool TryParse(string number, out TwoIntDecimal dec, out DecimalParseError error)
+    {
+        dec = Zero;
+        error = default;
 
         if (string.IsNullOrWhiteSpace(number))
         {
+            error = new(DecimalParseErrorKind.Empty, 0);
             return false;
         }
 
-        string Text = number.Trim();
+        /* Trimmed by index rather than with Trim, so that an error index still points into the text
+         * the caller holds. */
+        int StartIndex = 0;
+        int EndIndex = number.Length;
+        while (char.IsWhiteSpace(number[StartIndex]))
+        {
+            StartIndex++;
+        }
+        while (char.IsWhiteSpace(number[EndIndex - 1]))
+        {
+            EndIndex--;
+        }
+
+        string Text = number.Substring(StartIndex, EndIndex - StartIndex);
         if (string.Equals(Text, NAN_TEXT, StringComparison.OrdinalIgnoreCase))
         {
             dec = NaN;
@@ -334,7 +359,18 @@ internal readonly struct TwoIntDecimal
             return true;
         }
 
-        return TryParseNumber(Text, out dec);
+        return TryParseNumber(number, StartIndex, EndIndex, out dec, out error);
+    }
+
+    internal static TwoIntDecimal Parse(string number)
+    {
+        ArgumentNullException.ThrowIfNull(number, nameof(number));
+
+        if (!TryParse(number, out TwoIntDecimal Result, out DecimalParseError Error))
+        {
+            throw new FormatException($"\"{number}\" is not a valid decimal number: {Error}.");
+        }
+        return Result;
     }
 
 
@@ -912,16 +948,19 @@ internal readonly struct TwoIntDecimal
     }
 
     /* Text helpers. Compiler side only. */
-    private static bool TryParseNumber(string text, out TwoIntDecimal dec)
+    /* Parses the characters from startIndex up to endIndex. Error indices are into the whole text. */
+    private static bool TryParseNumber(string text, int startIndex, int endIndex, out TwoIntDecimal dec,
+        out DecimalParseError error)
     {
-        dec = default;
+        dec = Zero;
+        error = default;
 
-        int Index = 0;
+        int Index = startIndex;
         bool IsNegative = false;
-        if ((text[0] == NEGATION_SYMBOL) || (text[0] == POSITIVE_SYMBOL))
+        if ((text[Index] == NEGATION_SYMBOL) || (text[Index] == POSITIVE_SYMBOL))
         {
-            IsNegative = text[0] == NEGATION_SYMBOL;
-            Index = 1;
+            IsNegative = text[Index] == NEGATION_SYMBOL;
+            Index++;
         }
 
         int Mantissa = 0;
@@ -934,7 +973,7 @@ internal readonly struct TwoIntDecimal
         bool HasSeparator = false;
         bool HasAnyDigit = false;
 
-        while (Index < text.Length)
+        while ((Index < endIndex) && !IsExponentSymbol(text[Index]))
         {
             char Character = text[Index];
 
@@ -966,39 +1005,36 @@ internal readonly struct TwoIntDecimal
                     }
                 }
                 DigitStreamIndex++;
-                Index++;
             }
             else if ((Character == DECIMAL_SEPARATOR_PERIOD) || (Character == DECIMAL_SEPARATOR_COMMA))
             {
                 if (HasSeparator)
                 {
+                    error = new(DecimalParseErrorKind.MultipleSeparators, Index);
                     return false;
                 }
                 HasSeparator = true;
-                Index++;
-            }
-            else if ((Character == EXPONENT_SYMBOL) || (Character == char.ToUpperInvariant(EXPONENT_SYMBOL)))
-            {
-                break;
             }
             else
             {
+                error = new(DecimalParseErrorKind.UnexpectedCharacter, Index);
                 return false;
             }
+            Index++;
         }
 
         if (!HasAnyDigit)
         {
+            error = new(DecimalParseErrorKind.MissingDigits, Index);
             return false;
         }
 
+        /* The loop stopped either at the end or on the exponent symbol, which is skipped. */
         long WrittenExponent = 0L;
-        if (Index < text.Length)
+        if ((Index < endIndex)
+            && !TryParseExponent(text, Index + 1, endIndex, out WrittenExponent, out error))
         {
-            if (!TryParseExponent(text.Substring(Index + 1), out WrittenExponent))
-            {
-                return false;
-            }
+            return false;
         }
 
         if (!HasFoundSignificantDigit)
@@ -1027,32 +1063,32 @@ internal readonly struct TwoIntDecimal
         return true;
     }
 
-    private static bool TryParseExponent(string text, out long exponent)
+    /* Parses the exponent's sign and digits, from just after the exponent symbol up to endIndex. */
+    private static bool TryParseExponent(string text, int startIndex, int endIndex, out long exponent,
+        out DecimalParseError error)
     {
         exponent = 0L;
+        error = default;
 
-        if (text.Length == 0)
-        {
-            return false;
-        }
-
-        int Index = 0;
+        int Index = startIndex;
         bool IsNegative = false;
-        if ((text[0] == NEGATION_SYMBOL) || (text[0] == POSITIVE_SYMBOL))
+        if ((Index < endIndex) && ((text[Index] == NEGATION_SYMBOL) || (text[Index] == POSITIVE_SYMBOL)))
         {
-            IsNegative = text[0] == NEGATION_SYMBOL;
-            Index = 1;
+            IsNegative = text[Index] == NEGATION_SYMBOL;
+            Index++;
         }
-        if (Index >= text.Length)
+        if ((Index >= endIndex) || !char.IsAsciiDigit(text[Index]))
         {
+            error = new(DecimalParseErrorKind.MissingExponentDigits, Index);
             return false;
         }
 
         long Value = 0L;
-        while (Index < text.Length)
+        while (Index < endIndex)
         {
             if (!char.IsAsciiDigit(text[Index]))
             {
+                error = new(DecimalParseErrorKind.UnexpectedCharacter, Index);
                 return false;
             }
             /* Anything past the usable exponent range saturates anyway, so it stops accumulating. */
@@ -1065,6 +1101,11 @@ internal readonly struct TwoIntDecimal
 
         exponent = IsNegative ? -Value : Value;
         return true;
+    }
+
+    private static bool IsExponentSymbol(char character)
+    {
+        return char.ToLowerInvariant(character) == EXPONENT_SYMBOL;
     }
 
     private static string TrimTrailingZeros(string digits)
@@ -1255,9 +1296,11 @@ internal readonly struct TwoIntDecimal
 
     public static TwoIntDecimal operator /(TwoIntDecimal a, TwoIntDecimal b) => Divide(a, b);
 
-    /* The truncated remainder. It is exact only while the quotient itself is representable, which
-     * means while |a / b| stays below 1e9; past that the quotient loses its low digits and takes
-     * the remainder with it. */
+    /* The truncated remainder, as a - b * Truncate(a / b). This is not exact. The quotient and the
+     * product are each rounded to nine digits, so whenever b times the whole quotient needs more
+     * digits than that, the low digits of the remainder are lost; and a quotient that rounds up across
+     * a whole number breaks it outright, so 8.99999999 % 3 gives -0.00000001 instead of 2.99999999.
+     * It needs replacing with a remainder computed digit by digit, which can be exact. */
     public static TwoIntDecimal operator %(TwoIntDecimal a, TwoIntDecimal b)
     {
         if (IsNaN(a) || IsNaN(b) || IsInfinity(a) || (b.Mantissa == 0))
@@ -1307,8 +1350,8 @@ internal readonly struct TwoIntDecimal
             return NegativeInfinity;
         }
 
-        TryParse(number.ToString("R", CultureInfo.InvariantCulture), out TwoIntDecimal Result);
-        return Result;
+        /* The round-trip text of a finite double is always a valid decimal, so this never throws. */
+        return Parse(number.ToString("R", CultureInfo.InvariantCulture));
     }
 
     public static explicit operator double(TwoIntDecimal dec)

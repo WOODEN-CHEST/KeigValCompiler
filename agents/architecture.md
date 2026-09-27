@@ -123,9 +123,10 @@ interpolated strings and all literal forms.
    output read by eye.
 
 ### Smaller known gaps
-- `TwoIntDecimal`'s `%` is exact only while the quotient is, and `Pow` with a
-  fractional exponent loses two or three digits to the logarithm it goes
-  through. Both are noted in `language.md`.
+- `TwoIntDecimal`'s `%` returns wrong remainders for most operands, and `Pow`
+  inherits it for the sign of huge integer powers of negative bases. `Pow` with a
+  fractional exponent also loses two or three digits to the logarithm it goes
+  through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
 
