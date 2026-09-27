@@ -38,8 +38,11 @@ comments implying features exist when they do not. See
 
 ```bash
 dotnet build                       # from repository root
-dotnet run --project KeigValCompiler -- <source dir> [dest dir]
+dotnet run --project KeigValCompiler -- <source dir> [--output <dir>]
+dotnet run --project KeigValCompiler -- --help    # every argument the compiler accepts
 ```
+
+Paths may be relative to the working directory.
 
 Both projects target **net10.0**. There are **zero external dependencies** — no
 NuGet packages in either `.csproj`. Keep it that way unless the owner agrees
@@ -78,7 +81,8 @@ is effectively no automated test coverage.
    NotImplementedException()`, not silently return a wrong value or do nothing.
    Empty method bodies that pretend to succeed have already cost this project
    real debugging time.
-7. **Do not run git commands.** Those will be run by me manually.
+7. **Do not run git commands which mutate files.** Those will be run by me manually. Commands which only query
+   contents, history, changes or are read-only are fine.
 
 ## Documents
 

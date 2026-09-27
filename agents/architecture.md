@@ -69,7 +69,18 @@ before resolution, and records them in `BuiltInTypeRegistry`.
 
 **Nothing exists.** There is no reference anywhere in the codebase to
 `.mcfunction`, `pack.mcmeta`, scoreboards, or writing any output file.
-`CompilerOptions.DestinationDirectory` is validated and never read.
+The `--output` argument fills `CompilerOptions.DestinationDirectory`, which
+nothing reads yet.
+
+## Command line
+
+`Main/Commandline/` is a small argument-parsing framework: flags, options (a
+value each, optionally repeatable) and positional arguments, each with a value
+parser that converts and validates its text. The compiler's own arguments are
+declared and registered in `Main/CompilerArguments.cs` and read into
+`CompilerOptions`; the `--help` text is generated from what is registered.
+Command-line mistakes are ordinary `ErrorRepository` definitions (category
+`CL`), all reported together before compilation starts.
 
 ## Error reporting
 

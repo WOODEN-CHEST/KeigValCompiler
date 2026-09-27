@@ -27,6 +27,7 @@ internal class CompilerMessageCategory
     public static CompilerMessageCategory Expression { get; } = new("Expression", "EX");
     public static CompilerMessageCategory Statement { get; } = new("Statement", "ST");
     public static CompilerMessageCategory SourceFile { get; } = new("Source File", "SF");
+    public static CompilerMessageCategory Commandline { get; } = new("Command Line", "CL");
 
 
 

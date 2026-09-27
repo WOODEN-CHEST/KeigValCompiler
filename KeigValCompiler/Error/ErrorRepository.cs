@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician;
+﻿using KeigValCompiler.Main.Commandline;
+using KeigValCompiler.Semantician;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -706,6 +707,52 @@ internal class ErrorRepository
         CompilerMessageCategory.Statement,
         $"A \"{KGVL.KEYWORD_DEFAULT}\" case matches anything the other cases did not, so it cannot " +
         "have conditions of its own");
+
+
+    /* Command line. */
+    internal virtual ErrorDefinition CommandlineUnknownArgument { get; } = new(1,
+        CompilerMessageCategory.Commandline,
+        $"Unknown argument \"{{0}}\". It starts with '{CommandlineSyntax.SHORT_NAME_PREFIX}' like a named " +
+        "argument does, but the compiler accepts no argument by that name");
+
+    internal virtual ErrorDefinition CommandlineFlagGivenValue { get; } = new(2,
+        CompilerMessageCategory.Commandline,
+        "The argument \"{0}\" is a flag, which is switched on just by being present, so it cannot be given " +
+        "the value \"{1}\"");
+
+    internal virtual ErrorDefinition CommandlineMissingOptionValue { get; } = new(3,
+        CompilerMessageCategory.Commandline,
+        $"The argument \"{{0}}\" needs a value, written either as " +
+        $"\"{{0}} {CommandlineSyntax.VALUE_NAME_START}{{1}}{CommandlineSyntax.VALUE_NAME_END}\" or as " +
+        $"\"{{0}}{CommandlineSyntax.VALUE_SEPARATOR}" +
+        $"{CommandlineSyntax.VALUE_NAME_START}{{1}}{CommandlineSyntax.VALUE_NAME_END}\". " +
+        $"A value starting with '{CommandlineSyntax.SHORT_NAME_PREFIX}' can only be written the second way, " +
+        "since on its own it would be read as the name of another argument");
+
+    internal virtual ErrorDefinition CommandlineRepeatedArgument { get; } = new(4,
+        CompilerMessageCategory.Commandline,
+        "The argument \"{0}\" was given more than once, but it can only be given once");
+
+    internal virtual ErrorDefinition CommandlineUnexpectedPositionalArgument { get; } = new(5,
+        CompilerMessageCategory.Commandline,
+        "Unexpected argument \"{0}\". It is not named, so it was read as a positional argument, but every " +
+        "positional argument the compiler takes had already been given");
+
+    internal virtual ErrorDefinition CommandlineMissingPositionalArgument { get; } = new(6,
+        CompilerMessageCategory.Commandline,
+        "The required argument \"{0}\" was not given");
+
+    internal virtual ErrorDefinition CommandlineInvalidPath { get; } = new(7,
+        CompilerMessageCategory.Commandline,
+        "\"{0}\", given for \"{1}\", is not a valid path");
+
+    internal virtual ErrorDefinition CommandlinePathIsFile { get; } = new(8,
+        CompilerMessageCategory.Commandline,
+        "The path \"{0}\", given for \"{1}\", leads to a file, but \"{1}\" expects a directory");
+
+    internal virtual ErrorDefinition CommandlineDirectoryNotFound { get; } = new(9,
+        CompilerMessageCategory.Commandline,
+        "The directory \"{0}\", given for \"{1}\", does not exist");
 
 
     /* Warnings. */

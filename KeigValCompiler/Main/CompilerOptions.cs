@@ -1,4 +1,6 @@
-﻿namespace KeigValCompiler.Main;
+﻿using KeigValCompiler.Main.Commandline;
+
+namespace KeigValCompiler.Main;
 
 internal class CompilerOptions
 {
@@ -8,34 +10,14 @@ internal class CompilerOptions
 
 
     // Constructors.
-    internal CompilerOptions(string[] args)
+    /* Only to be built from a command line which parsed with no errors, since that is what guarantees
+     * every required argument is present and every given value is valid. */
+    internal CompilerOptions(CommandlineParseResult parseResult, CompilerArguments arguments)
     {
-        if (args.Length == 0)
-        {
-            throw new CommandlineArgumentException("Zero arguments, expected something other than this deep, empty void.");
-        }
+        ArgumentNullException.ThrowIfNull(parseResult, nameof(parseResult));
+        ArgumentNullException.ThrowIfNull(arguments, nameof(arguments));
 
-        SourceDirectory = args[0];
-        if (!Path.IsPathFullyQualified(SourceDirectory))
-        {
-            throw new CommandlineArgumentException($"Source path is not fully qualified: {SourceDirectory}");
-        }
-        if (!Directory.Exists(SourceDirectory))
-        {
-            throw new CommandlineArgumentException($"Source directory \"{SourceDirectory}\" not found.");
-        }
-
-
-        DestinationDirectory = SourceDirectory;
-        if (args.Length >= 2)
-        {
-            DestinationDirectory = args[1];
-            if (!Path.IsPathFullyQualified(SourceDirectory))
-            {
-                throw new CommandlineArgumentException(
-                    $"Destination path is not fully qualified: {DestinationDirectory}");
-            }
-            Directory.CreateDirectory(DestinationDirectory);
-        }
+        SourceDirectory = parseResult.GetValue(arguments.SourceDirectory);
+        DestinationDirectory = parseResult.GetValueOrDefault(arguments.Output, SourceDirectory);
     }
 }

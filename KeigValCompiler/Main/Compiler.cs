@@ -1,4 +1,5 @@
 ﻿using KeigValCompiler.Error;
+using KeigValCompiler.Main.Commandline;
 using KeigValCompiler.Semantician;
 using KeigValCompiler.Source;
 using KeigValCompiler.Source.Parser;
@@ -19,23 +20,35 @@ public static class Compiler
     // Internal static methods.
     internal static int Main(string[] args)
     {
-        if (args.Length == 0)
+        ErrorRepository ErrorCreator = new();
+        CompilerArguments Arguments = new();
+        CompilerMessageCollection CommandlineMessages = new();
+
+        CommandlineParser ArgumentParser = new(Arguments.Repository, new CommandlineParsingContext()
         {
-            Console.WriteLine($"KeigVal Compiler Version {CompilerVersion}." +
-                $"\nCommand-line arguments: <source directory> <destination directory (optional)>");
+            ErrorCreator = ErrorCreator,
+            Messages = CommandlineMessages
+        });
+        CommandlineParseResult ParseResult = ArgumentParser.Parse(args);
+
+        /* Help is printed even over mistakes elsewhere on the command line, since it is what explains them. */
+        if ((args.Length == 0) || ParseResult.IsPresent(Arguments.Help))
+        {
+            PrintHelp(Arguments);
             return EXIT_CODE_SUCCESS;
         }
 
-        CompilerOptions Options;
-        try
+        CompilerMessagePrinter MessagePrinter = new();
+        MessagePrinter.PrintMessages(CommandlineMessages);
+        MessagePrinter.PrintSummary(CommandlineMessages);
+        if (CommandlineMessages.HasErrors)
         {
-            Options = new(args);
-        }
-        catch (CommandlineArgumentException e)
-        {
-            Console.WriteLine(e.Message);
+            Console.WriteLine($"Run the compiler with \"{Arguments.Help.DisplayName}\" to list every argument "
+                + "it accepts.");
             return EXIT_CODE_FAILURE;
         }
+
+        CompilerOptions Options = new(ParseResult, Arguments);
 
         try
         {
@@ -43,7 +56,7 @@ public static class Compiler
             Stopwatch CompilationTimeMeasurer = new();
             CompilationTimeMeasurer.Start();
 
-            bool IsCompilationSuccessful = CompilePack(Options);
+            bool IsCompilationSuccessful = CompilePack(Options, ErrorCreator);
 
             CompilationTimeMeasurer.Stop();
             if (!IsCompilationSuccessful)
@@ -72,14 +85,13 @@ public static class Compiler
     // Private static methods.
     /* Every stage reports everything it found before the next one is allowed to start. Running a
      * stage on what a failed one left behind only buries its errors under invented ones. */
-    private static bool CompilePack(CompilerOptions options)
+    private static bool CompilePack(CompilerOptions options, ErrorRepository errorCreator)
     {
         CompilerMessageCollection Messages = new();
-        ErrorRepository ErrorCreator = new();
         ParserUtilities ParserUtilities = new();
         CompilerMessagePrinter MessagePrinter = new();
 
-        PackParser Parser = new PackParser(options.SourceDirectory, ErrorCreator, ParserUtilities, Messages);
+        PackParser Parser = new PackParser(options.SourceDirectory, errorCreator, ParserUtilities, Messages);
         DataPack Pack = Parser.ParsePack();
 
         MessagePrinter.PrintMessages(Messages);
@@ -91,6 +103,15 @@ public static class Compiler
 
         /* Resolving and emitting go here, each one reporting before the next is allowed to run. */
         return true;
+    }
+
+    private static void PrintHelp(CompilerArguments arguments)
+    {
+        Console.WriteLine($"KeigVal Compiler Version {CompilerVersion}.");
+        Console.WriteLine();
+
+        CommandlineHelpPrinter HelpPrinter = new();
+        HelpPrinter.PrintHelp(AppDomain.CurrentDomain.FriendlyName, arguments.Repository);
     }
 
     private static void Test()
