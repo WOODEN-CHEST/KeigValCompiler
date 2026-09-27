@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KeigValCompiler.Semantician;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -366,6 +367,23 @@ internal class ErrorRepository
         $"'{KGVL.DECIMAL_EXPONENT}' with its own sign and digits, then optionally the suffix " +
         $"'{KGVL.SUFFIX_DECIMAL}' at the very end. There is no suffix for any other fractional type, " +
         $"because {KGVL.KEYWORD_DECIMAL} is the only one KGVL has");
+
+    internal virtual ErrorDefinition DecimalMisplacedDigitSeparator { get; } = new(7,
+        CompilerMessageCategory.Literal,
+        $"The decimal number \"{{0}}\" has a digit separator '{KGVL.UNDERSCORE}' that is not between two " +
+        "digits. A separator may only stand between digits of the same part of the number, so never at " +
+        $"either end of it, and never next to its point '{KGVL.DECIMAL_SEPARATOR}', its exponent " +
+        $"'{KGVL.DECIMAL_EXPONENT}' or its suffix '{KGVL.SUFFIX_DECIMAL}'");
+
+    internal virtual ErrorDefinition DecimalTooLarge { get; } = new(8,
+        CompilerMessageCategory.Literal,
+        $"The decimal number \"{{0}}\" is too large for {KGVL.KEYWORD_DECIMAL}, whose largest finite value " +
+        $"is {TwoIntDecimal.MaxValue}");
+
+    internal virtual ErrorDefinition DecimalTooSmall { get; } = new(9,
+        CompilerMessageCategory.Literal,
+        $"The decimal number \"{{0}}\" is too close to zero for {KGVL.KEYWORD_DECIMAL} and could only " +
+        $"become zero. The smallest {KGVL.KEYWORD_DECIMAL} above zero is {TwoIntDecimal.Epsilon}");
 
 
     /* Source files. */

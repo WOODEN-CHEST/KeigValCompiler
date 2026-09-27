@@ -127,6 +127,9 @@ interpolated strings and all literal forms.
   inherits it for the sign of huge integer powers of negative bases. `Pow` with a
   fractional exponent also loses two or three digits to the logarithm it goes
   through. All three are noted in `language.md`.
+- Integer literals: hexadecimal and binary ones with the top bit set are typed
+  as signed (`0xFFFFFFFF` as `int`), values beyond `ulong` are accepted, and
+  apart from enum values nothing is range-checked yet.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
 

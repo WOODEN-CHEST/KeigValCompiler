@@ -160,11 +160,21 @@ Scientific notation (`1.5e10`) parses, and `ToString` round-trips through
 `TryParse` for every representable value.
 
 `TryParse` is also the **one parser for decimal literals** in KGVL source. The
-source parser only finds where a literal ends and hands its text over, so a
-valid literal and a valid parsed string are the same thing, and a malformed
-literal is reported with the reason `TryParse` gives. Literal forms follow C#:
+source parser only finds where a literal ends and hands its text over, so the
+grammar lives in one place, and a malformed literal is reported with the reason
+`TryParse` gives. The one thing a literal may contain that a string parsed at
+runtime may not is opted into through `DecimalParseOptions`: digit separators,
+as in `1_000.5`, only ever between two digits. Otherwise literal forms follow C#:
 `1.5`, `.5`, `1.5e-3`, `5m`. A point not followed by a digit is member access,
 so `3.ToString()` and `3.4.ToString()` call a method on the number.
+
+**Out-of-range numeric literals are compile errors**, for integers as well as
+decimals. A decimal checks at parse time, since its range does not depend on
+where it is used: text naming a number above `MaxValue`, or a nonzero one closer
+to zero than `Epsilon`, does not parse, and `Parse` throws `OverflowException`
+for it. Arithmetic is unaffected and still saturates to an infinity or zero. An
+integer's range depends on the type it is assigned to, so that check waits for
+the resolver and does not exist yet.
 
 The reason these two files are as long as they are is the comment on
 `operator /` — *"Implemented as is in DataPacks"*. These algorithms are written

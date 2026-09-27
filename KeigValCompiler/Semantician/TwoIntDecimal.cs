@@ -53,6 +53,7 @@ internal readonly struct TwoIntDecimal
     internal const char NEGATION_SYMBOL = '-';
     internal const char POSITIVE_SYMBOL = '+';
     internal const char EXPONENT_SYMBOL = KGVL.DECIMAL_EXPONENT;
+    internal const char DIGIT_SEPARATOR = KGVL.UNDERSCORE;
     internal const string NAN_TEXT = "NaN";
     internal const string POSITIVE_INFINITY_TEXT = "Infinity";
     internal const string NEGATIVE_INFINITY_TEXT = "-Infinity";
@@ -313,12 +314,15 @@ internal readonly struct TwoIntDecimal
      * counts as a valid decimal is decided here and nowhere else. */
     internal static bool TryParse(string number, out TwoIntDecimal dec)
     {
-        return TryParse(number, out dec, out _);
+        return TryParse(number, DecimalParseOptions.None, out dec, out _);
     }
 
     /* Reports what was wrong and where instead of throwing, so that the compiler can queue a
-     * malformed literal as an error and carry on parsing. */
-    internal static bool TryParse(string number, out TwoIntDecimal dec, out DecimalParseError error)
+     * malformed literal as an error and carry on parsing. A number too large or too close to zero to
+     * be held is an error rather than an infinity or a zero, since text that says a number meant
+     * that number. */
+    internal static bool TryParse(string number, DecimalParseOptions options, out TwoIntDecimal dec,
+        out DecimalParseError error)
     {
         dec = Zero;
         error = default;
@@ -359,18 +363,26 @@ internal readonly struct TwoIntDecimal
             return true;
         }
 
-        return TryParseNumber(number, StartIndex, EndIndex, out dec, out error);
+        return TryParseNumber(number, StartIndex, EndIndex, options, out dec, out error);
     }
 
+    /* A number out of range is an overflow, as for any other numeric conversion; anything else wrong
+     * with the text is a format error. */
     internal static TwoIntDecimal Parse(string number)
     {
         ArgumentNullException.ThrowIfNull(number, nameof(number));
 
-        if (!TryParse(number, out TwoIntDecimal Result, out DecimalParseError Error))
+        if (TryParse(number, DecimalParseOptions.None, out TwoIntDecimal Result, out DecimalParseError Error))
         {
-            throw new FormatException($"\"{number}\" is not a valid decimal number: {Error}.");
+            return Result;
         }
-        return Result;
+
+        string Message = $"\"{number}\" could not be parsed as a decimal number: {Error}.";
+        if ((Error.Kind == DecimalParseErrorKind.Overflow) || (Error.Kind == DecimalParseErrorKind.Underflow))
+        {
+            throw new OverflowException(Message);
+        }
+        throw new FormatException(Message);
     }
 
 
@@ -949,8 +961,8 @@ internal readonly struct TwoIntDecimal
 
     /* Text helpers. Compiler side only. */
     /* Parses the characters from startIndex up to endIndex. Error indices are into the whole text. */
-    private static bool TryParseNumber(string text, int startIndex, int endIndex, out TwoIntDecimal dec,
-        out DecimalParseError error)
+    private static bool TryParseNumber(string text, int startIndex, int endIndex, DecimalParseOptions options,
+        out TwoIntDecimal dec, out DecimalParseError error)
     {
         dec = Zero;
         error = default;
@@ -1015,6 +1027,15 @@ internal readonly struct TwoIntDecimal
                 }
                 HasSeparator = true;
             }
+            else if (IsDigitSeparator(Character, options))
+            {
+                /* Stands for nothing, so it is only checked for where it stands. */
+                if (!IsBetweenDigits(text, Index, startIndex, endIndex))
+                {
+                    error = new(DecimalParseErrorKind.MisplacedDigitSeparator, Index);
+                    return false;
+                }
+            }
             else
             {
                 error = new(DecimalParseErrorKind.UnexpectedCharacter, Index);
@@ -1032,7 +1053,7 @@ internal readonly struct TwoIntDecimal
         /* The loop stopped either at the end or on the exponent symbol, which is skipped. */
         long WrittenExponent = 0L;
         if ((Index < endIndex)
-            && !TryParseExponent(text, Index + 1, endIndex, out WrittenExponent, out error))
+            && !TryParseExponent(text, Index + 1, endIndex, options, out WrittenExponent, out error))
         {
             return false;
         }
@@ -1048,24 +1069,41 @@ internal readonly struct TwoIntDecimal
             Mantissa *= 10;
             TakenDigitCount++;
         }
+
+        /* The digit stream index of the first significant digit measures how far that digit sits
+         * from the last digit before the decimal point. */
+        long Exponent = (IntegerDigitCount - 1L) - FirstSignificantIndex + WrittenExponent;
         if (RoundDigit >= 5)
         {
             Mantissa++;
+            if (Mantissa > MAX_MANTISSA)
+            {
+                /* Nine nines rounded up is exactly MANTISSA_LIMIT, one digit too long. */
+                Mantissa /= 10;
+                Exponent++;
+            }
         }
 
-        /* The digit stream index of the first significant digit measures how far that digit sits
-         * from the last digit before the decimal point. A long literal could push this past the
-         * usable exponent range, which FromComponents saturates. */
-        long Exponent = (IntegerDigitCount - 1L) - FirstSignificantIndex + WrittenExponent;
-        int SaturatedExponent = (int)Math.Clamp(Exponent, MIN_EXPONENT - 1L, MAX_EXPONENT + 1L);
+        /* Checked after rounding, because rounding up can carry a number that was just in range out
+         * of it. */
+        if (Exponent > MAX_EXPONENT)
+        {
+            error = new(DecimalParseErrorKind.Overflow, startIndex);
+            return false;
+        }
+        if (Exponent < MIN_EXPONENT)
+        {
+            error = new(DecimalParseErrorKind.Underflow, startIndex);
+            return false;
+        }
 
-        dec = FromComponents(IsNegative ? -Mantissa : Mantissa, SaturatedExponent);
+        dec = FromComponents(IsNegative ? -Mantissa : Mantissa, (int)Exponent);
         return true;
     }
 
     /* Parses the exponent's sign and digits, from just after the exponent symbol up to endIndex. */
-    private static bool TryParseExponent(string text, int startIndex, int endIndex, out long exponent,
-        out DecimalParseError error)
+    private static bool TryParseExponent(string text, int startIndex, int endIndex,
+        DecimalParseOptions options, out long exponent, out DecimalParseError error)
     {
         exponent = 0L;
         error = default;
@@ -1077,7 +1115,9 @@ internal readonly struct TwoIntDecimal
             IsNegative = text[Index] == NEGATION_SYMBOL;
             Index++;
         }
-        if ((Index >= endIndex) || !char.IsAsciiDigit(text[Index]))
+        /* A separator here is still reported as a separator, just a misplaced one, by the loop. */
+        if ((Index >= endIndex)
+            || (!char.IsAsciiDigit(text[Index]) && !IsDigitSeparator(text[Index], options)))
         {
             error = new(DecimalParseErrorKind.MissingExponentDigits, Index);
             return false;
@@ -1086,12 +1126,22 @@ internal readonly struct TwoIntDecimal
         long Value = 0L;
         while (Index < endIndex)
         {
+            if (IsDigitSeparator(text[Index], options))
+            {
+                if (!IsBetweenDigits(text, Index, startIndex, endIndex))
+                {
+                    error = new(DecimalParseErrorKind.MisplacedDigitSeparator, Index);
+                    return false;
+                }
+                Index++;
+                continue;
+            }
             if (!char.IsAsciiDigit(text[Index]))
             {
                 error = new(DecimalParseErrorKind.UnexpectedCharacter, Index);
                 return false;
             }
-            /* Anything past the usable exponent range saturates anyway, so it stops accumulating. */
+            /* Anything past the usable exponent range is an error anyway, so it stops accumulating. */
             if (Value <= MAX_EXPONENT)
             {
                 Value = (Value * 10L) + (text[Index] - '0');
@@ -1106,6 +1156,31 @@ internal readonly struct TwoIntDecimal
     private static bool IsExponentSymbol(char character)
     {
         return char.ToLowerInvariant(character) == EXPONENT_SYMBOL;
+    }
+
+    private static bool IsDigitSeparator(char character, DecimalParseOptions options)
+    {
+        return (character == DIGIT_SEPARATOR) && ((options & DecimalParseOptions.AllowDigitSeparators) > 0);
+    }
+
+    /* Whether the digit separator at the index has a digit on both sides once any neighbouring
+     * separators are skipped. A point, an exponent symbol and a sign are not digits, so a separator
+     * can never reach across from one part of a number into another. */
+    private static bool IsBetweenDigits(string text, int index, int startIndex, int endIndex)
+    {
+        int Before = index - 1;
+        while ((Before >= startIndex) && (text[Before] == DIGIT_SEPARATOR))
+        {
+            Before--;
+        }
+        int After = index + 1;
+        while ((After < endIndex) && (text[After] == DIGIT_SEPARATOR))
+        {
+            After++;
+        }
+
+        return (Before >= startIndex) && char.IsAsciiDigit(text[Before])
+            && (After < endIndex) && char.IsAsciiDigit(text[After]);
     }
 
     private static string TrimTrailingZeros(string digits)

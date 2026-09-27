@@ -21,5 +21,16 @@ internal enum DecimalParseErrorKind
     MissingExponentDigits,
 
     /* A character that has no place in a number where it stands, as in "1.5x" or "1-2". */
-    UnexpectedCharacter
+    UnexpectedCharacter,
+
+    /* A digit separator that is not between two digits, as in "1_.5" or "1_". Only reported when
+     * separators are allowed at all; otherwise an underscore is an unexpected character. */
+    MisplacedDigitSeparator,
+
+    /* The number is larger in magnitude than the largest finite value, as in "1e1000000000". */
+    Overflow,
+
+    /* The number is not zero but is closer to zero than the smallest one the format can hold, as in
+     * "1e-1000000000", so it could only become zero. */
+    Underflow
 }

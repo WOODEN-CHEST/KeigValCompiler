@@ -673,7 +673,8 @@ public class SourceDataParser
     }
 
     /* The suffix marks the number as a decimal but is not part of its value, so it is left out of the
-     * text TwoIntDecimal sees. */
+     * text TwoIntDecimal sees. Source literals may also use digit separators, which a string parsed at
+     * runtime may not, so they are opted into here rather than allowed everywhere. */
     private DecimalNumber ReadDecimal(int endIndex, out ErrorCreateOptions? malformedError)
     {
         malformedError = null;
@@ -687,7 +688,8 @@ public class SourceDataParser
             ValueText = Token.Substring(0, Token.Length - 1);
         }
 
-        if (!TwoIntDecimal.TryParse(ValueText, out TwoIntDecimal Value, out DecimalParseError Error))
+        if (!TwoIntDecimal.TryParse(ValueText, DecimalParseOptions.AllowDigitSeparators,
+            out TwoIntDecimal Value, out DecimalParseError Error))
         {
             malformedError = GetMalformedDecimalError(Token, Error);
             return new(ValueText, TwoIntDecimal.NaN);
@@ -737,8 +739,8 @@ public class SourceDataParser
     /* A number is a decimal when what follows its leading digits is a point, an exponent or the decimal
      * suffix. That also sends hexadecimal and binary numbers to ReadInteger, since their prefix letter
      * is none of those, which matters because "0x1e+1" has to stay an addition. Underscores are skipped
-     * along with the digits so that "1_000.5" is read as the decimal it was meant to be and gets an
-     * error about the underscore, rather than splitting into an integer and a member access. */
+     * along with the digits so that "1_000.5" is read as one decimal, rather than as an integer followed
+     * by a member access. */
     private bool IsDecimalNumber(int startIndex, int endIndex)
     {
         int Index = startIndex;
@@ -770,6 +772,10 @@ public class SourceDataParser
                 _errorRepository.DecimalMissingExponentDigits.CreateOptions(token),
             DecimalParseErrorKind.UnexpectedCharacter =>
                 _errorRepository.DecimalUnexpectedCharacter.CreateOptions(token, token[error.Index]),
+            DecimalParseErrorKind.MisplacedDigitSeparator =>
+                _errorRepository.DecimalMisplacedDigitSeparator.CreateOptions(token),
+            DecimalParseErrorKind.Overflow => _errorRepository.DecimalTooLarge.CreateOptions(token),
+            DecimalParseErrorKind.Underflow => _errorRepository.DecimalTooSmall.CreateOptions(token),
             _ => throw new ArgumentOutOfRangeException(nameof(error), $"Not a parse failure: {error}")
         };
     }
