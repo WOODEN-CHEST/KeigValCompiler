@@ -119,6 +119,25 @@ belongs to **one instantiation**: `Cache<int>.Value` and `Cache<string>.Value`
 are different storage. The backend has to monomorphise generics anyway, since
 the target has no runtime type system, so this costs it nothing extra.
 
+## Numeric literals
+
+Number literals follow C#. A decimal is `1.5`, `.5`, `1.5e-3` or `5m`; an integer
+is decimal, hexadecimal (`0xFF`) or binary (`0b1010`), optionally suffixed `u`,
+`l` or both. Digit separators stand between digits (`1_000_000`, `1_000.5`) and
+may also follow a prefix (`0x_FF`). A point not followed by a digit is member
+access, so `3.ToString()` and `3.4.ToString()` call a method on the number.
+
+An integer literal's type is the first of `int`, `uint`, `long` and `ulong` that
+holds its value, narrowed to the unsigned ones by `u` and to the long ones by
+`l`. Hexadecimal and binary are no exception: `0xFFFFFFFF` is a `uint`.
+
+**Out-of-range literals are compile errors.** A decimal is checked as it is
+parsed, since its range does not depend on where it is used: one above
+`MaxValue`, or a nonzero one closer to zero than `Epsilon`, is an error. So is an
+integer too large even for `ulong`. Whether an integer fits the type it is
+assigned to, as in `byte b = 300`, depends on that type, so that check belongs to
+the validation stage and does not exist yet.
+
 ## `TwoIntDecimal`
 
 Minecraft scoreboards hold **32-bit signed integers and nothing else** — there
@@ -163,18 +182,10 @@ Scientific notation (`1.5e10`) parses, and `ToString` round-trips through
 source parser only finds where a literal ends and hands its text over, so the
 grammar lives in one place, and a malformed literal is reported with the reason
 `TryParse` gives. The one thing a literal may contain that a string parsed at
-runtime may not is opted into through `DecimalParseOptions`: digit separators,
-as in `1_000.5`, only ever between two digits. Otherwise literal forms follow C#:
-`1.5`, `.5`, `1.5e-3`, `5m`. A point not followed by a digit is member access,
-so `3.ToString()` and `3.4.ToString()` call a method on the number.
-
-**Out-of-range numeric literals are compile errors**, for integers as well as
-decimals. A decimal checks at parse time, since its range does not depend on
-where it is used: text naming a number above `MaxValue`, or a nonzero one closer
-to zero than `Epsilon`, does not parse, and `Parse` throws `OverflowException`
-for it. Arithmetic is unaffected and still saturates to an infinity or zero. An
-integer's range depends on the type it is assigned to, so that check waits for
-the resolver and does not exist yet.
+runtime may not, digit separators, is opted into through `DecimalParseOptions`.
+Text naming a number out of range does not parse, and `Parse` throws
+`OverflowException` for it; arithmetic is unaffected and still saturates to an
+infinity or zero.
 
 The reason these two files are as long as they are is the comment on
 `operator /` — *"Implemented as is in DataPacks"*. These algorithms are written

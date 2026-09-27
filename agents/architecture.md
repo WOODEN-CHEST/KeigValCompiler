@@ -53,6 +53,14 @@ The object model lives in `KeigValCompiler/Semantician/Member/` (`PackClass`,
 `Identifier` carries both its `SourceCodeName` and, after resolution, a
 `ResolvedName` and a `Target`.
 
+Two checks the parser cannot make are left to this stage, because they need
+names or types. **Enum constant values** are stored as the expressions written
+for them (`PackEnumerationConstant.ValueExpression`), since they may name other
+constants; this stage computes them in declaration order, a constant without
+one being the previous value plus one, and checks each fits `int`. And **integer
+literals** carry their value and C# type, but whether that value fits the type
+it is assigned to is checked here.
+
 `DefaultInternalContentProvider` synthesises the built-in `KGVL` namespace
 (`Int8`…`UInt64`, `TwoIntDecimal`, `Boolean`, `String`, `Null`) into the pack
 before resolution, and records them in `BuiltInTypeRegistry`.
@@ -127,9 +135,6 @@ interpolated strings and all literal forms.
   inherits it for the sign of huge integer powers of negative bases. `Pow` with a
   fractional exponent also loses two or three digits to the logarithm it goes
   through. All three are noted in `language.md`.
-- Integer literals: hexadecimal and binary ones with the top bit set are typed
-  as signed (`0xFFFFFFFF` as `int`), values beyond `ulong` are accepted, and
-  apart from enum values nothing is range-checked yet.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
 

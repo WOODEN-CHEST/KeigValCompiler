@@ -123,6 +123,15 @@ public enum TestEnum3
     F = 1__00___0_0
 }
 
+public enum TestEnumExpressions
+{
+    Negative = -1,
+    Shifted = 1 << 4,
+    Combined = Negative | Shifted,
+    Next,
+    Maximum = int.MaxValue
+}
+
 //public enum EnumTest4 { }
 
 
@@ -268,6 +277,8 @@ public class StatementTests
         int binary = 0b1010;
         int hex = 0xFF;
         int separated = 1_000_000;
+        uint topBit = 0x8000_0000;
+        ulong allBits = 0xFFFF_FFFF_FFFF_FFFF;
         long suffixed = 100l;
         uint unsigned = 5u;
         decimal fractional = 1.5m;

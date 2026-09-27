@@ -1,22 +1,20 @@
-﻿using System.Collections;
+﻿namespace KeigValCompiler.Semantician.Member;
 
-namespace KeigValCompiler.Semantician.Member;
-
-internal class PackEnumeration : PackMember, IEnumerable<KeyValuePair<string, int>>, IPackType
+internal class PackEnumeration : PackMember, IPackType
 {
     // Fields.
     public IEnumerable<PackFunction> Constructors => Enumerable.Empty<PackFunction>();
 
 
     // Internal fields.
-    internal string[] Names => _values.Keys.ToArray();
-    internal int[] Values => _values.Values.Distinct().ToArray();
-    internal int this[string name] => _values[name];
-    internal int ConstantCount => _values.Count;
+    /* In declaration order, which working out the values depends on. Constants with the same name are
+     * all kept, so that the validation stage can report them. */
+    internal IReadOnlyList<PackEnumerationConstant> Constants => _constants;
+    internal int ConstantCount => _constants.Count;
 
 
     // Private fields.
-    private readonly Dictionary<string, int> _values = new();
+    private readonly List<PackEnumerationConstant> _constants = new();
 
 
     // Constructors.
@@ -25,25 +23,14 @@ internal class PackEnumeration : PackMember, IEnumerable<KeyValuePair<string, in
 
 
     // Methods.
-    public void SetConstant(string name, int value)
+    public void AddConstant(PackEnumerationConstant constant)
     {
-        _values[name] = value;
+        ArgumentNullException.ThrowIfNull(constant, nameof(constant));
+        _constants.Add(constant);
     }
 
-    public void RemoveConstant(string name)
+    public void RemoveConstant(PackEnumerationConstant constant)
     {
-        _values.Remove(name);
-    }
-
-
-    // Inherited methods.
-    public IEnumerator<KeyValuePair<string, int>> GetEnumerator()
-    {
-        return _values.GetEnumerator();
-    }
-
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
+        _constants.Remove(constant);
     }
 }

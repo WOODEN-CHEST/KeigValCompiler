@@ -385,6 +385,33 @@ internal class ErrorRepository
         $"The decimal number \"{{0}}\" is too close to zero for {KGVL.KEYWORD_DECIMAL} and could only " +
         $"become zero. The smallest {KGVL.KEYWORD_DECIMAL} above zero is {TwoIntDecimal.Epsilon}");
 
+    internal virtual ErrorDefinition IntegerMissingDigits { get; } = new(10,
+        CompilerMessageCategory.Literal,
+        "The integer \"{0}\" has no digits after its base prefix \"{1}\"");
+
+    internal virtual ErrorDefinition IntegerInvalidBinaryDigit { get; } = new(11,
+        CompilerMessageCategory.Literal,
+        $"The binary integer \"{{0}}\" contains the digit '{{1}}'. A binary number, written with the " +
+        $"prefix \"{KGVL.PREFIX_BINARY}\", may only use the digits 0 and 1");
+
+    internal virtual ErrorDefinition IntegerMisplacedDigitSeparator { get; } = new(12,
+        CompilerMessageCategory.Literal,
+        $"The integer \"{{0}}\" has a digit separator '{KGVL.UNDERSCORE}' that is not followed by a digit. " +
+        "A separator may only stand before one of the number's digits, so never at its end or right " +
+        "before its suffix");
+
+    internal virtual ErrorDefinition IntegerInvalidSuffix { get; } = new(13,
+        CompilerMessageCategory.Literal,
+        $"The integer \"{{0}}\" ends in \"{{1}}\", which is not a suffix an integer can have. An integer " +
+        $"takes no suffix, '{KGVL.SUFFIX_UNSIGNED}' for unsigned, '{KGVL.SUFFIX_LONG}' for long, or both " +
+        $"in either order, and the suffix '{KGVL.SUFFIX_DECIMAL}' makes a number a {KGVL.KEYWORD_DECIMAL} " +
+        "instead");
+
+    internal virtual ErrorDefinition IntegerTooLarge { get; } = new(14,
+        CompilerMessageCategory.Literal,
+        $"The integer \"{{0}}\" is too large for every integer type. The largest integer is " +
+        $"{ulong.MaxValue}, the largest value a {KGVL.KEYWORD_ULONG} can hold");
+
 
     /* Source files. */
     internal virtual ErrorDefinition SourceFileInvalidContent { get; } = new(1,

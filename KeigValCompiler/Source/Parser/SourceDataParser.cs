@@ -447,42 +447,12 @@ public class SourceDataParser
         return (Character == KGVL.DECIMAL_SEPARATOR) && char.IsAsciiDigit(GetCharAtDataIndex(index + 1));
     }
 
-    internal IntegerNumber? ReadInteger(ErrorCreateOptions? error)
-    {
-        StringBuilder Number = new();
-
-        (char[] AllowedChars, NumberBase Base) = GetNumberBase();
-        char CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
-        while (AllowedChars.Contains(CharAtIndex) || (CharAtIndex == KGVL.UNDERSCORE))
-        {
-            if (CharAtIndex != KGVL.UNDERSCORE)
-            {
-                Number.Append(GetCharAtDataIndex());
-            }
-            IncrementDataIndex();
-            CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
-        }
-
-        (bool IsLong, bool IsUnsigned) = ReadNumberTypeSpecifier(Number.ToString(), Base, error);
-
-        if (Number.Length <= 0)
-        {
-            if (error.HasValue)
-            {
-                throw new SourceFileReadException(this, error);
-            }
-            return null;
-        }
-
-        return new(Number.ToString(), Base, IsLong, IsUnsigned);
-    }
-
-    /* Integers are read by ReadInteger. A decimal is only delimited here and then handed to
-     * TwoIntDecimal, which is the one place that decides what a valid decimal is and what it is worth.
-     * A malformed decimal is still consumed whole, and what is wrong with it comes back in
-     * malformedError rather than being thrown: the cursor is exactly where it should be, so the caller
-     * can queue the error and carry straight on. The error argument is thrown only when there is no
-     * number here at all. */
+    /* Reads the number at the cursor, integer or decimal. A decimal is only delimited here and then
+     * handed to TwoIntDecimal, which is the one place that decides what a valid decimal is and what it
+     * is worth. Either kind is consumed whole even when it is malformed, and what is wrong with it comes
+     * back in malformedError rather than being thrown: the cursor is exactly where it should be, so the
+     * caller can queue the error and carry straight on. The error argument is thrown only when there
+     * is no number here at all. */
     internal object? ReadNumber(ErrorCreateOptions? error, out ErrorCreateOptions? malformedError)
     {
         malformedError = null;
@@ -499,7 +469,7 @@ public class SourceDataParser
         int EndIndex = FindNumberEnd(DataIndex);
         if (!IsDecimalNumber(DataIndex, EndIndex))
         {
-            return ReadInteger(error);
+            return ReadInteger(out malformedError);
         }
         return ReadDecimal(EndIndex, out malformedError);
     }
@@ -672,6 +642,142 @@ public class SourceDataParser
         }
     }
 
+    /* An integer is an optional base prefix, digits of that base, and a suffix. Everything glued onto
+     * it is consumed before anything is judged, so that a malformed integer, like a malformed decimal,
+     * is reported once and whole. As in C#, a separator may stand before any digit, which includes
+     * straight after the prefix, as in "0x_FF", but not at the end. */
+    private IntegerNumber ReadInteger(out ErrorCreateOptions? malformedError)
+    {
+        malformedError = null;
+        int StartIndex = DataIndex;
+
+        (char[] AllowedChars, NumberBase Base) = GetNumberBase();
+        string Prefix = _data.Substring(StartIndex, DataIndex - StartIndex);
+
+        StringBuilder Digits = new();
+        bool IsLastCharSeparator = false;
+        char CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
+        while (AllowedChars.Contains(CharAtIndex) || (CharAtIndex == KGVL.UNDERSCORE))
+        {
+            IsLastCharSeparator = CharAtIndex == KGVL.UNDERSCORE;
+            if (!IsLastCharSeparator)
+            {
+                Digits.Append(GetCharAtDataIndex());
+            }
+            IncrementDataIndex();
+            CharAtIndex = char.ToLowerInvariant(GetCharAtDataIndex());
+        }
+
+        int SuffixStartIndex = DataIndex;
+        while (IsIdentifierChar(GetCharAtDataIndex()))
+        {
+            IncrementDataIndex();
+        }
+        string Suffix = _data.Substring(SuffixStartIndex, DataIndex - SuffixStartIndex);
+        string Token = _data.Substring(StartIndex, DataIndex - StartIndex);
+        string DigitText = Digits.ToString();
+        IntegerNumber Malformed = new(DigitText, 0UL, Base, false, false);
+
+        /* Only a binary number can stop at a digit, since the other bases take all ten. */
+        if ((Suffix.Length > 0) && char.IsAsciiDigit(Suffix[0]))
+        {
+            malformedError = _errorRepository.IntegerInvalidBinaryDigit.CreateOptions(Token, Suffix[0]);
+            return Malformed;
+        }
+        if (DigitText.Length == 0)
+        {
+            malformedError = _errorRepository.IntegerMissingDigits.CreateOptions(Token, Prefix);
+            return Malformed;
+        }
+        if (IsLastCharSeparator)
+        {
+            malformedError = _errorRepository.IntegerMisplacedDigitSeparator.CreateOptions(Token);
+            return Malformed;
+        }
+        if (!TryGetIntegerSuffix(Suffix, out bool HasLongSuffix, out bool HasUnsignedSuffix))
+        {
+            malformedError = _errorRepository.IntegerInvalidSuffix.CreateOptions(Token, Suffix);
+            return Malformed;
+        }
+        if (!TryGetIntegerValue(DigitText, Base, out ulong Value))
+        {
+            malformedError = _errorRepository.IntegerTooLarge.CreateOptions(Token);
+            return Malformed;
+        }
+
+        (bool IsLong, bool IsUnsigned) = GetIntegerType(Value, HasLongSuffix, HasUnsignedSuffix);
+        return new(DigitText, Value, Base, IsLong, IsUnsigned);
+    }
+
+    /* An integer's suffix is nothing, 'u', 'l', or both in either order, in either case. */
+    private bool TryGetIntegerSuffix(string suffix, out bool hasLongSuffix, out bool hasUnsignedSuffix)
+    {
+        hasLongSuffix = false;
+        hasUnsignedSuffix = false;
+
+        foreach (char Character in suffix)
+        {
+            char LowerChar = char.ToLowerInvariant(Character);
+            if ((LowerChar == KGVL.SUFFIX_LONG) && !hasLongSuffix)
+            {
+                hasLongSuffix = true;
+            }
+            else if ((LowerChar == KGVL.SUFFIX_UNSIGNED) && !hasUnsignedSuffix)
+            {
+                hasUnsignedSuffix = true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /* The digits are already known to be valid for the base, so this can only fail by the value being
+     * too large for a ulong, which is too large for every integer type. */
+    private bool TryGetIntegerValue(string digits, NumberBase numberBase, out ulong value)
+    {
+        NumberStyles Style = numberBase switch
+        {
+            NumberBase.Decimal => NumberStyles.None,
+            NumberBase.Hexadecimal => NumberStyles.AllowHexSpecifier,
+            NumberBase.Binary => NumberStyles.AllowBinarySpecifier,
+            _ => throw new ArgumentOutOfRangeException(nameof(numberBase),
+                $"Invalid number base {numberBase} ({(int)numberBase})")
+        };
+        return ulong.TryParse(digits, Style, CultureInfo.InvariantCulture, out value);
+    }
+
+    /* The type C# gives an integer literal: the first of int, uint, long and ulong that holds its value,
+     * narrowed to the unsigned ones by 'u' and to the long ones by 'l'. A hexadecimal or binary value
+     * is judged the same way, so 0xFFFFFFFF is a uint rather than an int of -1. */
+    private (bool IsLong, bool IsUnsigned) GetIntegerType(ulong value, bool hasLongSuffix,
+        bool hasUnsignedSuffix)
+    {
+        if (hasLongSuffix && hasUnsignedSuffix)
+        {
+            return (true, true);
+        }
+        if (hasUnsignedSuffix)
+        {
+            return (value > uint.MaxValue, true);
+        }
+        if (hasLongSuffix)
+        {
+            return (true, value > long.MaxValue);
+        }
+        if (value <= int.MaxValue)
+        {
+            return (false, false);
+        }
+        if (value <= uint.MaxValue)
+        {
+            return (false, true);
+        }
+        return (true, value > long.MaxValue);
+    }
+
     /* The suffix marks the number as a decimal but is not part of its value, so it is left out of the
      * text TwoIntDecimal sees. Source literals may also use digit separators, which a string parsed at
      * runtime may not, so they are opted into here rather than allowed everywhere. */
@@ -796,92 +902,6 @@ public class SourceDataParser
         else
         {
             return (_numberCharsBase10, NumberBase.Decimal);
-        }
-    }
-
-    private (bool IsLong, bool IsUnsigned) ReadNumberTypeSpecifier(string numberValue, 
-        NumberBase numberBase,
-        ErrorCreateOptions? error)
-    {
-        string Suffix = $"{GetCharAtDataIndex()}{GetCharAtDataIndex(DataIndex + 1)}";
-
-        bool HasLongSpecifier = false;
-        bool HasUnsignedSpecifier = false;
-
-        foreach (char Character in Suffix)
-        {
-            char LowerChar = char.ToLowerInvariant(Character);
-            if (LowerChar == KGVL.SUFFIX_LONG)
-            {
-                if (error.HasValue && HasLongSpecifier)
-                {
-                    throw new SourceFileReadException(this, error,
-                        $"Duplicate long specifier '{KGVL.SUFFIX_LONG}' for integer {numberValue} ");
-                }
-                HasLongSpecifier = true;
-                IncrementDataIndex();
-            }
-            else if (LowerChar == KGVL.SUFFIX_UNSIGNED)
-            {
-                if (error.HasValue && HasUnsignedSpecifier)
-                {
-                    throw new SourceFileReadException(this, error,
-                        $"Duplicate unsigned specifier '{KGVL.SUFFIX_UNSIGNED}' for integer {numberValue}");
-                }
-                HasUnsignedSpecifier = true;
-                IncrementDataIndex();
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        /* The loop above already stepped over each specifier it accepted. */
-        (bool IsValueLong, bool IsValueUnsigned) = GetNumberSpecifiersBasedOnValue(numberValue, numberBase);
-        return (HasLongSpecifier || IsValueLong, HasUnsignedSpecifier || IsValueUnsigned);
-    }
-
-    private (bool IsLong, bool IsUnsigned) GetNumberSpecifiersBasedOnValue(string numberValue, NumberBase numberBase)
-    {
-        int Base = BaseToInt(numberBase);
-        if (TryParseInt(() => Convert.ToInt32(numberValue, Base)))
-        {
-            return (false, false);
-        }
-        if (TryParseInt(() => Convert.ToUInt32(numberValue, Base)))
-        {
-            return (false, true);
-        }
-        if (TryParseInt(() => Convert.ToInt64(numberValue, Base)))
-        {
-            return (true, false);
-        }
-        return (true, true);
-    }
-
-    private int BaseToInt(NumberBase numberBase)
-    {
-        return numberBase switch
-        {
-            NumberBase.Decimal => 10,
-            NumberBase.Binary => 2,
-            NumberBase.Hexadecimal => 16,
-            _ => throw new ArgumentOutOfRangeException($"Invalid number base {numberBase} ({(int)numberBase})")
-        };
-    }
-
-    private bool TryParseInt(Action action)
-    {
-        try
-        {
-            action.Invoke();
-            return true;
-        }
-        catch (Exception e) when (e is ArgumentException or FormatException
-            or ArgumentOutOfRangeException or OverflowException)
-        {
-            return false;
         }
     }
 

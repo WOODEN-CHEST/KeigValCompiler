@@ -474,6 +474,7 @@ internal class MemberParser : AbstractParserBase
             Modifiers = modifiers,
             SourceFileOrigin = Origin,
         };
+        EnumHolder.AddEnum(Enum);
 
         ErrorCreateOptions BodyStartError = ErrorCreator.ExpectedEnumBodyStart.CreateOptions(Name.SourceCodeName);
 
@@ -494,20 +495,18 @@ internal class MemberParser : AbstractParserBase
 
     private void ParseEnumValues(PackEnumeration enumeration)
     {
-        const int ENUM_STARTING_VALUE = 0;
         string EnumName = enumeration.SelfIdentifier.SourceCodeName;
 
         ErrorCreateOptions ConstantOrEndError = ErrorCreator.ExpectedEnumConstantOrEnd.CreateOptions(EnumName);
         ErrorCreateOptions ExpectedConstantError = ErrorCreator.ExpectedEnumConstant.CreateOptions(EnumName);
 
         Parser.SkipUntilNonWhitespace(ConstantOrEndError);
-        int CurrentEnumValue = ENUM_STARTING_VALUE;
         bool IsValueExpected = Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET;
         while (IsValueExpected)
         {
             try
             {
-                CurrentEnumValue = ParseEnumValue(enumeration, EnumName, CurrentEnumValue);
+                ParseEnumValue(enumeration, EnumName);
             }
             catch (SourceFileReadException e)
             {
@@ -520,7 +519,6 @@ internal class MemberParser : AbstractParserBase
                  * closing bracket, so whether another constant follows is decided by what is there now. */
                 Parser.SkipUntilNonWhitespace(null);
                 IsValueExpected = Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex());
-                CurrentEnumValue++;
                 continue;
             }
 
@@ -531,11 +529,13 @@ internal class MemberParser : AbstractParserBase
                 Parser.IncrementDataIndex();
                 Parser.SkipUntilNonWhitespace(ExpectedConstantError);
             }
-            CurrentEnumValue++;
         }
     }
 
-    private int ParseEnumValue(PackEnumeration enumeration, string enumName, int currentEnumValue)
+    /* A value is kept as the expression written for it rather than as a number: it may be any constant
+     * expression, such as -1 or 1 << 4 or another constant's name, and the names in it can only be
+     * looked up once the whole pack is known. */
+    private void ParseEnumValue(PackEnumeration enumeration, string enumName)
     {
         if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()) && (enumeration.ConstantCount > 0))
         {
@@ -544,48 +544,30 @@ internal class MemberParser : AbstractParserBase
         }
 
         ErrorCreateOptions ExpectedConstantError = ErrorCreator.ExpectedEnumConstant.CreateOptions(enumName);
+        SourceFileOrigin Origin = new(Parser.Line);
         string ConstantName = Parser.ReadIdentifier(ExpectedConstantError);
         ErrorCreateOptions AssignmentOrNextOrEndError = ErrorCreator.ExpectedEnumAssignmentOrNextOrEnd
             .CreateOptions(ConstantName, enumName);
 
         Parser.SkipUntilNonWhitespace(AssignmentOrNextOrEndError);
 
-        int ConstantValue = currentEnumValue;
+        Statement? ValueExpression = null;
         if (Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
         {
             ErrorCreateOptions ExpectedValueError = ErrorCreator.ExpectedEnumConstantValue.CreateOptions(ConstantName);
             Parser.IncrementDataIndex();
             Parser.SkipUntilNonWhitespace(ExpectedValueError);
-            IntegerNumber Number = Parser.ReadInteger(ExpectedValueError)!;
-            ConstantValue = CastNumberToEnumConstantValue(enumeration, ConstantName, Number);
-        }
-        enumeration.SetConstant(ConstantName, ConstantValue);
 
-        return ConstantValue;
-    }
-
-    private int CastNumberToEnumConstantValue(PackEnumeration enumeration, string constantName, IntegerNumber number)
-    {
-        /* The number is right here and the constant it belongs to is known, so there is nothing to
-         * recover from. A value still has to come back, and parsing the out of range one would throw. */
-        const int ENUM_ERROR_VALUE = 0;
-
-        if (number.IsLong || number.IsUnsigned)
-        {
-            AddError(ErrorCreator.EnumConstantOutOfRange
-                .CreateOptions(constantName, enumeration.SelfIdentifier.SourceCodeName, number.Number));
-            return ENUM_ERROR_VALUE;
+            /* A '=' with nothing after it gets the enum's own message, rather than the expression
+             * parser's general one about a missing value. */
+            char Character = Parser.GetCharAtDataIndex();
+            if ((Character == KGVL.COMMA) || (Character == KGVL.CLOSE_CURLY_BRACKET))
+            {
+                throw new SourceFileReadException(Parser, ExpectedValueError);
+            }
+            ValueExpression = _statementParser.ParseExpressionValue();
         }
-
-        if (number.Base == NumberBase.Binary)
-        {
-            return Convert.ToInt32(number.Number, 2);
-        }
-        else if (number.Base == NumberBase.Hexadecimal)
-        {
-            return Convert.ToInt32(number.Number, 16);
-        }
-        return int.Parse(number.Number);
+        enumeration.AddConstant(new(ConstantName, ValueExpression, Origin));
     }
 
     private SourceFileReadException CreateInvalidHolderException(object holder,
