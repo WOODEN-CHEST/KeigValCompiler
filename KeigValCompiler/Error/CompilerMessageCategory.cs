@@ -29,6 +29,7 @@ internal class CompilerMessageCategory
     public static CompilerMessageCategory SourceFile { get; } = new("Source File", "SF");
     public static CompilerMessageCategory Commandline { get; } = new("Command Line", "CL");
     public static CompilerMessageCategory StandardLibrary { get; } = new("Standard Library", "SL");
+    public static CompilerMessageCategory Resolution { get; } = new("Resolution", "RS");
 
 
 

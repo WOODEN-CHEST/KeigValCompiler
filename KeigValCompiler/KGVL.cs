@@ -215,6 +215,8 @@ internal static class KGVL
     public const char IDENTIFIER_SEPARATOR_FUNCTION = '!';
     public const char IDENTIFIER_ACCESSOR = '&';
     public const char IDENTIFIER_OPERATOR = '%';
+    public const char IDENTIFIER_GENERIC_ARITY = '`';
+    public const char IDENTIFIER_GENERIC_PARAMETER = '#';
 
     public const string NAME_CLASS = "class";
     public const string NAME_STRUCT = "structure";

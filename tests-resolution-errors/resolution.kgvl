@@ -1,0 +1,45 @@
+/* Resolution error test source file. Every error in here is deliberate, it parses cleanly so that
+ * resolution runs at all, and the point is that resolution reports each mistake once, where it is,
+ * without errors which only follow from others. Run it with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-resolution-errors
+ *
+ * Expected output, 9 errors:
+ *
+ *   line 27 RS error 2      no type named Missing
+ *   line 28 RS error 3      Widget imported from both First and Second
+ *   line 29 RS error 4      two type arguments for IEquatable, which takes one
+ *   line 30 RS error 4      a type argument for int, which takes none
+ *   line 31 RS error 2      no type named Missing, inside List<...>
+ *   line 31 RS error 2      no type named List, reported as well
+ *   line 32 RS error 5      an explicit implementation naming a class
+ *   line 36 RS error 1      Game.Duplicate, declared first in duplicate.kgvl
+ *   line 45 RS error 1      KGVL.Int32, which the standard library declares already
+ */
+
+using KGVL;
+using First;
+using Second;
+namespace Game;
+
+public class Broken
+{
+    public Missing Unknown;
+    public Widget Ambiguous;
+    public IEquatable<int, int> TooManyArguments;
+    public int<string> KeywordWithArguments;
+    public List<Missing> MissingInside;
+    int Helper.Value => 0;
+}
+
+public class Helper { }
+public class Duplicate { }
+
+namespace First;
+public class Widget { }
+
+namespace Second;
+public class Widget { }
+
+namespace KGVL;
+public struct Int32 { }

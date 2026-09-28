@@ -1,0 +1,9 @@
+/* Found by tests-resolution/things.kgvl, whose namespace, Game.Things, is inside this one. */
+
+using KGVL;
+namespace Game;
+
+public struct Helper
+{
+    public decimal Amount;
+}

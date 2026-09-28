@@ -31,6 +31,10 @@ internal class CompilerArguments
             + "the copy placed beside the compiler when it was built is used. Only needed when working on "
             + "the library itself.");
 
+    internal CommandlineFlag ParseOnly { get; } = new("parse-only", null,
+        "Stops after reading the source files, reporting only mistakes in how they are written, not what "
+            + "they refer to. Code naming types it never declares, as tests/test.kgvl does, passes this way.");
+
 
     // Constructors.
     internal CompilerArguments()
@@ -39,5 +43,6 @@ internal class CompilerArguments
         Repository.Register(Help);
         Repository.Register(Output);
         Repository.Register(Library);
+        Repository.Register(ParseOnly);
     }
 }

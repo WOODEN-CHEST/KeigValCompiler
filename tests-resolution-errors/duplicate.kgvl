@@ -1,0 +1,4 @@
+/* Declares a type tests-resolution-errors/resolution.kgvl declares as well. */
+
+namespace Game;
+public class Duplicate { }

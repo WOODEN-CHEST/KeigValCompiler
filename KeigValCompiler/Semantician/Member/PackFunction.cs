@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician.Member.Code;
+﻿using KeigValCompiler.Semantician.Library;
+using KeigValCompiler.Semantician.Member.Code;
 
 namespace KeigValCompiler.Semantician.Member;
 
@@ -13,6 +14,10 @@ internal class PackFunction : PackMember, IGenericParameterHolder, IExplicitInte
     internal TypeTargetIdentifier? ReturnType { get; set; } = null;
     internal FunctionParameterCollection Parameters { get; private init; } = new();
     internal StatementCollection? Statements { get; set; } = null;
+
+    /* What the compiler implements a builtin function as, once the library is bound; null for any
+     * other function. A builtin property's or indexer's accessors carry theirs. */
+    internal IntrinsicOperation? Intrinsic { get; set; } = null;
 
 
     // Constructors.

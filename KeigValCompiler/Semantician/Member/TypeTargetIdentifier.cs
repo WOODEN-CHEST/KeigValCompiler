@@ -80,4 +80,40 @@ internal class TypeTargetIdentifier
 
         _nullabilityByLevel = Levels;
     }
+
+    /* The type written with each name as the given function gives it, and its type arguments, array
+     * levels and nullable markers in the order source code has them. */
+    internal string Format(Func<Identifier, string> nameOf)
+    {
+        ArgumentNullException.ThrowIfNull(nameOf, nameof(nameOf));
+
+        StringBuilder Builder = new(nameOf(MainTarget));
+        if (TypeArguments.Length > 0)
+        {
+            Builder.Append(KGVL.GENERIC_TYPE_START)
+                .Append(string.Join(", ", TypeArguments.Select(argument => argument.Format(nameOf))))
+                .Append(KGVL.GENERIC_TYPE_END);
+        }
+
+        for (int Level = 0; Level < _nullabilityByLevel.Length; Level++)
+        {
+            if (Level > 0)
+            {
+                Builder.Append(KGVL.OPEN_SQUARE_BRACKET).Append(KGVL.CLOSE_SQUARE_BRACKET);
+            }
+            if (_nullabilityByLevel[Level])
+            {
+                Builder.Append(KGVL.TYPE_NULLABLE_INDICATOR);
+            }
+        }
+        return Builder.ToString();
+    }
+
+
+    // Inherited methods.
+    /* The type as source code writes it, as in "List<int?>[]". */
+    public override string ToString()
+    {
+        return Format(identifier => identifier.SourceCodeName);
+    }
 }

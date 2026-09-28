@@ -1,6 +1,8 @@
 ﻿using KeigValCompiler.Error;
 using KeigValCompiler.Main.Commandline;
 using KeigValCompiler.Semantician;
+using KeigValCompiler.Semantician.Library;
+using KeigValCompiler.Semantician.Resolver;
 using KeigValCompiler.Source;
 using KeigValCompiler.Source.Parser;
 using System.Diagnostics;
@@ -65,7 +67,9 @@ public static class Compiler
                 return EXIT_CODE_FAILURE;
             }
 
-            Console.WriteLine($"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
+            Console.WriteLine(Options.IsParseOnly
+                ? $"Successfully parsed the pack in {CompilationTimeMeasurer.Elapsed}"
+                : $"Successfully compiled the datapack in {CompilationTimeMeasurer.Elapsed}");
             return EXIT_CODE_SUCCESS;
         }
         catch (Exception e) when (e is PackContentException or SourceFileReadException)
@@ -85,7 +89,9 @@ public static class Compiler
     // Private static methods.
     /* Every stage reports everything it found before the next one is allowed to start. Running a
      * stage on what a failed one left behind only buries its errors under invented ones. */
-    private static bool CompilePack(CompilerOptions options, CompilerArguments arguments, ErrorRepository errorCreator)
+    private static bool CompilePack(CompilerOptions options,
+        CompilerArguments arguments,
+        ErrorRepository errorCreator)
     {
         CompilerMessageCollection Messages = new();
         ParserUtilities ParserUtilities = new();
@@ -98,13 +104,50 @@ public static class Compiler
 
         MessagePrinter.PrintMessages(Messages);
         MessagePrinter.PrintSummary(Messages);
-        if (Messages.HasErrors)
+        if (Messages.HasErrors || options.IsParseOnly)
+        {
+            return !Messages.HasErrors;
+        }
+
+        CompilerMessageCollection ResolutionMessages = ResolvePack(Pack, options, arguments, errorCreator);
+        MessagePrinter.PrintMessages(ResolutionMessages);
+        MessagePrinter.PrintSummary(ResolutionMessages);
+        if (ResolutionMessages.HasErrors)
         {
             return false;
         }
 
-        /* Resolving and emitting go here, each one reporting before the next is allowed to run. */
+        /* Emitting goes here, reporting before anything is written. */
         return true;
+    }
+
+    /* Its messages are a collection of their own, so that the parser's warnings are not printed again
+     * with them. As with parsing, a broken library says so once, on top of its own errors. */
+    private static CompilerMessageCollection ResolvePack(DataPack pack,
+        CompilerOptions options,
+        CompilerArguments arguments,
+        ErrorRepository errorCreator)
+    {
+        CompilerMessageCollection Messages = new();
+        PackResolutionContext Context = new()
+        {
+            Pack = pack,
+            Registry = new(),
+            TypeSearcher = new(pack),
+            BindingTable = DefaultLibraryBindings.CreateTable(),
+            IdentifierGenerator = new(),
+            ErrorCreator = errorCreator,
+            Messages = Messages
+        };
+
+        new FullPackResolver().ResolvePack(Context);
+
+        if (Context.HasLibraryErrors())
+        {
+            Messages.AddError(errorCreator.LibraryHasErrors.CreateOptions(options.LibraryDirectory,
+                arguments.Library.DisplayName), new CompilerMessageLocation(options.LibraryDirectory), null);
+        }
+        return Messages;
     }
 
     /* The standard library is read into the same pack as the user's code, and before it, since what

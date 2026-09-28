@@ -1,4 +1,8 @@
-/* Parser test source file. If the parser works, everything here should be parsed without errors. */
+/* Parser test source file. If the parser works, everything here should be parsed without errors.
+ * It names many types it never declares, so it is run with parsing alone:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests --parse-only
+ */
 /*** COMMENT TESTS***/
 
 /* Multi=line comment tests

@@ -45,8 +45,10 @@ internal class PackParser
             throw new DirectoryNotFoundException(directoryPath);
         }
 
+        /* Sorted, since the order a directory lists its files in is up to the file system, and which of
+         * two declarations counts as the first must not change from one machine to the next. */
         foreach (string SourceFilePath in Directory.GetFiles(
-            directoryPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
+            directoryPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
             /* One unreadable file must not hide what is wrong with all the others, so whatever it
              * failed with is queued and the next file is read anyway. */

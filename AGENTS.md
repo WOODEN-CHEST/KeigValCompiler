@@ -20,13 +20,15 @@ and are made by the repository owner, not by agents.
 
 ## Project status: early and incomplete
 
-Be honest with yourself about how little exists. As of 2026-09-19:
+Be honest with yourself about how little exists. As of 2026-09-29:
 
 - The **parser is complete** for the language's syntax, including function
-  bodies, expressions and operator precedence. It checks nothing about what it
-  reads: no types are resolved, no names are looked up, nothing is validated.
-- The **semantic/resolver layer** is excluded from the build and does not
-  compile.
+  bodies, expressions and operator precedence, apart from the gaps listed in
+  [`agents/parser-gaps.md`](agents/parser-gaps.md). It checks nothing about what
+  it reads.
+- The **resolver** resolves the types named in declarations and binds the
+  standard library, but does not look inside function bodies at all: nothing in
+  a body is looked up or type checked.
 - The **datapack backend does not exist**. Not one line. The project does not
   currently emit any output at all.
 
@@ -51,13 +53,17 @@ project, not an accident.
 
 `tests/test.kgvl` is the parser fixture: a KGVL file which, once the parser is
 complete, must parse with zero errors. It does so today, and must keep doing so —
-treat a new parse error there as a regression.
+treat a new parse error there as a regression. It names types it never declares,
+so run it with `--parse-only`.
 
 `tests-errors/recovery.kgvl` is the opposite fixture: every error in it is
 deliberate, and it exists to check that the compiler reports all of them in one
 run rather than stopping at the first. Its header comment lists what it should
 produce. It sits outside `tests/` because a source directory is read
-recursively. Neither fixture is automated — you run them and read the output.
+recursively. `tests-resolution/` and `tests-resolution-errors/` are the same
+pair for the resolver: the first must compile with zero errors, and the second
+must report what its header lists. None of the fixtures are automated — you run
+them and read the output.
 
 The `KeigValCompilerTest` project exists but is **not wired up** — it has no
 `ProjectReference` to the compiler and its `Main` prints `Hello, World!`. There

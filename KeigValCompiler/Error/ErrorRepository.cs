@@ -793,6 +793,65 @@ internal class ErrorRepository
         "compiler rather than of the code being compiled, so those errors are not in your code: the " +
         "library needs fixing, or \"{1}\" needs to point at a copy of it which works");
 
+    internal virtual ErrorDefinition LibraryTypeMissing { get; } = new(3,
+        CompilerMessageCategory.StandardLibrary,
+        "The standard library declares no \"{0}\", which the compiler relies on");
+
+    internal virtual ErrorDefinition BuiltInMemberNotImplemented { get; } = new(4,
+        CompilerMessageCategory.StandardLibrary,
+        "\"{0}\" is builtin, but the compiler implements nothing with that signature. A builtin member has " +
+        "to match one of the signatures the compiler implements exactly");
+
+    internal virtual ErrorDefinition BuiltInImplementationNotDeclared { get; } = new(5,
+        CompilerMessageCategory.StandardLibrary,
+        "The compiler implements \"{0}\", but the standard library declares no builtin member with that " +
+        "signature");
+
+    internal virtual ErrorDefinition BuiltInMemberWithBody { get; } = new(6,
+        CompilerMessageCategory.StandardLibrary,
+        $"\"{{0}}\" is builtin, so the compiler supplies its body, and it has to be declared with " +
+        $"'{KGVL.SEMICOLON}' in place of one");
+
+    internal virtual ErrorDefinition BuiltInTypeWithInstanceField { get; } = new(7,
+        CompilerMessageCategory.StandardLibrary,
+        "The builtin type \"{0}\" declares the instance field \"{1}\", but the compiler decides how a " +
+        "builtin type's values are stored, so it can have none");
+
+    internal virtual ErrorDefinition BuiltInMemberOfUnknownType { get; } = new(8,
+        CompilerMessageCategory.StandardLibrary,
+        "\"{0}\" is builtin, but the type declaring it is not one the compiler knows by name, so nothing " +
+        "can implement it");
+
+    internal virtual ErrorDefinition BuiltInMemberUsesUnknownType { get; } = new(9,
+        CompilerMessageCategory.StandardLibrary,
+        "\"{0}\" is builtin, but its signature uses \"{1}\", which is not a type the compiler knows by name");
+
+
+    /* Resolution. */
+    internal virtual ErrorDefinition DuplicateType { get; } = new(1,
+        CompilerMessageCategory.Resolution,
+        "The type \"{0}\" is declared more than once. A namespace or a type can hold only one type of " +
+        "each name and number of generic parameters");
+
+    internal virtual ErrorDefinition TypeNotFound { get; } = new(2,
+        CompilerMessageCategory.Resolution,
+        $"No type named \"{{0}}\" was found. A type is looked for among the generic parameters and nested " +
+        $"types around where it is used, in the namespace being declared and each one containing it, and " +
+        $"in the namespaces imported with \"{KGVL.KEYWORD_USING}\"");
+
+    internal virtual ErrorDefinition AmbiguousType { get; } = new(3,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is declared in more than one of the namespaces this file imports, as {1}, so which one is " +
+        "meant is not clear");
+
+    internal virtual ErrorDefinition WrongTypeArgumentCount { get; } = new(4,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is written with {1} type arguments, but the type it names takes {2}");
+
+    internal virtual ErrorDefinition ExplicitInterfaceNotInterface { get; } = new(5,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is written as implementing a member of \"{1}\", but that is not an interface");
+
 
     /* Warnings. */
     internal virtual WarningDefinition DuplicateUsingDirective { get; } = new(1,

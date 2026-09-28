@@ -14,6 +14,7 @@ internal class CompilerOptions
     internal string SourceDirectory { get; private init; }
     internal string DestinationDirectory { get; private init; }
     internal string LibraryDirectory { get; private init; }
+    internal bool IsParseOnly { get; private init; }
 
 
     // Constructors.
@@ -28,5 +29,6 @@ internal class CompilerOptions
         DestinationDirectory = parseResult.GetValueOrDefault(arguments.Output, SourceDirectory);
         LibraryDirectory = parseResult.GetValueOrDefault(arguments.Library,
             Path.Combine(AppContext.BaseDirectory, DEFAULT_LIBRARY_DIRECTORY_NAME));
+        IsParseOnly = parseResult.IsPresent(arguments.ParseOnly);
     }
 }
