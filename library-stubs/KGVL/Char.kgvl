@@ -7,8 +7,8 @@ namespace KGVL;
 public builtin readonly struct Char : IEquatable<char>, IComparable<char>, IParsable<char>
 {
     // Constants.
-    public const char MinValue = '\x0';
-    public const char MaxValue = '\xFFFF';
+    public const char MinValue = '\0';
+    public const char MaxValue = '￿';
 
 
     // Methods.
@@ -16,10 +16,7 @@ public builtin readonly struct Char : IEquatable<char>, IComparable<char>, IPars
      * FormatException for text of any other length. */
     public static char Parse(string text)
     {
-        if (text == null)
-        {
-            throw new ArgumentNullException(nameof(text));
-        }
+        ArgumentNullException.ThrowIfNull(text, nameof(text));
         if (text.Length != 1)
         {
             throw new FormatException("The text must be exactly one character long.");
@@ -46,6 +43,19 @@ public builtin readonly struct Char : IEquatable<char>, IComparable<char>, IPars
     public static bool IsAsciiLetterLower(char value) => (value >= 'a') && (value <= 'z');
 
     public static bool IsAsciiLetter(char value) => IsAsciiLetterUpper(value) || IsAsciiLetterLower(value);
+
+    /* Whitespace as C# defines it: the space, the controls from tab to carriage return, next line, and
+     * every Unicode space and separator, the non-breaking ones included. */
+    public static bool IsWhiteSpace(char value)
+    {
+        if (value <= '\xFF')
+        {
+            return (value == ' ') || ((value >= '\t') && (value <= '\r')) || (value == '\x85')
+                || (value == '\xA0');
+        }
+        return (value == ' ') || ((value >= ' ') && (value <= ' ')) || (value == ' ')
+            || (value == ' ') || (value == ' ') || (value == ' ') || (value == '　');
+    }
 
     public int CompareTo(char other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
 

@@ -99,6 +99,24 @@ A constructor is recognised as a member with no return type whose name matches
 the type holding it, so it needs no keyword of its own. `PackConstructor`
 derives from `PackFunction` and carries the `this`/`base` chain.
 
+**Explicit interface implementation** is C#'s: a member names the interface whose
+member it implements before its own name, and is then reached only through that
+interface. It is what lets `Int32` have both `const int MaxValue` and the static
+`MaxValue` property that `IMinMaxValue<int>` asks for.
+
+```
+static int IMinMaxValue<int>.MaxValue => MaxValue;
+IEnumerator<int> IEnumerable<int>.GetEnumerator() { ... }
+int IList<int>.this[int index] { get => ...; }
+static T IAdd<T>.operator +(T left, T right) => ...;
+static explicit IConvert<T>.operator int(T value) => ...;
+```
+
+Functions, operators, properties and indexers can do this; the parser reports a
+field which tries. The parser stores the interface on the member
+(`IExplicitInterfaceMember.ExplicitInterface`) and checks nothing else: C#'s
+rules, such as no access modifier on such a member, are the resolver's.
+
 ## Generic calls and the `<` ambiguity
 
 `Foo<int>(x)` and `a < b > (c)` are the same run of characters, so `<` alone
@@ -130,6 +148,25 @@ belongs to **one instantiation**: `Cache<int>.Value` and `Cache<string>.Value`
 are different storage. The backend has to monomorphise generics anyway, since
 the target has no runtime type system, so this costs it nothing extra.
 
+## Casts and the `(` ambiguity
+
+`(x)-y` could be a cast of `-y` or a subtraction, and KGVL decides as C# does.
+What stands in the brackets can only be a type if it is a type keyword such as
+`int`, or ends in the `>` of type arguments, the `]` of an array or the `?` of a
+nullable marker; then it is a cast whatever value follows. A bare name could as
+well be a value, so it is a cast only if what follows cannot continue an
+expression: a name, a literal, `(`, `!` or `~`, but not the words `is`, `as` and
+`switch`, and not `!=`.
+
+```
+(int)-x            cast -- int is only ever a type
+(int?)-x           cast -- so is anything ending in '?', ']' or '>'
+(x)-y              subtraction -- x could be a value
+(x)(-y)            cast, which is how to force it for a bare name
+(x)y               cast -- a name cannot continue an expression
+(x) is T           a test of x, not a cast of a value named "is"
+```
+
 ## Numeric literals
 
 Number literals follow C#. A decimal is `1.5`, `.5`, `1.5e-3` or `5m`; an integer
@@ -148,6 +185,11 @@ parsed, since its range does not depend on where it is used: one above
 integer too large even for `ulong`. Whether an integer fits the type it is
 assigned to, as in `byte b = 300`, depends on that type, so that check belongs to
 the validation stage and does not exist yet.
+
+**Escape sequences** in char and string literals are C#'s: `\0 \a \b \f \n \r \t
+\v \' \" \\`, `\x` with one to four hexadecimal digits, and `\u` with exactly
+four. As in C#, `\x` takes as many hex digits as follow, up to four, so
+`"\x41BC"` is one char. C#'s `\e` and `\U` are not supported.
 
 ## Built-in types and the standard library
 

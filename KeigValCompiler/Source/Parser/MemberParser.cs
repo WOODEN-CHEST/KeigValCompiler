@@ -642,9 +642,10 @@ internal class MemberParser : AbstractParserBase
         }
 
         TypeTargetIdentifier? ReturnType = ParseReturnType(NAME_RETURN_TYPE_MEMBER);
+        TypeTargetIdentifier? ExplicitInterface = TryReadExplicitInterface();
 
-        if (TryParseOperatorOverload(memberHolder, memberHolderTypeName, ReturnType, modifiers)
-            || TryParseIndexer(memberHolder, memberHolderTypeName, ReturnType, modifiers))
+        if (TryParseOperatorOverload(memberHolder, memberHolderTypeName, ReturnType, ExplicitInterface, modifiers)
+            || TryParseIndexer(memberHolder, memberHolderTypeName, ReturnType, ExplicitInterface, modifiers))
         {
             return;
         }
@@ -659,15 +660,22 @@ internal class MemberParser : AbstractParserBase
         if ((ReturnType == null) || (NextChar == KGVL.GENERIC_TYPE_START)
             || (NextChar == KGVL.OPEN_PARENTHESIS))
         {
-            ParseFunction(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier);
+            ParseFunction(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier,
+                ExplicitInterface);
         }
         else if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY)
             || (NextChar == KGVL.OPEN_CURLY_BRACKET))
         {
-            ParseProperty(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier);
+            ParseProperty(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier,
+                ExplicitInterface);
         }
         else if ((NextChar == KGVL.ASSIGNMENT_OPERATOR) || (NextChar == KGVL.SEMICOLON))
         {
+            /* The field is still read, so that only this is reported about it. */
+            if (ExplicitInterface != null)
+            {
+                AddError(ErrorCreator.ExplicitInterfaceField.CreateOptions(MemberIdentifier.SourceCodeName));
+            }
             ParseField(memberHolder, memberHolderTypeName, modifiers, ReturnType, MemberIdentifier);
         }
         else
@@ -694,6 +702,9 @@ internal class MemberParser : AbstractParserBase
         OverloadableOperator ConversionKind = Keyword == KGVL.KEYWORD_IMPLICIT
             ? OverloadableOperator.ImplicitCast : OverloadableOperator.ExplicitCast;
 
+        /* An explicit implementation names its interface between the two keywords, as in
+         * "explicit IFoo<T>.operator int(...)". */
+        TypeTargetIdentifier? ExplicitInterface = TryReadExplicitInterface();
         Parser.SkipUntilNonWhitespace(null);
         if (ReadKeywordOrEmpty() != KGVL.KEYWORD_OPERATOR)
         {
@@ -705,9 +716,35 @@ internal class MemberParser : AbstractParserBase
             ErrorCreator.ExpectedConversionTargetType.CreateOptions());
 
         AddOperatorOverload(memberHolder, memberHolderTypeName, ConversionKind,
-            BuildOperatorFunction(memberHolderTypeName, modifiers, TargetType,
+            BuildOperatorFunction(memberHolderTypeName, modifiers, TargetType, ExplicitInterface,
                 new Identifier(KGVL.NAME_OPERATOR_OVERLOAD)));
         return true;
+    }
+
+    /* "IFoo<int>." before a member's name, which makes the member implement that interface's member
+     * explicitly. It is read speculatively: with no '.' after it, what was read is the member's own
+     * name, or a keyword such as "operator", and the cursor is put back. */
+    private TypeTargetIdentifier? TryReadExplicitInterface()
+    {
+        int StartIndex = Parser.DataIndex;
+        Parser.SkipUntilNonWhitespace(null);
+
+        if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
+        {
+            Parser.DataIndex = StartIndex;
+            return null;
+        }
+
+        TypeTargetIdentifier InterfaceType = Parser.ReadTypeTargetIdentifier(null);
+        Parser.SkipUntilNonWhitespace(null);
+
+        if (Parser.GetCharAtDataIndex() != KGVL.MEMBER_ACCESS)
+        {
+            Parser.DataIndex = StartIndex;
+            return null;
+        }
+        Parser.IncrementDataIndex();
+        return InterfaceType;
     }
 
     /* A constructor is a name with no return type which matches the type holding it. */
@@ -803,10 +840,12 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
     }
 
-    /* "SomeType operator +(...)", where the return type has already been read. */
+    /* "SomeType operator +(...)", where the return type, and the interface of an explicit
+     * implementation if there is one, have already been read. */
     private bool TryParseOperatorOverload(object memberHolder,
         string memberHolderTypeName,
         TypeTargetIdentifier? returnType,
+        TypeTargetIdentifier? explicitInterface,
         PackMemberModifiers modifiers)
     {
         int StartIndex = Parser.DataIndex;
@@ -831,7 +870,7 @@ internal class MemberParser : AbstractParserBase
         }
 
         PackFunction Function = BuildOperatorFunction(memberHolderTypeName, modifiers, returnType,
-            new Identifier(KGVL.NAME_OPERATOR_OVERLOAD));
+            explicitInterface, new Identifier(KGVL.NAME_OPERATOR_OVERLOAD));
         if (Overloaded != null)
         {
             AddOperatorOverload(memberHolder, memberHolderTypeName, GetOperatorByArity(Overloaded.Value, Function),
@@ -875,12 +914,14 @@ internal class MemberParser : AbstractParserBase
     private PackFunction BuildOperatorFunction(string memberHolderTypeName,
         PackMemberModifiers modifiers,
         TypeTargetIdentifier? returnType,
+        TypeTargetIdentifier? explicitInterface,
         Identifier identifier)
     {
         PackFunction Function = new(identifier, SourceFile)
         {
             Modifiers = modifiers,
             ReturnType = returnType,
+            ExplicitInterface = explicitInterface,
             SourceFileOrigin = new(Parser.Line)
         };
 
@@ -935,10 +976,11 @@ internal class MemberParser : AbstractParserBase
         return null;
     }
 
-    /* "SomeType this[...] { get; set; }". */
+    /* "SomeType this[...] { get; set; }", or "SomeType IFoo.this[...]" implementing an interface's. */
     private bool TryParseIndexer(object memberHolder,
         string memberHolderTypeName,
         TypeTargetIdentifier? returnType,
+        TypeTargetIdentifier? explicitInterface,
         PackMemberModifiers modifiers)
     {
         int StartIndex = Parser.DataIndex;
@@ -969,6 +1011,7 @@ internal class MemberParser : AbstractParserBase
         PackIndexer Indexer = new(new Identifier(KGVL.NAME_INDEXER), returnType, SourceFile)
         {
             Modifiers = modifiers,
+            ExplicitInterface = explicitInterface,
             SourceFileOrigin = new(Parser.Line)
         };
 
@@ -990,7 +1033,8 @@ internal class MemberParser : AbstractParserBase
         string memberHolderTypeName,
         PackMemberModifiers modifiers,
         TypeTargetIdentifier? returnType,
-        Identifier identifier)
+        Identifier identifier,
+        TypeTargetIdentifier? explicitInterface)
     {
         if (memberHolder is not IPackFunctionHolder FunctionHolder)
         {
@@ -1001,6 +1045,7 @@ internal class MemberParser : AbstractParserBase
         {
             Modifiers = modifiers,
             ReturnType = returnType,
+            ExplicitInterface = explicitInterface,
             SourceFileOrigin = new(Parser.Line)
         };
 
@@ -1110,7 +1155,8 @@ internal class MemberParser : AbstractParserBase
         string memberHolderTypeName,
         PackMemberModifiers modifiers,
         TypeTargetIdentifier returnType,
-        Identifier identifier)
+        Identifier identifier,
+        TypeTargetIdentifier? explicitInterface)
     {
         if (memberHolder is not IPackFunctionHolder FunctionHolder)
         {
@@ -1120,6 +1166,7 @@ internal class MemberParser : AbstractParserBase
         PackProperty Property = new(identifier, returnType, SourceFile)
         {
             Modifiers = modifiers,
+            ExplicitInterface = explicitInterface,
             SourceFileOrigin = new(Parser.Line)
         };
 

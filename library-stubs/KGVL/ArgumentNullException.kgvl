@@ -15,4 +15,22 @@ public class ArgumentNullException : ArgumentException
 
     public ArgumentNullException(string? paramName, string? message)
         : base(message ?? DefaultMessage, paramName) { }
+
+
+    // Methods.
+    /* Throws an ArgumentNullException if argument is null. C# fills in the parameter's name by itself,
+     * which KGVL cannot, so the overload taking it is the one to use, as in
+     * ThrowIfNull(text, nameof(text)). */
+    public static void ThrowIfNull(object? argument)
+    {
+        ThrowIfNull(argument, null);
+    }
+
+    public static void ThrowIfNull(object? argument, string? paramName)
+    {
+        if (argument == null)
+        {
+            throw new ArgumentNullException(paramName);
+        }
+    }
 }

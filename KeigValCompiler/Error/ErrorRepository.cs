@@ -337,14 +337,15 @@ internal class ErrorRepository
     internal virtual ErrorDefinition InvalidHexEscapeSequence { get; } = new(1,
         CompilerMessageCategory.Literal,
         $"The escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\" is not a valid hexadecimal character code. " +
-        $"A hexadecimal escape sequence is the prefix '{KGVL.PREFIX_HEX_CHAR}' followed by hexadecimal " +
-        "digits (0-9 and a-f) whose value fits into a single character");
+        $"A hexadecimal escape sequence is the prefix '{KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR}' followed by " +
+        "one to four hexadecimal digits (0-9 and a-f)");
 
     internal virtual ErrorDefinition UnknownEscapeSequence { get; } = new(2,
         CompilerMessageCategory.Literal,
         $"Unknown escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\". An escape sequence is the character " +
-        $"'{KGVL.ESCAPE_CHAR}' followed by one of a, b, f, n, t, v, ', \" or {KGVL.ESCAPE_CHAR}, or by " +
-        $"the prefix '{KGVL.PREFIX_HEX_CHAR}' and a hexadecimal character code");
+        $"'{KGVL.ESCAPE_CHAR}' followed by one of 0, a, b, f, n, r, t, v, ', \" or {KGVL.ESCAPE_CHAR}, by " +
+        $"the prefix '{KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR}' and one to four hexadecimal digits, or by the " +
+        $"prefix '{KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR}' and exactly four");
 
     internal virtual ErrorDefinition DecimalMissingDigits { get; } = new(3,
         CompilerMessageCategory.Literal,
@@ -413,6 +414,12 @@ internal class ErrorRepository
         CompilerMessageCategory.Literal,
         $"The integer \"{{0}}\" is too large for every integer type. The largest integer is " +
         $"{ulong.MaxValue}, the largest value a {KGVL.KEYWORD_ULONG} can hold");
+
+    internal virtual ErrorDefinition InvalidUnicodeEscapeSequence { get; } = new(15,
+        CompilerMessageCategory.Literal,
+        $"The escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\" is not a valid Unicode character code. A Unicode " +
+        $"escape sequence is the prefix '{KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR}' followed by exactly four " +
+        "hexadecimal digits (0-9 and a-f)");
 
 
     /* Source files. */
@@ -605,6 +612,12 @@ internal class ErrorRepository
         CompilerMessageCategory.ReturnTypedMembersCommon,
         $"Expected \"{KGVL.KEYWORD_THIS}\" or \"{KGVL.KEYWORD_BASE}\" to name the constructor " +
         "which runs before this one");
+
+    internal virtual ErrorDefinition ExplicitInterfaceField { get; } = new(12,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The field \"{0}\" is written as implementing a member of an interface, but an interface has no " +
+        "fields to implement. Only functions, operators, properties and indexers can name an interface " +
+        "before their own name");
 
 
     /* Statements. */

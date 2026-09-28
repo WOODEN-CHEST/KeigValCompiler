@@ -84,6 +84,20 @@ public interface TestInterface8<T> : IEquatable<T>, IConverter<T, Map<string, T[
 
 public class TestClass7 : Base<int>, IEquatable<TestClass7> { }
 
+/* Members implementing an interface's member explicitly, named by the interface, as in C#. */
+public struct ExplicitTests : TestInterface7<ExplicitTests>, IMinMax<int>, IEnumerable<int>, IList<int>
+{
+    public const int MaxValue = 5;
+    static int IMinMax<int>.MaxValue => MaxValue;
+    static ExplicitTests TestInterface7<ExplicitTests>.operator +(ExplicitTests left, ExplicitTests right) => left;
+    static explicit TestInterface7<ExplicitTests>.operator int(ExplicitTests value) => 0;
+    IEnumerator<int> IEnumerable<int>.GetEnumerator() { yield break; }
+    int IList<int>.this[int index] { get => index; set { } }
+    bool IList<int>.IsReadOnly { get; }
+    void IList<int>.Clear() { }
+    T IConverter.Convert<T>(T value) where T : class => value;
+}
+
 /* Static abstract and static virtual members, including operators, as in C#'s generic maths. */
 public interface TestInterface7<TSelf> where TSelf : TestInterface7<TSelf>
 {
@@ -319,6 +333,25 @@ public class StatementTests
         object j = null;
         object k = j ?? a;
         bool l = j is StatementTests;
+        bool m = (j) is StatementTests;
+        bool n = (a) != b;
+    }
+
+    /* A bracketed name which can only be a type is a cast whatever follows, as in C#. A bare name
+     * could be a value, so "(a) - b" stays a subtraction and casting it takes "(a)(-b)". */
+    public void Casts(int a, int b)
+    {
+        long keyword = (long)a;
+        int keywordNegated = (int)-a;
+        int keywordPlus = (int)+a;
+        long keywordIncremented = (long)++a;
+        int? nullableNegated = (int?)-a;
+        int[] arrayNegated = (int[])-a;
+        object genericNegated = (List<int>)-a;
+        int subtraction = (a) - b;
+        int bracketed = (a)(-b);
+        bool complement = (a)~b;
+        string joined = (a < b) + "text";
     }
 
     public void Literals()
@@ -347,6 +380,11 @@ public class StatementTests
         char letter = 'a';
         char escapedChar = '\n';
         char hexChar = '\x41';
+        char shortHexChar = '\x0';
+        char unicodeChar = 'é';
+        char nullChar = '\0';
+        string codes = "\x41é\0end";
+        string lineEnd = "carriage\r\n";
         bool yes = true;
         bool no = false;
     }

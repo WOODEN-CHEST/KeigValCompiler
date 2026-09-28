@@ -2,8 +2,12 @@
 
 namespace KeigValCompiler.Semantician.Member;
 
-internal class PackProperty : PackMember
+internal class PackProperty : PackMember, IExplicitInterfaceMember
 {
+    // Fields.
+    public TypeTargetIdentifier? ExplicitInterface { get; set; } = null;
+
+
     // Internal fields.
     internal TypeTargetIdentifier Type { get; set; }
     internal Statement? InitialValue { get; set; }

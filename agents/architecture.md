@@ -177,12 +177,13 @@ nothing — `Foo bar = Nonexistent();` parses happily. That is the resolver's jo
 and the resolver does not compile yet.
 
 ### Works
-Everything in the grammar. Types (classes, structs, interfaces, records, enums,
-delegates, events), their members (fields, properties with `get`/`set`/`init`,
-indexers, functions, constructors with `this`/`base` chaining, operator
-overloads including conversions, in interfaces too), `const` fields and locals,
-generics with constraints, and every
-statement and expression form: precedence-correct operators, assignment,
+The grammar, apart from the parser gaps listed under the smaller known gaps
+below. Types (classes, structs, interfaces, records, enums, delegates, events)
+with base types which may have type arguments, their members (fields, properties
+with `get`/`set`/`init`, indexers, functions, constructors with `this`/`base`
+chaining, operator overloads including conversions, in interfaces too, and
+explicit interface implementations), `const` fields and locals, generics with
+constraints, and the statement and expression forms: precedence-correct operators, assignment,
 ternary, lambdas, `switch` expressions, `new` with object/collection/array
 initializers, indexing, member and conditional access, `yield`, `catch ... when`,
 interpolated strings and all literal forms. The standard library is read from
@@ -210,11 +211,15 @@ interpolated strings and all literal forms. The standard library is read from
   through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
-- A cast directly followed by a unary operator, as in `(int)-x`, parses as a
-  subtraction. C# reads it as a cast because `int` is a keyword, which
-  `ExpressionParser.IsCastTarget`'s comment describes but its code does not do.
-- Char and string escapes lack C#'s `\0` and `\u`; `\x` and the letter escapes
-  work, so the library writes `'\x0'` for C#'s `'\0'`.
+- Qualified type names do not parse anywhere a type is expected: `KGVL.Int32 x`,
+  a return type of `KGVL.Collections.Generic.IEnumerable<int>`, or a base type
+  written with its namespace. A type has to be named as `using` makes it
+  visible. Types are read by `SourceDataParser.ReadTypeTargetIdentifier` from
+  many places, some of which read speculatively, so this is a change to all of
+  them rather than to one.
+- The `as` operator is not parsed; only `is` is.
+- `throw` is only a statement, so C#'s throw expressions, as in
+  `x ?? throw new ArgumentNullException()`, do not parse.
 
 ## Suggested order of work
 
@@ -234,8 +239,10 @@ Roughly dependency-ordered; the owner decides priorities.
       types, `Decimal`, `String`, `Array`, `Nullable`, `IEquatable`,
       `IComparable`, `IParsable`, the exceptions that compiler-inserted checks
       and `Parse` throw, and `IEnumerable`/`IEnumerator`. They must parse with
-      zero errors, which makes them a second parser fixture. Drafted and
-      parsing cleanly; awaiting the owner's review.
+      zero errors, which makes them a second parser fixture. ~~Done~~, and
+      reviewed by the owner. Text conversion with options, such as a number
+      base, separators or a format, is to go in a library class of its own, so
+      that the primitive types keep only plain `Parse` and `ToString`.
    4. `Semantician/Library/` and the binding files. These can only be checked
       once step 5 runs.
 

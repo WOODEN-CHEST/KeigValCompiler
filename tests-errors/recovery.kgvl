@@ -7,23 +7,28 @@
  * It lives outside tests/ because the compiler reads a source directory recursively, and tests/ has
  * to keep parsing cleanly.
  *
- * Expected output, 14 errors and 1 warning:
+ * Expected output, 19 errors and 1 warning:
  *
- *   line 30 SFR warning 1   duplicate using directive
- *   line 34 MM  error 1     duplicate member modifier
- *   line 38 MM  error 2     builtin is reserved
- *   line 42 SFR error 3     stray closing bracket at the root of the file
- *   line 48 ID  error 1     invalid identifier 1Bad
- *   line 49 ID  error 1     invalid identifier 2Bad
- *   line 56 EN  error 8     no enum constant where the comma promised one
- *   line 58 EN  error 8     trailing comma after the last enum constant
- *   line 62 GE  error 4     empty generic parameter list
- *   line 68 ST  error 25    constant field without a value
- *   line 73 ST  error 25    constant local without a value
- *   line 74 ST  error 26    no declaration after const
- *   line 83 RTMC error 9    && cannot be overloaded
- *   line 84 RTMC error 9    operator true cannot be overloaded
- *   line 93 TMC error 3     unclosed class body, found at the end of the file
+ *   line 35 SFR warning 1   duplicate using directive
+ *   line 39 MM  error 1     duplicate member modifier
+ *   line 43 MM  error 2     builtin is reserved
+ *   line 47 SFR error 3     stray closing bracket at the root of the file
+ *   line 53 ID  error 1     invalid identifier 1Bad
+ *   line 54 ID  error 1     invalid identifier 2Bad
+ *   line 61 EN  error 8     no enum constant where the comma promised one
+ *   line 63 EN  error 8     trailing comma after the last enum constant
+ *   line 67 GE  error 4     empty generic parameter list
+ *   line 73 ST  error 25    constant field without a value
+ *   line 78 ST  error 25    constant local without a value
+ *   line 79 ST  error 26    no declaration after const
+ *   line 88 RTMC error 9    && cannot be overloaded
+ *   line 89 RTMC error 9    operator true cannot be overloaded
+ *   line 97 RTMC error 12   field named with an interface
+ *   line 101 LI error 15    \u with too few digits in a char
+ *   line 102 LI error 1     \x with too many digits in a char
+ *   line 103 LI error 15    \u with too few digits in a string, whose reading carries on
+ *   line 103 LI error 2     unknown escape \q later in the same string
+ *   line 113 TMC error 3    unclosed class body, found at the end of the file
  */
 
 using KGVL;
@@ -86,6 +91,21 @@ public class BadOperators
 }
 
 public class GoodAfterBadOperators { }
+
+public class BadEscapesAndExplicitField : IList<int>
+{
+    public int IList<int>.Count;
+
+    public void Escapes()
+    {
+        char tooShort = '\u12';
+        char tooLong = '\x12345';
+        string inText = "before \u12 and \q after";
+        char fine = 'A';
+    }
+}
+
+public class GoodAfterBadEscapesAndExplicitField { }
 
 public class Unclosed
 {

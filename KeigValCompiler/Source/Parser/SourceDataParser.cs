@@ -543,16 +543,17 @@ public class SourceDataParser
         }
         IncrementDataIndex();
 
-        char Character;
-        if (GetCharAtDataIndex() == KGVL.ESCAPE_CHAR)
+        string Written;
+        bool IsEscaped = GetCharAtDataIndex() == KGVL.ESCAPE_CHAR;
+        if (IsEscaped)
         {
             /* The backslash only marks the sequence, so it is stepped over rather than looked up. */
             IncrementDataIndex();
-            Character = EscapeSequenceToChar(ReadUntil(error, KGVL.SINGLE_QUOTE));
+            Written = ReadUntil(error, KGVL.SINGLE_QUOTE);
         }
         else
         {
-            Character = GetCharAtDataIndex();
+            Written = GetCharAtDataIndex().ToString();
             IncrementDataIndex();
         }
 
@@ -560,37 +561,44 @@ public class SourceDataParser
         {
             if (error != null)
             {
-                throw new SourceFileReadException(this, error, 
-                    $"Character \"{Character}\" did not end with a quote {KGVL.SINGLE_QUOTE}");
+                throw new SourceFileReadException(this, error,
+                    $"Character \"{Written}\" did not end with a quote {KGVL.SINGLE_QUOTE}");
             }
             return null;
         }
         IncrementDataIndex();
-        return new(Character);
+
+        /* Only turned into a char once past the closing quote, so that an invalid escape sequence leaves
+         * error recovery after the whole literal. Left on the quote, recovery would take it for the start
+         * of another literal and misread every quote after it. */
+        return new(IsEscaped ? EscapeSequenceToChar(Written) : Written[0]);
     }
 
+    /* The sequence is everything after the backslash. As in C#, "\x" takes one to four hexadecimal
+     * digits and "\u" exactly four. */
     internal char EscapeSequenceToChar(string sequence)
     {
-        if (sequence.StartsWith(KGVL.PREFIX_HEX_CHAR))
+        const int MAX_CODE_DIGIT_COUNT = 4;
+
+        if (sequence.StartsWith(KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR))
         {
-            try
-            {
-                return (char)Convert.ToUInt32(sequence.Substring(1), 16);
-            }
-            catch (Exception e) when (e is FormatException or ArgumentException
-                or OverflowException or ArgumentOutOfRangeException)
-            {
-                throw new SourceFileReadException(this,
-                    _errorRepository.InvalidHexEscapeSequence.CreateOptions(sequence));
-            }
+            return CodeDigitsToChar(sequence, 1, MAX_CODE_DIGIT_COUNT,
+                _errorRepository.InvalidHexEscapeSequence.CreateOptions(sequence));
+        }
+        if (sequence.StartsWith(KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR))
+        {
+            return CodeDigitsToChar(sequence, MAX_CODE_DIGIT_COUNT, MAX_CODE_DIGIT_COUNT,
+                _errorRepository.InvalidUnicodeEscapeSequence.CreateOptions(sequence));
         }
 
         return sequence switch
         {
+            "0" => '\0',
             "a" => '\a',
             "b" => '\b',
             "f" => '\f',
             "n" => '\n',
+            "r" => '\r',
             "t" => '\t',
             "v" => '\v',
             "'" => '\'',
@@ -603,6 +611,21 @@ public class SourceDataParser
 
 
     // Private methods.
+    /* The hexadecimal digits after an escape sequence's indicator letter. Four of them always fit in
+     * a char, so a count within the limits is the only thing which can be wrong besides the digits. */
+    private char CodeDigitsToChar(string sequence,
+        int minDigitCount,
+        int maxDigitCount,
+        ErrorCreateOptions error)
+    {
+        string Digits = sequence.Substring(1);
+        if ((Digits.Length < minDigitCount) || (Digits.Length > maxDigitCount) || !Digits.All(char.IsAsciiHexDigit))
+        {
+            throw new SourceFileReadException(this, error);
+        }
+        return (char)Convert.ToUInt16(Digits, 16);
+    }
+
     private bool IsOpeningBracket(char character)
     {
         return (character == KGVL.OPEN_CURLY_BRACKET)

@@ -1,7 +1,11 @@
 ﻿namespace KeigValCompiler.Semantician.Member;
 
-internal class PackIndexer : PackMember
+internal class PackIndexer : PackMember, IExplicitInterfaceMember
 {
+    // Fields.
+    public TypeTargetIdentifier? ExplicitInterface { get; set; } = null;
+
+
     // Internal fields.
     internal TypeTargetIdentifier Type { get; set; }
     internal PackFunction? GetFunction { get; set; }

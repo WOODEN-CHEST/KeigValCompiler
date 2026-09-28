@@ -24,4 +24,38 @@ public class ArgumentException : Exception
     // Properties.
     /* The name of the parameter the argument was given for, as nameof gives it, if known. */
     public string? ParamName { get; }
+
+
+    // Methods.
+    /* Throws an ArgumentNullException if argument is null, and an ArgumentException if it is empty. */
+    public static void ThrowIfNullOrEmpty(string? argument)
+    {
+        ThrowIfNullOrEmpty(argument, null);
+    }
+
+    public static void ThrowIfNullOrEmpty(string? argument, string? paramName)
+    {
+        ArgumentNullException.ThrowIfNull(argument, paramName);
+        if (argument.Length == 0)
+        {
+            throw new ArgumentException("The value cannot be an empty string.", paramName);
+        }
+    }
+
+    /* Throws an ArgumentNullException if argument is null, and an ArgumentException if it is empty or
+     * nothing but whitespace, as Char.IsWhiteSpace defines it. */
+    public static void ThrowIfNullOrWhiteSpace(string? argument)
+    {
+        ThrowIfNullOrWhiteSpace(argument, null);
+    }
+
+    public static void ThrowIfNullOrWhiteSpace(string? argument, string? paramName)
+    {
+        ArgumentNullException.ThrowIfNull(argument, paramName);
+        if (string.IsNullOrWhiteSpace(argument))
+        {
+            throw new ArgumentException(
+                "The value cannot be an empty string or composed entirely of whitespace.", paramName);
+        }
+    }
 }

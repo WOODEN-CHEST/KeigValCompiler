@@ -268,17 +268,19 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         TypeTargetIdentifier TargetType = Parser.ReadTypeTargetIdentifier(null);
+        char LastTypeChar = Parser.GetCharAtDataIndex(Parser.DataIndex - 1);
         Parser.SkipUntilNonWhitespace(null);
 
-        if ((Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS) || !IsCastTarget(TargetType))
+        if (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS)
         {
             Parser.DataIndex = StartIndex;
             return false;
         }
+        bool IsOnlyAType = IsOnlyEverAType(TargetType, LastTypeChar);
         Parser.IncrementDataIndex();
         Parser.SkipUntilNonWhitespace(null);
 
-        if (!CanStartValue())
+        if (!CanStartValue() && !(IsOnlyAType && CanStartSignedValue()))
         {
             Parser.DataIndex = StartIndex;
             return false;
@@ -288,12 +290,25 @@ internal class ExpressionParser : AbstractParserBase
         return true;
     }
 
-    /* A bracketed name is only worth treating as a cast when it looks like a type. A built in type
-     * keyword, generic arguments, array brackets or a nullable marker can only be a type; a bare
-     * name is still ambiguous and is decided by what follows the brackets. */
-    private bool IsCastTarget(TypeTargetIdentifier targetType)
+    /* C#'s rule for what a bracketed type is. One which can only be a type is a cast whatever value
+     * follows it, even one starting with a sign, as in "(int)-x". A type keyword can never be a value,
+     * and nothing but a type ends in the '>' of type arguments, the ']' of an array or the '?' of a
+     * nullable marker, all of which the type has to have been read up to. A bare name could as well be
+     * a value, so "(x)-y" stays a subtraction, and casting it takes "(x)(-y)". */
+    private bool IsOnlyEverAType(TypeTargetIdentifier targetType, char lastTypeChar)
     {
-        return targetType.MainTarget.SourceCodeName.Length > 0;
+        return KGVL.TYPE_KEYWORDS.Contains(targetType.MainTarget.SourceCodeName)
+            || (lastTypeChar == KGVL.GENERIC_TYPE_END)
+            || (lastTypeChar == KGVL.CLOSE_SQUARE_BRACKET)
+            || (lastTypeChar == KGVL.TYPE_NULLABLE_INDICATOR);
+    }
+
+    /* A '+' or '-' only starts a value after something which can only be a type, since after a bare
+     * name it is read as the operator between two values. "++" and "--" start with them too. */
+    private bool CanStartSignedValue()
+    {
+        char Character = Parser.GetCharAtDataIndex();
+        return (Character == KGVL.OPERATOR_ADD[0]) || (Character == KGVL.OPERATOR_SUBTRACT[0]);
     }
 
     /* Whether the next characters could begin a value. After a cast they must; after a bracketed
@@ -301,7 +316,11 @@ internal class ExpressionParser : AbstractParserBase
     private bool CanStartValue()
     {
         char Character = Parser.GetCharAtDataIndex();
-        if (Parser.IsIdentifierFirstChar(Character) || Parser.HasNumberAtIndex(Parser.DataIndex))
+        if (Parser.IsIdentifierFirstChar(Character))
+        {
+            return !IsOperatorWordAtIndex();
+        }
+        if (Parser.HasNumberAtIndex(Parser.DataIndex))
         {
             return true;
         }
@@ -310,8 +329,20 @@ internal class ExpressionParser : AbstractParserBase
             || (Character == KGVL.DOUBLE_QUOTE)
             || (Character == KGVL.SINGLE_QUOTE)
             || (Character == KGVL.STRING_INTERPOLATION_OPERATOR)
-            || (Character == KGVL.OPERATOR_NOT[0])
+            || ((Character == KGVL.OPERATOR_NOT[0])
+                && !Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_NOT_EQUALS))
             || (Character == KGVL.OPERATOR_BITWISE_COMPLEMENT[0]);
+    }
+
+    /* "is", "as" and "switch" are words, but what follows a value rather than a value themselves, so
+     * "(x) is T" tests x instead of casting a value named "is". */
+    private bool IsOperatorWordAtIndex()
+    {
+        int WordStartIndex = Parser.DataIndex;
+        string Word = Parser.ReadIdentifier(null);
+        Parser.DataIndex = WordStartIndex;
+
+        return (Word == KGVL.KEYWORD_IS) || (Word == KGVL.KEYWORD_AS) || (Word == KGVL.KEYWORD_SWITCH);
     }
 
     private Statement ParsePostfix()
@@ -1277,25 +1308,32 @@ internal class ExpressionParser : AbstractParserBase
     {
         Parser.IncrementDataIndex();
         char Indicator = Parser.GetCharAtDataIndex();
-
-        if ((Indicator != KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR)
-            && (Indicator != KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR))
-        {
-            Parser.IncrementDataIndex();
-            return Parser.EscapeSequenceToChar(Indicator.ToString()).ToString();
-        }
-
         StringBuilder Sequence = new();
         Sequence.Append(Indicator);
         Parser.IncrementDataIndex();
 
-        const int MAX_DIGIT_COUNT = 4;
-        while ((Sequence.Length <= MAX_DIGIT_COUNT) && char.IsAsciiHexDigit(Parser.GetCharAtDataIndex()))
+        if ((Indicator == KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR)
+            || (Indicator == KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR))
         {
-            Sequence.Append(Parser.GetCharAtDataIndex());
-            Parser.IncrementDataIndex();
+            const int MAX_DIGIT_COUNT = 4;
+            while ((Sequence.Length <= MAX_DIGIT_COUNT) && char.IsAsciiHexDigit(Parser.GetCharAtDataIndex()))
+            {
+                Sequence.Append(Parser.GetCharAtDataIndex());
+                Parser.IncrementDataIndex();
+            }
         }
 
-        return Parser.EscapeSequenceToChar(Sequence.ToString()).ToString();
+        /* An invalid sequence spoils only its own character, and the rest of the string is still
+         * readable, so the error is queued and reading goes on. Thrown, it would leave error recovery
+         * inside the string, where the closing quote looks like the opening of another. */
+        try
+        {
+            return Parser.EscapeSequenceToChar(Sequence.ToString()).ToString();
+        }
+        catch (SourceFileReadException e)
+        {
+            Messages.Add(e.CompilerMessage);
+            return string.Empty;
+        }
     }
 }

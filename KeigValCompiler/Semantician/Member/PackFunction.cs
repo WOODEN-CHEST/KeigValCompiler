@@ -2,10 +2,11 @@
 
 namespace KeigValCompiler.Semantician.Member;
 
-internal class PackFunction : PackMember, IGenericParameterHolder
+internal class PackFunction : PackMember, IGenericParameterHolder, IExplicitInterfaceMember
 {
     // Fields.
     public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
+    public TypeTargetIdentifier? ExplicitInterface { get; set; } = null;
 
 
     // Internal fields.

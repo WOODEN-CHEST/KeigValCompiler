@@ -190,6 +190,15 @@ internal static class KGVL
     public const string KEYWORD_FALSE = "false";
     public const string KEYWORD_VOID = "void";
 
+    /* The keywords which name a type, each standing for one in the standard library. Unlike any
+     * other name, one of these can never be a value. */
+    public static readonly string[] TYPE_KEYWORDS = new string[]
+    {
+        KEYWORD_BYTE, KEYWORD_UBYTE, KEYWORD_SHORT, KEYWORD_USHORT, KEYWORD_INT, KEYWORD_UINT,
+        KEYWORD_LONG, KEYWORD_ULONG, KEYWORD_DECIMAL, KEYWORD_CHAR, KEYWORD_BOOL, KEYWORD_STRING,
+        KEYWORD_OBJECT
+    };
+
     public const string PREFIX_BINARY = "0b";
     public const string PREFIX_HEX = "0x";
     public const char SUFFIX_LONG = 'l';

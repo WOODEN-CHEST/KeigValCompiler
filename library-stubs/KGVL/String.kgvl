@@ -35,6 +35,23 @@ public builtin sealed class String : IEquatable<string>, IComparable<string>, IE
     // Methods.
     public static bool IsNullOrEmpty(string? value) => (value == null) || (value.Length == 0);
 
+    /* Whether the string is null, empty, or nothing but whitespace, as Char.IsWhiteSpace defines it. */
+    public static bool IsNullOrWhiteSpace(string? value)
+    {
+        if (value == null)
+        {
+            return true;
+        }
+        foreach (char character in value)
+        {
+            if (!char.IsWhiteSpace(character))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /* Both joined into one, with null taken as empty. */
     public static builtin string Concat(string? first, string? second);
 
