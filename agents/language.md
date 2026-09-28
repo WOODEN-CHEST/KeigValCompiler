@@ -418,6 +418,10 @@ The repository owner decides these. Agents should surface them, not settle them.
   [Built-in types and the standard library](#built-in-types-and-the-standard-library).
   The concrete schemes are open.
 - Is garbage collected memory in scope, or is allocation arena/static only?
+- What does `T?` mean for a type parameter which could be a value type or a
+  reference type? In C# it is `T` itself for a value type and an annotation for a
+  reference type. The library avoids it for now: `IEquatable<T>.Equals` takes
+  `T`, not C#'s `T?`.
 - Do `virtual` / interfaces survive to the backend, or does the compiler require
   whole-program devirtualisation?
 - The standard library's shape is decided (see above), and `builtin` members are

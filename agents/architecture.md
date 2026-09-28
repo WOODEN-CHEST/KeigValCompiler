@@ -66,12 +66,13 @@ it is assigned to is checked here.
 before resolution, and records them in `BuiltInTypeRegistry`. It is to be
 replaced by the standard library described next, and removed.
 
-### The standard library (loading built, the rest planned)
+### The standard library (loading and bindings built, resolving planned)
 
 Decided on 2026-09-28; what the library means for the language is in
 [`language.md`](language.md#built-in-types-and-the-standard-library). Loading
-the library is built; resolving and binding it are not, and the library itself
-is only `library-stubs/KGVL/Int32.kgvl`, an empty start.
+the library, its first files, and the table of what the compiler implements for
+it are built. Resolving the library, and so matching its members against that
+table, is not, since the resolver does not run.
 
 **Loading (built).** `KeigValCompiler.csproj` copies `library-stubs/` into the
 build output, where `CompilerOptions.LibraryDirectory` finds it by default;
@@ -95,35 +96,50 @@ even when the library fails, since its parse errors do not depend on it.
 4. Bind builtin members, as below. Stop here if the library has any error.
 5. Resolve and check function bodies.
 
-**Binding builtin members by signature.** There are no attributes or tags;
-`builtin` is the only marker. A builtin member is identified by its resolved
-signature (declaring type, kind, name or operator, static or not, return type,
+**Binding builtin members by signature (built).** There are no attributes or
+tags; `builtin` is the only marker. A builtin member is identified by its
+resolved signature (declaring type, kind, name or operator, static or not, type,
 parameters), and the compiler holds a table of the signatures it implements.
 The check runs both ways: every builtin member must match one entry, and every
-entry must be matched by one member. The planned layout, in
-`Semantician/Library/`:
+entry must be matched by one member. In `Semantician/Library/`:
 
 - `LibraryTypes`: every known type, one line each, with its keyword alias. The
   only central list, and one line per type rather than per member.
-- `MemberSignature`: a signature, compared by value. `SignatureBuilder` makes a
-  binding read like the declaration it matches, and `SignatureFormatter` prints
-  signatures in error messages.
-- `Bindings/`: one file per family of types. `IntegerBindings` covers all eight
-  integer types in one loop, `NumericConversionBindings` holds the conversion
-  table, and so on. Member names are constants at the top of the file that binds
-  them; operators need no names, since `OverloadableOperator` identifies them.
+- `MemberSignature`, `SignatureType` and `SignatureParameter`: a signature,
+  compared by value. Arrays and nullable value types are the `Array` and
+  `Nullable` library types, and a `?` on a reference type is no part of a
+  signature, as in C#. `SignatureBuilder` makes a binding read like the
+  declaration it matches, and `SignatureFormatter` prints signatures for
+  messages.
+- `Bindings/`: one file per family of types, listed in `DefaultLibraryBindings`.
+  `IntegerBindings` covers all eight integer types in one loop, and
+  `NumericConversionBindings` holds the implicit/explicit table as a grid, the
+  same one `language.md` shows. Member names are constants at the top of the
+  file that binds them, except those the language fixes, such as `ToString` and
+  `Parse`, which are in `LibraryMemberNames`; operators need no names, since
+  `OverloadableOperator` identifies them.
 - A binding maps a signature to an `IntrinsicOperation` (`Add`, `Convert`,
   `Parse`, …). Operand types come from the signature, so one `Add` serves every
   integer width. The backend will switch on the operation and never look at
   names; it is kept apart from the bindings because it will be organised by how
   values are stored, not by library type.
+- `LibraryBindingTable`: `MatchIntrinsic` looks a builtin member's signature up
+  and records it as matched, and `UnmatchedSignatures` is what no member claimed.
 
 So renaming a builtin member, or changing its parameters, means editing one line
 in the family file that binds it, and renaming a type means editing its line in
-`LibraryTypes`. The same `MemberSignature` descriptors find the non-builtin
-members the compiler relies on, such as `Object.ToString` for interpolation and
-`IEnumerator<T>.MoveNext` for `foreach`. `BuiltInTypeRegistry` becomes a map from
-each known type to its parsed `PackMember`.
+`LibraryTypes`. A binding written twice, or a malformed conversion grid, throws
+when the table is built, since either is a mistake in the compiler.
+
+Still to do, in the resolver: turn a resolved builtin member into a
+`MemberSignature` (a property's or indexer's accessors each become one), run the
+two-way match with a `StandardLibrary` error for each side's leftovers, and make
+`BuiltInTypeRegistry` a map from each `LibraryType` to its parsed `PackMember`.
+The same descriptors are meant to find the non-builtin members the compiler
+relies on, such as `Object.ToString` for interpolation and
+`IEnumerator<T>.MoveNext` for `foreach`. Nothing calls `CreateTable` yet; when
+this was written, all 308 bindings were checked by hand against the 308 builtin
+members the library declares, both ways, with none left over.
 
 ### Stage 3 — Emit
 
@@ -211,15 +227,9 @@ interpolated strings and all literal forms. The standard library is read from
   through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
-- Qualified type names do not parse anywhere a type is expected: `KGVL.Int32 x`,
-  a return type of `KGVL.Collections.Generic.IEnumerable<int>`, or a base type
-  written with its namespace. A type has to be named as `using` makes it
-  visible. Types are read by `SourceDataParser.ReadTypeTargetIdentifier` from
-  many places, some of which read speculatively, so this is a change to all of
-  them rather than to one.
-- The `as` operator is not parsed; only `is` is.
-- `throw` is only a statement, so C#'s throw expressions, as in
-  `x ?? throw new ArgumentNullException()`, do not parse.
+- Parser gaps, each detailed in [`parser-gaps.md`](parser-gaps.md): qualified
+  type names such as `KGVL.Int32` do not parse, nor does the `as` operator, nor
+  throw expressions, nor the `\e` and `\U` escapes.
 
 ## Suggested order of work
 
@@ -243,8 +253,8 @@ Roughly dependency-ordered; the owner decides priorities.
       reviewed by the owner. Text conversion with options, such as a number
       base, separators or a format, is to go in a library class of its own, so
       that the primitive types keep only plain `Parse` and `ToString`.
-   4. `Semantician/Library/` and the binding files. These can only be checked
-      once step 5 runs.
+   4. ~~`Semantician/Library/` and the binding files.~~ Done; matching them
+      against the library is part of step 5.
 
    Later, once the resolver handles static abstract members, the `KGVL.Numerics`
    generic maths interfaces.
