@@ -97,21 +97,18 @@ internal class SourceFileRootParser : AbstractParserBase
         return ErrorCreator.ExpectedNamespaceForSet.CreateOptions();
     }
 
+    /* A namespace is one object for the whole pack, however many files declare or import it, but every
+     * file records for itself which namespaces it declared and which it imported. So a namespace some
+     * other file already brought into the pack still has to be recorded on this one, just never twice. */
     private PackNameSpace GetOrCreateNamespace(string fullName, bool isImport)
     {
-        PackNameSpace? NameSpace = SourceFile.Pack.TryGetNamespace(fullName);
-        if (NameSpace != null)
-        {
-            return NameSpace;
-        }
+        PackNameSpace NameSpace = SourceFile.Pack.TryGetNamespace(fullName) ?? new(new(fullName));
 
-        NameSpace = new(new(fullName));
-
-        if (isImport)
+        if (isImport && !SourceFile.NamespaceImports.Contains(NameSpace))
         {
             SourceFile.AddNamespaceImport(NameSpace);
         }
-        else
+        else if (!isImport && !SourceFile.Namespaces.Contains(NameSpace))
         {
             SourceFile.AddNamespace(NameSpace);
         }

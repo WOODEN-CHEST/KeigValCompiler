@@ -143,7 +143,7 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
             KGVL.KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
             KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
-            KGVL.KEYWORD_BUILTIN => ReportReservedBuiltInModifier(),
+            KGVL.KEYWORD_BUILTIN => ReadBuiltInModifier(),
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
             KGVL.KEYWORD_SEALED => PackMemberModifiers.Sealed,
             KGVL.KEYWORD_REQUIRED => PackMemberModifiers.Required,
@@ -152,11 +152,15 @@ internal class MemberParser : AbstractParserBase
         };
     }
 
-    /* Writing the modifier down is what is not allowed, not the modifier itself, so the parser knows
-     * exactly where it is and carries on with the modifier that the keyword names. */
-    private PackMemberModifiers ReportReservedBuiltInModifier()
+    /* Only the standard library's own files may mark what the compiler implements itself. Anywhere
+     * else, writing the modifier down is what is not allowed, not the modifier itself, so the parser
+     * knows exactly where it is and carries on with the modifier that the keyword names. */
+    private PackMemberModifiers ReadBuiltInModifier()
     {
-        AddError(ErrorCreator.ReservedKeywordBuiltIn.CreateOptions());
+        if (!SourceFile.IsLibraryFile)
+        {
+            AddError(ErrorCreator.ReservedKeywordBuiltIn.CreateOptions());
+        }
         return PackMemberModifiers.BuiltIn;
     }
 
@@ -816,16 +820,39 @@ internal class MemberParser : AbstractParserBase
 
         Parser.SkipUntilNonWhitespace(null);
         OverloadableOperator? Overloaded = ReadOverloadableOperator();
+
+        /* Only the operator is wrong, and the declaration around it is still readable, so it is read
+         * and just not added. Throwing instead would have recovery skip the parameter list and then
+         * misread the body after it as a member of its own. */
         if (Overloaded == null)
         {
-            throw new SourceFileReadException(Parser, ErrorCreator.UnoverloadableOperator.CreateOptions());
+            AddError(ErrorCreator.UnoverloadableOperator.CreateOptions());
+            SkipUnoverloadableOperator();
         }
 
         PackFunction Function = BuildOperatorFunction(memberHolderTypeName, modifiers, returnType,
             new Identifier(KGVL.NAME_OPERATOR_OVERLOAD));
-        AddOperatorOverload(memberHolder, memberHolderTypeName, GetOperatorByArity(Overloaded.Value, Function),
-            Function);
+        if (Overloaded != null)
+        {
+            AddOperatorOverload(memberHolder, memberHolderTypeName, GetOperatorByArity(Overloaded.Value, Function),
+                Function);
+        }
         return true;
+    }
+
+    /* Whatever stands where the operator should, such as "&&" or "true". It ends where the parameter
+     * list starts, or at anything which could not be part of an operator. */
+    private void SkipUnoverloadableOperator()
+    {
+        while (Parser.IsMoreDataAvailable
+            && !char.IsWhiteSpace(Parser.GetCharAtDataIndex())
+            && (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
+            && (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
+            && (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
+            && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
+        {
+            Parser.IncrementDataIndex();
+        }
     }
 
     /* "+" and "-" are spelled the same whether they take one operand or two, so a single parameter is

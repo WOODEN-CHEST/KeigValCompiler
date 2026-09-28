@@ -23,4 +23,12 @@
     <Folder Include="Executor\" />
   </ItemGroup>
 
+  <!-- The standard library is read from beside the compiler unless "library" says otherwise. The
+       directory name must match CompilerOptions.DEFAULT_LIBRARY_DIRECTORY_NAME. -->
+  <ItemGroup>
+    <None Include="..\library-stubs\**\*.kgvl"
+          Link="library-stubs\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

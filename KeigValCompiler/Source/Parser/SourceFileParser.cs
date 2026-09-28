@@ -12,13 +12,15 @@ internal class SourceFileParser
     // Fields.
     public string FilePath { get; private init; }
     public DataPack Pack { get; private init; }
+    internal SourceFileKind Kind { get; private init; }
 
 
     // Constructors.
-    internal SourceFileParser(string filePath, DataPack pack)
+    internal SourceFileParser(string filePath, DataPack pack, SourceFileKind kind)
     {
         FilePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
         Pack = pack ?? throw new ArgumentNullException(nameof(pack));
+        Kind = kind;
     }
 
 
@@ -37,7 +39,7 @@ internal class SourceFileParser
                 .StripCommentsFromCode(FileData);
 
             SourceDataParser SourceParser = new(StrippedFileData, FilePath, errorRepository);
-            PackSourceFile SourceFile = new(Pack, FilePath);
+            PackSourceFile SourceFile = new(Pack, FilePath, Kind);
             Pack.AddSourceFile(SourceFile);
 
             PackParsingContext Context = new()

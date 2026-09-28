@@ -1,4 +1,4 @@
-﻿using KeigValCompiler.Error;
+using KeigValCompiler.Error;
 using KeigValCompiler.Semantician;
 using KeigValCompiler.Source.Parser;
 
@@ -11,24 +11,20 @@ internal class PackParser
 
 
     // Private fields.
-    private readonly string _sourceDirPath;
     private readonly ErrorRepository _errorRepository;
     private readonly ParserUtilities _parsingUtilities;
     private readonly CompilerMessageCollection _messages;
 
 
     // Constructors.
-    internal PackParser(string sourceDirectory, 
-        ErrorRepository errorRepository,
+    internal PackParser(ErrorRepository errorRepository,
         ParserUtilities parserUtilities,
         CompilerMessageCollection messages)
     {
-        ArgumentNullException.ThrowIfNull(sourceDirectory, nameof(sourceDirectory));
         ArgumentNullException.ThrowIfNull(errorRepository, nameof(errorRepository));
-        ArgumentNullException.ThrowIfNull(errorRepository, nameof(parserUtilities));
+        ArgumentNullException.ThrowIfNull(parserUtilities, nameof(parserUtilities));
         ArgumentNullException.ThrowIfNull(messages, nameof(messages));
 
-        _sourceDirPath = sourceDirectory;
         _errorRepository = errorRepository;
         _parsingUtilities = parserUtilities;
         _messages = messages;
@@ -36,24 +32,28 @@ internal class PackParser
 
 
     // Internal methods.
-    internal DataPack ParsePack()
+    /* Reads every source file in the directory, its subdirectories included, into the pack. The
+     * standard library and the user's code are read into the same pack by separate calls, and the
+     * kind given here is the only thing which tells their files apart. */
+    internal void ParseDirectory(DataPack pack, string directoryPath, SourceFileKind kind)
     {
-        DataPack Pack = new();
+        ArgumentNullException.ThrowIfNull(pack, nameof(pack));
+        ArgumentNullException.ThrowIfNull(directoryPath, nameof(directoryPath));
 
-        if (!Directory.Exists(_sourceDirPath))
+        if (!Directory.Exists(directoryPath))
         {
-            throw new DirectoryNotFoundException(nameof(_sourceDirPath));
+            throw new DirectoryNotFoundException(directoryPath);
         }
 
-        foreach (string sourceFile in Directory.GetFiles(
-            _sourceDirPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
+        foreach (string SourceFilePath in Directory.GetFiles(
+            directoryPath, $"*{SOURCE_FILE_EXTENSION}", SearchOption.AllDirectories))
         {
             /* One unreadable file must not hide what is wrong with all the others, so whatever it
              * failed with is queued and the next file is read anyway. */
             try
             {
-                SourceFileParser FileParser = new(sourceFile, Pack);
-                FileParser.ParseFile(Pack, _errorRepository, _parsingUtilities, _messages);
+                SourceFileParser FileParser = new(SourceFilePath, pack, kind);
+                FileParser.ParseFile(pack, _errorRepository, _parsingUtilities, _messages);
             }
             catch (SourceFileReadException e)
             {
@@ -64,7 +64,5 @@ internal class PackParser
                 /* Hit the error limit for this file. Its errors are already queued. */
             }
         }
-
-        return Pack;
     }
 }

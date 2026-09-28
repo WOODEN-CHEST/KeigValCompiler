@@ -24,7 +24,7 @@ Minecraft datapack (.mcfunction, pack.mcmeta, ...)
 ### Stage 1 — Parse (`KeigValCompiler/Source/Parser/`)
 
 ```
-PackParser              walks the source directory for *.kgvl
+PackParser              walks a directory for *.kgvl: the standard library's, then the user's
   SourceFileParser      reads one file
     CommentStripper     removes comments (interpolation-aware)
     SourceFileRootParser  namespaces and using directives
@@ -66,20 +66,24 @@ it is assigned to is checked here.
 before resolution, and records them in `BuiltInTypeRegistry`. It is to be
 replaced by the standard library described next, and removed.
 
-### The standard library (planned, not built)
+### The standard library (loading built, the rest planned)
 
 Decided on 2026-09-28; what the library means for the language is in
-[`language.md`](language.md#built-in-types-and-the-standard-library). None of
-this exists yet except `library-stubs/KGVL/Int32.kgvl`, an empty start.
+[`language.md`](language.md#built-in-types-and-the-standard-library). Loading
+the library is built; resolving and binding it are not, and the library itself
+is only `library-stubs/KGVL/Int32.kgvl`, an empty start.
 
-**Loading.** `library-stubs/` is copied to the build output and parsed before
-the user's sources, into the same `DataPack`; a `--library <dir>` option points
-elsewhere. Each `PackSourceFile` records whether it came from the library or
-from the user. Only library files may use `builtin`; anywhere else
-`MemberParser` keeps reporting `ReservedKeywordBuiltIn`. What makes a file a
-library file is where the compiler loaded it from, never anything written in it.
-Errors in library files get a category of their own, since they are never the
-user's fault.
+**Loading (built).** `KeigValCompiler.csproj` copies `library-stubs/` into the
+build output, where `CompilerOptions.LibraryDirectory` finds it by default;
+`--library <dir>` points elsewhere. `Compiler.CompilePack` has `PackParser` read
+the library first and the user's sources second, into the same `DataPack`, and
+each `PackSourceFile` records which it is (`SourceFileKind`). Only library files
+may use `builtin`; anywhere else `MemberParser` reports `ReservedKeywordBuiltIn`.
+What makes a file a library file is where the compiler loaded it from, never
+anything written in it. Errors found in library files are reported as usual,
+plus one `StandardLibrary` error saying they are the library's fault rather than
+the user's; a missing library directory is another. The user's code is parsed
+even when the library fails, since its parse errors do not depend on it.
 
 **Resolving.** Stage 2 runs in this order:
 
@@ -181,7 +185,8 @@ generics with constraints, and every
 statement and expression form: precedence-correct operators, assignment,
 ternary, lambdas, `switch` expressions, `new` with object/collection/array
 initializers, indexing, member and conditional access, `yield`, `catch ... when`,
-interpolated strings and all literal forms.
+interpolated strings and all literal forms. The standard library is read from
+`library-stubs/` before the user's code, and only it may use `builtin`.
 
 ### The two blocking gaps
 
@@ -205,15 +210,6 @@ interpolated strings and all literal forms.
   through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
-- `PackClass.AllSubMembers` lists every operator function twice:
-  `MemberContainer.AllMembers` already adds them, and `PackClass` adds them
-  again. `PackStruct` and `PackInterface` do not.
-- `MemberContainer.Members` leaves out enums, so anything walking `SubMembers`,
-  such as `ParentItemResolver`, never reaches a nested enum.
-- An unoverloadable operator (`operator &&`, `operator true`) is reported
-  correctly, but recovery then resumes after the parameter list, as
-  `SkipToSyncPoint` does after any bracketed group it skipped, so the body after
-  it produces a second, spurious "Expected class member" error.
 
 ## Suggested order of work
 
@@ -228,7 +224,7 @@ Roughly dependency-ordered; the owner decides priorities.
    1. ~~The language additions the library needs: `object`, `char` and `const`,
       the full set of overloadable operators, and operators in interfaces.~~
       Done.
-   2. Loading the library, and restricting `builtin` to it.
+   2. ~~Loading the library, and restricting `builtin` to it.~~ Done.
    3. The first library files: `Object`, `Boolean`, `Char`, the eight integer
       types, `Decimal`, `String`, `Array`, `Nullable`, `IEquatable`,
       `IComparable`, `IParsable`, the exceptions that compiler-inserted checks

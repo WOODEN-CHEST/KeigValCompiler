@@ -7,21 +7,23 @@
  * It lives outside tests/ because the compiler reads a source directory recursively, and tests/ has
  * to keep parsing cleanly.
  *
- * Expected output, 12 errors and 1 warning:
+ * Expected output, 14 errors and 1 warning:
  *
- *   line 28 SFR warning 1   duplicate using directive
- *   line 32 MM  error 1     duplicate member modifier
- *   line 36 MM  error 2     builtin is reserved
- *   line 40 SFR error 3     stray closing bracket at the root of the file
- *   line 46 ID  error 1     invalid identifier 1Bad
- *   line 47 ID  error 1     invalid identifier 2Bad
- *   line 54 EN  error 8     no enum constant where the comma promised one
- *   line 56 EN  error 8     trailing comma after the last enum constant
- *   line 60 GE  error 4     empty generic parameter list
- *   line 66 ST  error 25    constant field without a value
- *   line 71 ST  error 25    constant local without a value
- *   line 72 ST  error 26    no declaration after const
- *   line 82 TMC error 3     unclosed class body, found at the end of the file
+ *   line 30 SFR warning 1   duplicate using directive
+ *   line 34 MM  error 1     duplicate member modifier
+ *   line 38 MM  error 2     builtin is reserved
+ *   line 42 SFR error 3     stray closing bracket at the root of the file
+ *   line 48 ID  error 1     invalid identifier 1Bad
+ *   line 49 ID  error 1     invalid identifier 2Bad
+ *   line 56 EN  error 8     no enum constant where the comma promised one
+ *   line 58 EN  error 8     trailing comma after the last enum constant
+ *   line 62 GE  error 4     empty generic parameter list
+ *   line 68 ST  error 25    constant field without a value
+ *   line 73 ST  error 25    constant local without a value
+ *   line 74 ST  error 26    no declaration after const
+ *   line 83 RTMC error 9    && cannot be overloaded
+ *   line 84 RTMC error 9    operator true cannot be overloaded
+ *   line 93 TMC error 3     unclosed class body, found at the end of the file
  */
 
 using KGVL;
@@ -75,6 +77,15 @@ public class BadConstants
 }
 
 public class GoodAfterBadConstants { }
+
+public class BadOperators
+{
+    public static BadOperators operator &&(BadOperators a, BadOperators b) => a;
+    public static bool operator true(BadOperators a) { return true; }
+    public static BadOperators operator +(BadOperators a, BadOperators b) => a;
+}
+
+public class GoodAfterBadOperators { }
 
 public class Unclosed
 {

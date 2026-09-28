@@ -95,7 +95,8 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ReservedKeywordBuiltIn { get; } = new(2,
         CompilerMessageCategory.MemberModifier,
-        $"The modifier \"{KGVL.KEYWORD_BUILTIN}\" is reserved for compiler internal use only");
+        $"The modifier \"{KGVL.KEYWORD_BUILTIN}\" is reserved for compiler internal use only. It marks what " +
+        "the compiler implements itself, so only the standard library's own files can use it");
 
 
     /* Identifiers. */
@@ -765,6 +766,19 @@ internal class ErrorRepository
     internal virtual ErrorDefinition CommandlineDirectoryNotFound { get; } = new(9,
         CompilerMessageCategory.Commandline,
         "The directory \"{0}\", given for \"{1}\", does not exist");
+
+
+    /* Standard library. */
+    internal virtual ErrorDefinition LibraryDirectoryNotFound { get; } = new(1,
+        CompilerMessageCategory.StandardLibrary,
+        "The standard library was not found in \"{0}\". Building the compiler copies it there, beside the " +
+        "compiler itself. To read it from somewhere else, give that directory with \"{1}\"");
+
+    internal virtual ErrorDefinition LibraryHasErrors { get; } = new(2,
+        CompilerMessageCategory.StandardLibrary,
+        "The standard library in \"{0}\" has errors, reported in its own files. The library is part of the " +
+        "compiler rather than of the code being compiled, so those errors are not in your code: the " +
+        "library needs fixing, or \"{1}\" needs to point at a copy of it which works");
 
 
     /* Warnings. */

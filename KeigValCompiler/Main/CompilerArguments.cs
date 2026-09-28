@@ -24,6 +24,13 @@ internal class CompilerArguments
         "Directory the compiled datapack is to be written to, the source directory if not given. "
             + "Unused for now, as the compiler does not produce any output yet.");
 
+    internal CommandlineOption<string> Library { get; } = new("library", 'l', "directory",
+        isRepeatable: false,
+        new DirectoryPathValueParser(isExistenceRequired: true),
+        "Directory holding the standard library's source files, read before the pack's own. If not given, "
+            + "the copy placed beside the compiler when it was built is used. Only needed when working on "
+            + "the library itself.");
+
 
     // Constructors.
     internal CompilerArguments()
@@ -31,5 +38,6 @@ internal class CompilerArguments
         Repository.Register(SourceDirectory);
         Repository.Register(Help);
         Repository.Register(Output);
+        Repository.Register(Library);
     }
 }

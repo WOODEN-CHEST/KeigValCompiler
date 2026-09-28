@@ -59,7 +59,8 @@ internal class MemberContainer : IPackTypeHolder, IPackFieldHolder, IPackFunctio
         holder => ((IPackEventHolder)holder).AllEvents));
 
     public IEnumerable<PackMember> Members => Enumerable.Empty<PackMember>().Concat(Classes).Concat(Interfaces).Concat(Structs)
-        .Concat(Delegates).Concat(Events).Concat(Fields).Concat(Functions).Concat(Properties).Concat(Indexers);
+        .Concat(Enums).Concat(Delegates).Concat(Events).Concat(Fields).Concat(Functions).Concat(Properties)
+        .Concat(Indexers);
     public IEnumerable<PackMember> AllMembers => Members.Concat(Members.SelectMany(member => member.AllSubMembers))
         .Concat(OperatorOverloads.Select(overload => overload.Function));
 

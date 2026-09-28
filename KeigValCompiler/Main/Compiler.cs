@@ -56,7 +56,7 @@ public static class Compiler
             Stopwatch CompilationTimeMeasurer = new();
             CompilationTimeMeasurer.Start();
 
-            bool IsCompilationSuccessful = CompilePack(Options, ErrorCreator);
+            bool IsCompilationSuccessful = CompilePack(Options, Arguments, ErrorCreator);
 
             CompilationTimeMeasurer.Stop();
             if (!IsCompilationSuccessful)
@@ -85,14 +85,16 @@ public static class Compiler
     // Private static methods.
     /* Every stage reports everything it found before the next one is allowed to start. Running a
      * stage on what a failed one left behind only buries its errors under invented ones. */
-    private static bool CompilePack(CompilerOptions options, ErrorRepository errorCreator)
+    private static bool CompilePack(CompilerOptions options, CompilerArguments arguments, ErrorRepository errorCreator)
     {
         CompilerMessageCollection Messages = new();
         ParserUtilities ParserUtilities = new();
         CompilerMessagePrinter MessagePrinter = new();
+        DataPack Pack = new();
 
-        PackParser Parser = new PackParser(options.SourceDirectory, errorCreator, ParserUtilities, Messages);
-        DataPack Pack = Parser.ParsePack();
+        PackParser Parser = new(errorCreator, ParserUtilities, Messages);
+        ParseLibrary(Parser, Pack, options, arguments, errorCreator, Messages);
+        Parser.ParseDirectory(Pack, options.SourceDirectory, SourceFileKind.User);
 
         MessagePrinter.PrintMessages(Messages);
         MessagePrinter.PrintSummary(Messages);
@@ -103,6 +105,34 @@ public static class Compiler
 
         /* Resolving and emitting go here, each one reporting before the next is allowed to run. */
         return true;
+    }
+
+    /* The standard library is read into the same pack as the user's code, and before it, since what
+     * the user's code names is looked for there too. A broken library is not the user's fault, which
+     * one error of its own says. The user's code is still read afterwards, because its parse errors
+     * do not depend on the library. */
+    private static void ParseLibrary(PackParser parser,
+        DataPack pack,
+        CompilerOptions options,
+        CompilerArguments arguments,
+        ErrorRepository errorCreator,
+        CompilerMessageCollection messages)
+    {
+        if (!Directory.Exists(options.LibraryDirectory))
+        {
+            messages.AddError(errorCreator.LibraryDirectoryNotFound.CreateOptions(options.LibraryDirectory,
+                arguments.Library.DisplayName), CompilerMessageLocation.None, null);
+            return;
+        }
+
+        int ErrorCountBeforeLibrary = messages.ErrorCount;
+        parser.ParseDirectory(pack, options.LibraryDirectory, SourceFileKind.Library);
+
+        if (messages.ErrorCount > ErrorCountBeforeLibrary)
+        {
+            messages.AddError(errorCreator.LibraryHasErrors.CreateOptions(options.LibraryDirectory,
+                arguments.Library.DisplayName), new CompilerMessageLocation(options.LibraryDirectory), null);
+        }
     }
 
     private static void PrintHelp(CompilerArguments arguments)

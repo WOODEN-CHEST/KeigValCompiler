@@ -8,6 +8,8 @@ internal class PackSourceFile
     internal PackNameSpace[] Namespaces => _namespaces.ToArray();
     internal PackNameSpace[] AllUsedNamespaces => _namespaces.Concat(_namespaceImports).ToArray();
     internal string Path { get; private init; }
+    internal SourceFileKind Kind { get; private init; }
+    internal bool IsLibraryFile => Kind == SourceFileKind.Library;
 
 
     // Private fields.
@@ -16,10 +18,11 @@ internal class PackSourceFile
 
 
     // Constructors.
-    internal PackSourceFile(DataPack pack, string path)
+    internal PackSourceFile(DataPack pack, string path, SourceFileKind kind)
     {
         Pack = pack ?? throw new ArgumentNullException(nameof(pack));
         Path = path ?? throw new ArgumentNullException(nameof(path));
+        Kind = kind;
     }
 
 
