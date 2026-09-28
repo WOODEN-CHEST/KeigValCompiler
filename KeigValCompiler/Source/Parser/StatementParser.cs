@@ -158,6 +158,9 @@ internal class StatementParser : AbstractParserBase
             case KGVL.KEYWORD_YIELD:
                 return ParseYieldStatement();
 
+            case KGVL.KEYWORD_CONST:
+                return ParseConstantDeclaration();
+
             case KGVL.KEYWORD_DO:
                 return ParseDoWhileStatement();
 
@@ -199,6 +202,28 @@ internal class StatementParser : AbstractParserBase
             return new ReturnStatement();
         }
         return new ReturnStatement() { ReturnValue = _expressionParser.ParseExpression() };
+    }
+
+    /* "const int a = 1;". Only a declaration can follow the keyword, and unlike a variable every name
+     * in it has to be given its value there. */
+    private VariableDeclarationStatement ParseConstantDeclaration()
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        if (!TryParseVariableDeclaration(out VariableDeclarationStatement? Declaration))
+        {
+            throw new SourceFileReadException(Parser, ErrorCreator.ExpectedConstantDeclaration.CreateOptions());
+        }
+
+        Declaration!.IsConstant = true;
+        foreach (VariableAssignment Constant in Declaration.Declarations)
+        {
+            if (Constant.Value == null)
+            {
+                AddError(ErrorCreator.ConstantWithoutValue.CreateOptions(Constant.SelfIdentifier.SourceCodeName));
+            }
+        }
+
+        return Declaration;
     }
 
     private ThrowStatement ParseThrowStatement()
@@ -648,7 +673,7 @@ internal class StatementParser : AbstractParserBase
     private Statement ParseNonKeywordStatement()
     {
         Parser.SkipUntilNonWhitespace(null);
-        if (TryParseVariableDeclaration(out Statement? Declaration))
+        if (TryParseVariableDeclaration(out VariableDeclarationStatement? Declaration))
         {
             return Declaration!;
         }
@@ -658,7 +683,7 @@ internal class StatementParser : AbstractParserBase
     /* A declaration and a value both start with a name, and only what follows the name tells them
      * apart: "Thing a" declares one, while "Thing.a" and "Thing(a)" are values. The type is read
      * speculatively and put back when no name follows it. */
-    private bool TryParseVariableDeclaration(out Statement? result)
+    private bool TryParseVariableDeclaration(out VariableDeclarationStatement? result)
     {
         result = null;
         if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))

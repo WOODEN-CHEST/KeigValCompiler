@@ -1,0 +1,6 @@
+namespace KGVL;
+
+public builtin readonly struct Int32
+{
+    
+}

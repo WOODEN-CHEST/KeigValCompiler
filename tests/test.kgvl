@@ -79,6 +79,19 @@ public interface TestInterface5<T1, T2, T3> where T1 : A where T2 : B where T3 :
 
 public interface TestInterface6<T1> : IInterface1, IInterface2, IInterface3 where T1 : class { }
 
+/* Static abstract and static virtual members, including operators, as in C#'s generic maths. */
+public interface TestInterface7<TSelf> where TSelf : TestInterface7<TSelf>
+{
+    static abstract TSelf operator +(TSelf left, TSelf right);
+    static abstract TSelf operator -(TSelf value);
+    static abstract bool operator ==(TSelf left, TSelf right);
+    static abstract bool operator !=(TSelf left, TSelf right);
+    static abstract explicit operator int(TSelf value);
+    static abstract TSelf Zero { get; }
+    static abstract TSelf Parse(string text);
+    static virtual TSelf Twice(TSelf value) => value + value;
+}
+
 
 /* Record tests. */
 public record TestRecord1();
@@ -186,6 +199,8 @@ public class MemberTests
 {
     private int _plainField;
     public static int StaticField = 4;
+    public const int ConstantField = 5;
+    public const string ConstantString = "abc";
     public readonly string InitialisedField = "abc";
     public sealed int SealedField;
     public required int RequiredField;
@@ -223,10 +238,35 @@ public class FunctionTests
     public void Modifiers(ref int a, out int b, in int c, params int[] rest) { }
 
     public static FunctionTests operator +(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator -(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator *(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator /(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator %(FunctionTests a, FunctionTests b) => a;
     public static FunctionTests operator ++(FunctionTests a) => a;
+    public static FunctionTests operator --(FunctionTests a) => a;
+
+    /* "+" and "-" with one parameter are the unary operators. */
+    public static FunctionTests operator +(FunctionTests a) => a;
+    public static FunctionTests operator -(FunctionTests a) => a;
+    public static bool operator !(FunctionTests a) => false;
+    public static FunctionTests operator ~(FunctionTests a) => a;
+
+    public static FunctionTests operator &(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator |(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator ^(FunctionTests a, FunctionTests b) => a;
+    public static FunctionTests operator <<(FunctionTests a, int shift) => a;
+    public static FunctionTests operator >>(FunctionTests a, int shift) => a;
+    public static FunctionTests operator >>>(FunctionTests a, int shift) => a;
+
+    /* No space is needed between the keyword and the operator. */
+    public static FunctionTests operator*(FunctionTests a, int factor) => a;
+
     public static bool operator ==(FunctionTests a, FunctionTests b) => true;
     public static bool operator !=(FunctionTests a, FunctionTests b) => false;
     public static bool operator >=(FunctionTests a, FunctionTests b) => true;
+    public static bool operator <=(FunctionTests a, FunctionTests b) => true;
+    public static bool operator >(FunctionTests a, FunctionTests b) => true;
+    public static bool operator <(FunctionTests a, FunctionTests b) => true;
     public static implicit operator int(FunctionTests a) => a._value;
     public static explicit operator string(FunctionTests a) => "x";
 }
@@ -248,6 +288,10 @@ public class StatementTests
         int[][] jagged = new int[2][];
         StatementTests built = new StatementTests();
         StatementTests initialised = new StatementTests { _count = 1 };
+        const int constant = 1;
+        const string firstConstant = "a", secondConstant = "b";
+        object boxed = constant;
+        char letter = 'a';
     }
 
     public void Operators()

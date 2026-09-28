@@ -24,6 +24,38 @@ internal class MemberParser : AbstractParserBase
     private static readonly char[] _enumResumeChars = new char[] { KGVL.COMMA };
     private static readonly char[] _enumTerminatorChars = new char[] { KGVL.CLOSE_CURLY_BRACKET };
 
+    /* Every operator which can be overloaded, by its spelling. "+" and "-" are listed as binary here,
+     * since their spelling alone cannot say which they are. */
+    private static readonly Dictionary<string, OverloadableOperator> _overloadableOperators = new()
+    {
+        { KGVL.OPERATOR_ADD, OverloadableOperator.Addition },
+        { KGVL.OPERATOR_SUBTRACT, OverloadableOperator.Subtraction },
+        { KGVL.OPERATOR_MULTIPLY, OverloadableOperator.Multiplication },
+        { KGVL.OPERATOR_DIVIDE, OverloadableOperator.Division },
+        { KGVL.OPERATOR_MODULO, OverloadableOperator.Modulo },
+        { KGVL.OPERATOR_NOT, OverloadableOperator.LogicalNot },
+        { KGVL.OPERATOR_BITWISE_COMPLEMENT, OverloadableOperator.BitwiseComplement },
+        { KGVL.OPERATOR_INCREMENT, OverloadableOperator.Increment },
+        { KGVL.OPERATOR_DECREMENT, OverloadableOperator.Decrement },
+        { KGVL.OPERATOR_BITWISE_AND, OverloadableOperator.BitwiseAnd },
+        { KGVL.OPERATOR_BITWISE_OR, OverloadableOperator.BitwiseOr },
+        { KGVL.OPERATOR_BITWISE_XOR, OverloadableOperator.BitwiseXor },
+        { KGVL.OPERATOR_LEFT_SHIFT, OverloadableOperator.LeftShift },
+        { KGVL.OPERATOR_RIGHT_SHIFT, OverloadableOperator.RightShift },
+        { KGVL.OPERATOR_UNSIGNED_RIGHT_SHIFT, OverloadableOperator.UnsignedRightShift },
+        { KGVL.OPERATOR_EQUALS, OverloadableOperator.Equals },
+        { KGVL.OPERATOR_NOT_EQUALS, OverloadableOperator.NotEquals },
+        { KGVL.OPERATOR_LARGER_THAN, OverloadableOperator.LargerThan },
+        { KGVL.OPERATOR_LESS_THAN, OverloadableOperator.LessThan },
+        { KGVL.OPERATOR_LARGER_OR_EQUAL, OverloadableOperator.LargerOrEqual },
+        { KGVL.OPERATOR_LESS_OR_EQUAL, OverloadableOperator.LessThanOrEqual }
+    };
+
+    /* Taken from the spellings above, so that reading an operator stops exactly where an
+     * overloadable spelling could no longer continue. */
+    private static readonly HashSet<char> _overloadableOperatorChars = _overloadableOperators.Keys
+        .SelectMany(spelling => spelling).ToHashSet();
+
 
     // Private fields
     private readonly StatementParser _statementParser;
@@ -115,6 +147,7 @@ internal class MemberParser : AbstractParserBase
             KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
             KGVL.KEYWORD_SEALED => PackMemberModifiers.Sealed,
             KGVL.KEYWORD_REQUIRED => PackMemberModifiers.Required,
+            KGVL.KEYWORD_CONST => PackMemberModifiers.Const,
             _ => PackMemberModifiers.None
         };
     }
@@ -788,10 +821,28 @@ internal class MemberParser : AbstractParserBase
             throw new SourceFileReadException(Parser, ErrorCreator.UnoverloadableOperator.CreateOptions());
         }
 
-        AddOperatorOverload(memberHolder, memberHolderTypeName, Overloaded.Value,
-            BuildOperatorFunction(memberHolderTypeName, modifiers, returnType,
-                new Identifier(KGVL.NAME_OPERATOR_OVERLOAD)));
+        PackFunction Function = BuildOperatorFunction(memberHolderTypeName, modifiers, returnType,
+            new Identifier(KGVL.NAME_OPERATOR_OVERLOAD));
+        AddOperatorOverload(memberHolder, memberHolderTypeName, GetOperatorByArity(Overloaded.Value, Function),
+            Function);
         return true;
+    }
+
+    /* "+" and "-" are spelled the same whether they take one operand or two, so a single parameter is
+     * what makes them unary. Any other wrong count is left for the resolver to reject. */
+    private OverloadableOperator GetOperatorByArity(OverloadableOperator spelledOperator, PackFunction function)
+    {
+        if (function.Parameters.Count != 1)
+        {
+            return spelledOperator;
+        }
+
+        return spelledOperator switch
+        {
+            OverloadableOperator.Addition => OverloadableOperator.UnaryPlus,
+            OverloadableOperator.Subtraction => OverloadableOperator.Negation,
+            _ => spelledOperator
+        };
     }
 
     private PackFunction BuildOperatorFunction(string memberHolderTypeName,
@@ -834,34 +885,26 @@ internal class MemberParser : AbstractParserBase
     }
 
     /* Only the operators OverloadableOperator lists can be overloaded, so an unknown spelling here
-     * is reported rather than guessed at. */
+     * is reported rather than guessed at. The whole run of operator characters has to match one
+     * spelling exactly, so that "&&" or "+=" is reported as not overloadable instead of being read as
+     * "&" or "+" with something unexpected after it. Nothing is consumed when there is no match. */
     private OverloadableOperator? ReadOverloadableOperator()
     {
-        (string Spelling, OverloadableOperator Operator)[] Overloadable = new[]
-        {
-            (KGVL.OPERATOR_INCREMENT, OverloadableOperator.Increment),
-            (KGVL.OPERATOR_DECREMENT, OverloadableOperator.Decrement),
-            (KGVL.OPERATOR_EQUALS, OverloadableOperator.Equals),
-            (KGVL.OPERATOR_NOT_EQUALS, OverloadableOperator.NotEquals),
-            (KGVL.OPERATOR_LARGER_OR_EQUAL, OverloadableOperator.LargerOrEqual),
-            (KGVL.OPERATOR_LESS_OR_EQUAL, OverloadableOperator.LessThanOrEqual),
-            (KGVL.OPERATOR_ADD, OverloadableOperator.Addition),
-            (KGVL.OPERATOR_SUBTRACT, OverloadableOperator.Subtraction),
-            (KGVL.OPERATOR_MULTIPLY, OverloadableOperator.Multiplication),
-            (KGVL.OPERATOR_DIVIDE, OverloadableOperator.Division),
-            (KGVL.OPERATOR_MODULO, OverloadableOperator.Modulo),
-            (KGVL.OPERATOR_LARGER_THAN, OverloadableOperator.LargerThan),
-            (KGVL.OPERATOR_LESS_THAN, OverloadableOperator.LessThan)
-        };
+        int StartIndex = Parser.DataIndex;
+        StringBuilder Spelling = new();
 
-        foreach ((string Spelling, OverloadableOperator Operator) Candidate in Overloadable)
+        while (Parser.IsMoreDataAvailable && _overloadableOperatorChars.Contains(Parser.GetCharAtDataIndex()))
         {
-            if (Parser.HasStringAtIndex(Parser.DataIndex, Candidate.Spelling))
-            {
-                Parser.IncrementDataIndexNTimes(Candidate.Spelling.Length);
-                return Candidate.Operator;
-            }
+            Spelling.Append(Parser.GetCharAtDataIndex());
+            Parser.IncrementDataIndex();
         }
+
+        if (_overloadableOperators.TryGetValue(Spelling.ToString(), out OverloadableOperator Operator))
+        {
+            return Operator;
+        }
+
+        Parser.DataIndex = StartIndex;
         return null;
     }
 
@@ -1020,6 +1063,10 @@ internal class MemberParser : AbstractParserBase
             Parser.SkipUntilNonWhitespace(null);
             Field.InitialValue = _statementParser.ParseExpressionValue();
             Parser.SkipUntilNonWhitespace(null);
+        }
+        else if (Field.HasModifier(PackMemberModifiers.Const))
+        {
+            AddError(ErrorCreator.ConstantWithoutValue.CreateOptions(identifier.SourceCodeName));
         }
 
         if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)

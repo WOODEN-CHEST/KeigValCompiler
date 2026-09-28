@@ -7,18 +7,21 @@
  * It lives outside tests/ because the compiler reads a source directory recursively, and tests/ has
  * to keep parsing cleanly.
  *
- * Expected output, 9 errors and 1 warning:
+ * Expected output, 12 errors and 1 warning:
  *
- *   line 25 SFR warning 1   duplicate using directive
- *   line 29 MM  error 1     duplicate member modifier
- *   line 33 MM  error 2     builtin is reserved
- *   line 37 SFR error 3     stray closing bracket at the root of the file
- *   line 43 ID  error 1     invalid identifier 1Bad
- *   line 44 ID  error 1     invalid identifier 2Bad
- *   line 51 EN  error 8     no enum constant where the comma promised one
- *   line 53 EN  error 8     trailing comma after the last enum constant
- *   line 57 GE  error 4     empty generic parameter list
- *   line 64 TMC error 3     unclosed class body, found at the end of the file
+ *   line 28 SFR warning 1   duplicate using directive
+ *   line 32 MM  error 1     duplicate member modifier
+ *   line 36 MM  error 2     builtin is reserved
+ *   line 40 SFR error 3     stray closing bracket at the root of the file
+ *   line 46 ID  error 1     invalid identifier 1Bad
+ *   line 47 ID  error 1     invalid identifier 2Bad
+ *   line 54 EN  error 8     no enum constant where the comma promised one
+ *   line 56 EN  error 8     trailing comma after the last enum constant
+ *   line 60 GE  error 4     empty generic parameter list
+ *   line 66 ST  error 25    constant field without a value
+ *   line 71 ST  error 25    constant local without a value
+ *   line 72 ST  error 26    no declaration after const
+ *   line 82 TMC error 3     unclosed class body, found at the end of the file
  */
 
 using KGVL;
@@ -57,6 +60,21 @@ public class GoodAfterBadEnum { }
 public class BadGenerics<> { }
 
 public class GoodAfterBadGenerics { }
+
+public class BadConstants
+{
+    public const int NoValue;
+    public const int GoodConstant = 1;
+
+    public void Locals()
+    {
+        const int alsoNoValue, goodLocal = 2;
+        const 5;
+        int goodAfterBadConstant = 3;
+    }
+}
+
+public class GoodAfterBadConstants { }
 
 public class Unclosed
 {

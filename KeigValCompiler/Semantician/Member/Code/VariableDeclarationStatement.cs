@@ -8,6 +8,8 @@ internal class VariableDeclarationStatement : Statement
     /* Null means the type was inferred with the "var" keyword. */
     internal TypeTargetIdentifier? Type { get; set; }
     internal bool IsTypeInferred => Type == null;
+    /* Declared with "const", so every name in it has a value fixed at compile time. */
+    internal bool IsConstant { get; set; }
     internal VariableAssignmentCollection Declarations { get; } = new();
 
 

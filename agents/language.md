@@ -10,7 +10,7 @@ the worked example.
 Familiar from C#: namespaces and `using`; `class`, `struct`, `interface`,
 `record`, `enum`, `delegate`, `event`; generics with `where` constraints;
 properties and indexers; access modifiers and `static` / `abstract` / `virtual`
-/ `override` / `sealed` / `readonly` / `required`; `if` / `for` / `foreach` /
+/ `override` / `sealed` / `readonly` / `required` / `const`; `if` / `for` / `foreach` /
 `while` / `do` / `switch` / `try` / `catch` / `finally` / `throw` / `return`;
 `ref` / `out` / `in` / `params`; string interpolation; `nameof` / `typeof`.
 
@@ -23,7 +23,9 @@ Divergences from C# worth knowing:
   the only fractional type, and it is a *base-10* floating-point number — see
   below.
 - **Extra modifiers** exist that C# lacks: `builtin` and `inline` (both parsed
-  today, as `PackMemberModifiers.BuiltIn` and `.Inline`).
+  today, as `PackMemberModifiers.BuiltIn` and `.Inline`). `builtin` is only
+  for the standard library's own files — see
+  [Built-in types and the standard library](#built-in-types-and-the-standard-library).
 - **`params`** marks a variadic final parameter, alongside `ref`, `out` and `in`.
 - **`raw` and `constalloc`** keywords.
 `raw` currently does nothing, but the intended idea is to allow running "raw"
@@ -81,8 +83,17 @@ public static Vec operator +(Vec a, Vec b) { }
 public static implicit operator int(Vec v) => v._value;
 ```
 
-The overloadable operators are fixed by `OverloadableOperator`: `+ - * / %`,
-unary negation, `++ --`, `== != > < >= <=`, and implicit/explicit conversions.
+The overloadable operators are C#'s, fixed by `OverloadableOperator`: unary
+`+ - ! ~ ++ --`, binary `+ - * / % & | ^ << >> >>>`, `== != > < >= <=`, and
+implicit/explicit conversions. Whether a `+` or `-` is unary or binary is decided
+by how many parameters it declares. C#'s `operator true` and `operator false` are
+left out: they exist only so that `&&` and `||` can work on custom types, and
+would bring many rules for little use. The rules for declaring them are also C#'s,
+to be checked by the resolver: an operator is `public static`, takes a parameter
+of the type declaring it, and `==`/`!=`, `<`/`>` and `<=`/`>=` are declared in
+pairs. User code can overload all of them. Interfaces may declare operators too,
+which with `static abstract` is how the standard library's generic maths
+interfaces are written.
 
 A constructor is recognised as a member with no return type whose name matches
 the type holding it, so it needs no keyword of its own. `PackConstructor`
@@ -137,6 +148,100 @@ parsed, since its range does not depend on where it is used: one above
 integer too large even for `ulong`. Whether an integer fits the type it is
 assigned to, as in `byte b = 300`, depends on that type, so that check belongs to
 the validation stage and does not exist yet.
+
+## Built-in types and the standard library
+
+Decided on 2026-09-28. Almost none of it is enforced yet, since the resolver
+which would enforce it does not run; see [`architecture.md`](architecture.md)
+for how it is to be built.
+
+**Where it lives.** The built-in types and the standard library are ordinary
+`.kgvl` files under [`library-stubs/`](../library-stubs/), laid out like .NET's:
+a directory per namespace and a file per type, named after it. The compiler
+parses them before the user's code, and only they may use `builtin`. User code
+may still declare its own types in the `KGVL` namespace, under the normal rules.
+
+**`builtin`.** On a member it means the compiler supplies the body, so the
+member is written with `;` in place of one. On a type it means the compiler
+decides how its values are stored, so the type declares no instance fields.
+Everything else in a library file is ordinary KGVL, and should be: `Clamp`
+written on top of builtin `<` and `>` is readable by users, so only operations
+which need hand-written commands are builtin. Types such as `decimal` are
+builtin so that the compiler can recognise and optimise them.
+
+**Keyword aliases.**
+
+| Keyword | Type | Keyword | Type |
+|---|---|---|---|
+| `byte` | `KGVL.Int8` | `ubyte` | `KGVL.UInt8` |
+| `short` | `KGVL.Int16` | `ushort` | `KGVL.UInt16` |
+| `int` | `KGVL.Int32` | `uint` | `KGVL.UInt32` |
+| `long` | `KGVL.Int64` | `ulong` | `KGVL.UInt64` |
+| `decimal` | `KGVL.Decimal` | `char` | `KGVL.Char` |
+| `bool` | `KGVL.Boolean` | `string` | `KGVL.String` |
+| `object` | `KGVL.Object` | | |
+
+`T?` on a value type is `KGVL.Nullable<T>`; on a reference type it is only an
+annotation, as in C#. `T[]` is `KGVL.Array<T>`, a generic class unlike C#'s
+`System.Array`, since without a runtime type system a generic one is simpler.
+
+**`object` and boxing.** Every type derives from `KGVL.Object`, which declares
+`ToString`, `Equals` and `GetHashCode`. Structs and enums are boxed when
+converted to `object` or to an interface type, as in C#. Generic code does not
+box: generics are monomorphised, so a call through a constraint on `T` goes
+straight to the member of the type argument. How a box, or any value, is stored
+is chosen by the compiler case by case. Structs are generally scoreboards or
+storage NBT; classes may also use entities, items and other game state.
+
+**Integers behave like C#'s**, unless that would cost hundreds of commands per
+operation:
+
+- `+ - *`, `++ --`, unary `-` and narrowing conversions wrap to the type's width.
+- `/` and `%` truncate towards zero. Scoreboards floor, so negative operands
+  need a correction.
+- Dividing by zero throws `DivideByZeroException`.
+- A shift count is masked to the type's width, so `x << 33` is `x << 1` for an
+  `int`.
+
+Scoreboards have no bitwise operations, so `&`, `|`, `^` and bit counting are
+the likeliest to reach that cost, along with 64-bit `/` and `%`. Their meaning
+stays C#'s; making them cheap, for instance special-casing `x & 0xFF`, is the
+backend's problem.
+
+**`char`** is a 16-bit UTF-16 code unit, as in C# and in Java, whose strings
+Minecraft's are. In a datapack a `char` is obtained by indexing a string.
+
+**Conversions between primitives** are declared in the library as `implicit`
+and `explicit` operators on the source type, not built into the language. One is
+implicit only when it cannot lose information. `decimal` holds 9 digits, so
+`int`, `uint`, `long` and `ulong` convert to it explicitly:
+
+```
+from \ to  Int8 UInt8 Int16 UInt16 Int32 UInt32 Int64 UInt64 Char Decimal
+Int8        -    E     I     E      I     E      I     E      E    I
+UInt8       E    -     I     I      I     I      I     I      E    I
+Int16       E    E     -     E      I     E      I     E      E    I
+UInt16      E    E     E     -      I     I      I     I      E    I
+Int32       E    E     E     E      -     E      I     E      E    E
+UInt32      E    E     E     E      E     -      I     I      E    E
+Int64       E    E     E     E      E     E      -     E      E    E
+UInt64      E    E     E     E      E     E      E     -      E    E
+Char        E    E     E     I      I     I      I     I      -    I
+Decimal     E    E     E     E      E     E      E     E      E    -
+```
+
+Boxing and unboxing are the exception: they are rules of the language, as in C#,
+and are declared nowhere.
+
+**`const`** follows C#: on fields and locals, with a value fixed at compile time
+of a primitive, string or enum type, and implicitly static. The value is
+required, and a `const` without one is a parse error.
+
+**Static abstract and static virtual interface members** follow C#, including
+operators declared in interfaces, so the library can offer C#'s generic maths
+interfaces (`INumber<TSelf>` and the rest). Because generics are monomorphised,
+a call through one becomes a direct call for each instantiation, with no
+dispatch at runtime.
 
 ## `TwoIntDecimal`
 
@@ -266,12 +371,16 @@ The repository owner decides these. Agents should surface them, not settle them.
 
 - Which Minecraft version and `pack_format` is the target?
 - How are objects represented — storage NBT, marker entities, or parallel
-  scoreboards? This decision cascades into almost everything else.
+  scoreboards? This decision cascades into almost everything else. Only the
+  direction is decided: the compiler chooses per case, as described under
+  [Built-in types and the standard library](#built-in-types-and-the-standard-library).
+  The concrete schemes are open.
 - Is garbage collected memory in scope, or is allocation arena/static only?
 - Do `virtual` / interfaces survive to the backend, or does the compiler require
   whole-program devirtualisation?
-- What does the standard library look like, and how do `builtin` members bridge
-  to raw commands? (`raw` is a reserved keyword and looks intended for this.)
+- The standard library's shape is decided (see above), and `builtin` members are
+  implemented in the compiler. Still open: whether `raw` is also a way to write
+  some of them as commands inside the library itself.
 - What is the interop story for reading and writing actual game state —
   entities, blocks, inventories?
 

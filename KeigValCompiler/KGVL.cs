@@ -121,6 +121,7 @@ internal static class KGVL
     public const string KEYWORD_OVERRIDE = "override";
     public const string KEYWORD_RAW = "raw";
     public const string KEYWORD_REQUIRED = "required";
+    public const string KEYWORD_CONST = "const";
 
     public const string KEYWORD_FOR = "for";
     public const string KEYWORD_FOREACH = "foreach";
@@ -179,6 +180,8 @@ internal static class KGVL
     public const string KEYWORD_DECIMAL = "decimal";
     public const string KEYWORD_STRING = "string";
     public const string KEYWORD_BOOL = "bool";
+    public const string KEYWORD_CHAR = "char";
+    public const string KEYWORD_OBJECT = "object";
     public const string KEYWORD_NULL = "null";
     public const string KEYWORD_FIELD = "field";
     public const string KEYWORD_VALUE = "value";

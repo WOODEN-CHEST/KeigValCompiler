@@ -591,9 +591,10 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition UnoverloadableOperator { get; } = new(9,
         CompilerMessageCategory.ReturnTypedMembersCommon,
-        "This operator cannot be overloaded. The ones which can are " +
-        "+, -, *, /, %, ++, --, ==, !=, >, <, >= and <=, along with implicit and explicit " +
-        "conversions");
+        "This operator cannot be overloaded. The ones which can are the unary +, -, !, ~, ++ and --, " +
+        "the binary +, -, *, /, %, &, |, ^, <<, >> and >>>, the comparisons ==, !=, >, <, >= and <=, " +
+        "and implicit and explicit conversions. Whether + or - is unary or binary is decided by how many " +
+        "parameters it has");
 
     internal virtual ErrorDefinition ExpectedParameterListEnd { get; } = new(11,
         CompilerMessageCategory.ReturnTypedMembersCommon,
@@ -707,6 +708,17 @@ internal class ErrorRepository
         CompilerMessageCategory.Statement,
         $"A \"{KGVL.KEYWORD_DEFAULT}\" case matches anything the other cases did not, so it cannot " +
         "have conditions of its own");
+
+    internal virtual ErrorDefinition ConstantWithoutValue { get; } = new(25,
+        CompilerMessageCategory.Statement,
+        $"The constant \"{{0}}\" is not given a value. A constant's value is fixed where it is declared, " +
+        $"so it has to be written there, as in \"{KGVL.KEYWORD_CONST} {KGVL.KEYWORD_INT} {{0}} " +
+        $"{KGVL.ASSIGN} 5{KGVL.SEMICOLON}\"");
+
+    internal virtual ErrorDefinition ExpectedConstantDeclaration { get; } = new(26,
+        CompilerMessageCategory.Statement,
+        $"Expected the type and name of a constant after \"{KGVL.KEYWORD_CONST}\", as in " +
+        $"\"{KGVL.KEYWORD_CONST} {KGVL.KEYWORD_INT} limit {KGVL.ASSIGN} 5{KGVL.SEMICOLON}\"");
 
 
     /* Command line. */

@@ -9,10 +9,20 @@ internal enum OverloadableOperator
     Division,
     Modulo,
 
+    UnaryPlus,
     Negation,
+    LogicalNot,
+    BitwiseComplement,
 
     Increment,
     Decrement,
+
+    BitwiseAnd,
+    BitwiseOr,
+    BitwiseXor,
+    LeftShift,
+    RightShift,
+    UnsignedRightShift,
 
     Equals,
     NotEquals,

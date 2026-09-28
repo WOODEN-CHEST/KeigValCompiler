@@ -63,7 +63,63 @@ it is assigned to is checked here.
 
 `DefaultInternalContentProvider` synthesises the built-in `KGVL` namespace
 (`Int8`…`UInt64`, `TwoIntDecimal`, `Boolean`, `String`, `Null`) into the pack
-before resolution, and records them in `BuiltInTypeRegistry`.
+before resolution, and records them in `BuiltInTypeRegistry`. It is to be
+replaced by the standard library described next, and removed.
+
+### The standard library (planned, not built)
+
+Decided on 2026-09-28; what the library means for the language is in
+[`language.md`](language.md#built-in-types-and-the-standard-library). None of
+this exists yet except `library-stubs/KGVL/Int32.kgvl`, an empty start.
+
+**Loading.** `library-stubs/` is copied to the build output and parsed before
+the user's sources, into the same `DataPack`; a `--library <dir>` option points
+elsewhere. Each `PackSourceFile` records whether it came from the library or
+from the user. Only library files may use `builtin`; anywhere else
+`MemberParser` keeps reporting `ReservedKeywordBuiltIn`. What makes a file a
+library file is where the compiler loaded it from, never anything written in it.
+Errors in library files get a category of their own, since they are never the
+user's fault.
+
+**Resolving.** Stage 2 runs in this order:
+
+1. Collect every declaration, library and user.
+2. Look up each known type (`KGVL.Int32`, `KGVL.String`, …) by full name, among
+   library files only, into `BuiltInTypeRegistry`. This has to precede step 3,
+   because the library's own signatures say `int`.
+3. Resolve signatures: member types, parameters, base types, constraints.
+4. Bind builtin members, as below. Stop here if the library has any error.
+5. Resolve and check function bodies.
+
+**Binding builtin members by signature.** There are no attributes or tags;
+`builtin` is the only marker. A builtin member is identified by its resolved
+signature (declaring type, kind, name or operator, static or not, return type,
+parameters), and the compiler holds a table of the signatures it implements.
+The check runs both ways: every builtin member must match one entry, and every
+entry must be matched by one member. The planned layout, in
+`Semantician/Library/`:
+
+- `LibraryTypes`: every known type, one line each, with its keyword alias. The
+  only central list, and one line per type rather than per member.
+- `MemberSignature`: a signature, compared by value. `SignatureBuilder` makes a
+  binding read like the declaration it matches, and `SignatureFormatter` prints
+  signatures in error messages.
+- `Bindings/`: one file per family of types. `IntegerBindings` covers all eight
+  integer types in one loop, `NumericConversionBindings` holds the conversion
+  table, and so on. Member names are constants at the top of the file that binds
+  them; operators need no names, since `OverloadableOperator` identifies them.
+- A binding maps a signature to an `IntrinsicOperation` (`Add`, `Convert`,
+  `Parse`, …). Operand types come from the signature, so one `Add` serves every
+  integer width. The backend will switch on the operation and never look at
+  names; it is kept apart from the bindings because it will be organised by how
+  values are stored, not by library type.
+
+So renaming a builtin member, or changing its parameters, means editing one line
+in the family file that binds it, and renaming a type means editing its line in
+`LibraryTypes`. The same `MemberSignature` descriptors find the non-builtin
+members the compiler relies on, such as `Object.ToString` for interpolation and
+`IEnumerator<T>.MoveNext` for `foreach`. `BuiltInTypeRegistry` becomes a map from
+each known type to its parsed `PackMember`.
 
 ### Stage 3 — Emit
 
@@ -105,7 +161,7 @@ error in a file is useful or noise depends on the input. After a recovered error
 the object model holds a partially built, possibly nonsensical tree, which is
 the other reason the next stage must not run.
 
-## Current state (as of 2026-09-19)
+## Current state (as of 2026-09-28)
 
 The build is **green** and **the parser is syntactically complete**: it reads
 every construct the language has, all the way down to expressions inside
@@ -120,7 +176,8 @@ and the resolver does not compile yet.
 Everything in the grammar. Types (classes, structs, interfaces, records, enums,
 delegates, events), their members (fields, properties with `get`/`set`/`init`,
 indexers, functions, constructors with `this`/`base` chaining, operator
-overloads including conversions), generics with constraints, and every
+overloads including conversions, in interfaces too), `const` fields and locals,
+generics with constraints, and every
 statement and expression form: precedence-correct operators, assignment,
 ternary, lambdas, `switch` expressions, `new` with object/collection/array
 initializers, indexing, member and conditional access, `yield`, `catch ... when`,
@@ -148,6 +205,15 @@ interpolated strings and all literal forms.
   through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
+- `PackClass.AllSubMembers` lists every operator function twice:
+  `MemberContainer.AllMembers` already adds them, and `PackClass` adds them
+  again. `PackStruct` and `PackInterface` do not.
+- `MemberContainer.Members` leaves out enums, so anything walking `SubMembers`,
+  such as `ParentItemResolver`, never reaches a nested enum.
+- An unoverloadable operator (`operator &&`, `operator true`) is reported
+  correctly, but recovery then resumes after the parameter list, as
+  `SkipToSyncPoint` does after any bracketed group it skipped, so the body after
+  it produces a second, spurious "Expected class member" error.
 
 ## Suggested order of work
 
@@ -157,9 +223,22 @@ Roughly dependency-ordered; the owner decides priorities.
 2. ~~Finish the parser.~~ Done.
 3. Wire up `KeigValCompilerTest` so the two fixtures run automatically. Both are
    currently checked by eye, which will not survive the resolver work.
-4. Decide how the built-in types and standard library are declared, since the
-   resolver needs somewhere to resolve `KGVL.String` *to*. Stub `.kgvl` files
-   parsed by the compiler itself are the leading idea.
+4. ~~Decide how the built-in types and standard library are declared.~~
+   Decided: see "The standard library" above. Building it, in order:
+   1. ~~The language additions the library needs: `object`, `char` and `const`,
+      the full set of overloadable operators, and operators in interfaces.~~
+      Done.
+   2. Loading the library, and restricting `builtin` to it.
+   3. The first library files: `Object`, `Boolean`, `Char`, the eight integer
+      types, `Decimal`, `String`, `Array`, `Nullable`, `IEquatable`,
+      `IComparable`, `IParsable`, the exceptions that compiler-inserted checks
+      and `Parse` throw, and `IEnumerable`/`IEnumerator`. They must parse with
+      zero errors, which makes them a second parser fixture.
+   4. `Semantician/Library/` and the binding files. These can only be checked
+      once step 5 runs.
+
+   Later, once the resolver handles static abstract members, the `KGVL.Numerics`
+   generic maths interfaces.
 5. Get `Semantician/Resolver/**` compiling again and invoke it from
    `CompilePack`; implement `SearchForIdentifier`.
 6. Design and prototype the datapack backend.

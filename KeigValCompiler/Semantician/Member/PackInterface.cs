@@ -1,9 +1,11 @@
 ﻿namespace KeigValCompiler.Semantician.Member;
 
 internal class PackInterface : PackMember, IPackTypeHolder, IPackFunctionHolder,
-    IPackMemberExtender, IGenericParameterHolder, IPackFieldHolder, IPackType, IPackEventHolder
+    IPackMemberExtender, IOperatorOverloadHolder, IGenericParameterHolder, IPackFieldHolder, IPackType,
+    IPackEventHolder
 {
     // Fields.
+    public OperatorOverloadCollection OperatorOverloads => _members.OperatorOverloads;
     public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
     public IEnumerable<Identifier> ExtendedMembers => _extendedMembers.ToArray();
     public IEnumerable<PackClass> Classes => _members.Classes;
@@ -34,7 +36,8 @@ internal class PackInterface : PackMember, IPackTypeHolder, IPackFunctionHolder,
 
 
     // Internal fields.
-    internal override IEnumerable<PackMember> SubMembers => _members.Members;
+    internal override IEnumerable<PackMember> SubMembers => _members.Members
+        .Concat(OperatorOverloads.Select(overload => overload.Function));
     internal override IEnumerable<PackMember> AllSubMembers => _members.AllMembers;
 
 

@@ -24,5 +24,7 @@ internal enum PackMemberModifiers
 
     Required = 1 << 11,
 
-    Record = 1 << 12
+    Record = 1 << 12,
+
+    Const = 1 << 13
 }
