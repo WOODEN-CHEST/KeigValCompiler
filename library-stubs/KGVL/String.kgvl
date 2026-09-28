@@ -1,0 +1,94 @@
+using KGVL.Collections.Generic;
+
+namespace KGVL;
+
+/* The type of "string": text which never changes once made, as a sequence of chars, which are
+ * UTF-16 code units as in C# and Java. Minecraft's strings are Java's.
+ *
+ * Strings compare by their text: == is true for two strings holding the same chars, whether or not
+ * they are the same object. CompareTo orders them by the number of each char in turn, as C#'s
+ * ordinal comparison does. There are no cultures, so nothing depends on a language or a region.
+ *
+ * + joins a string with anything else by turning that into text with ToString, and treats null as
+ * empty text. */
+public builtin sealed class String : IEquatable<string>, IComparable<string>, IEnumerable<char>
+{
+    // Constants.
+    public const string Empty = "";
+
+
+    // Constructors.
+    /* The char repeated count times. Throws ArgumentOutOfRangeException if count is negative. */
+    public builtin String(char value, int count);
+
+    /* The chars of an array, in order. Throws ArgumentNullException for null. */
+    public builtin String(char[] value);
+
+
+    // Properties.
+    public builtin int Length { get; }
+
+    /* Throws IndexOutOfRangeException if index is below 0, or not below Length. */
+    public builtin char this[int index] { get; }
+
+
+    // Methods.
+    public static bool IsNullOrEmpty(string? value) => (value == null) || (value.Length == 0);
+
+    /* Both joined into one, with null taken as empty. */
+    public static builtin string Concat(string? first, string? second);
+
+    /* The part starting at startIndex and running for length chars. Throws
+     * ArgumentOutOfRangeException if that part does not lie within the string. */
+    public builtin string Substring(int startIndex, int length);
+
+    /* The part from startIndex to the end. */
+    public string Substring(int startIndex) => Substring(startIndex, Length - startIndex);
+
+    /* Where value first appears, or -1 if it does not. An empty value appears at 0. */
+    public builtin int IndexOf(char value);
+    public builtin int IndexOf(string value);
+
+    public bool Contains(char value) => IndexOf(value) >= 0;
+
+    public bool Contains(string value) => IndexOf(value) >= 0;
+
+    public bool StartsWith(string value) => (value.Length <= Length) && (Substring(0, value.Length) == value);
+
+    public bool EndsWith(string value) =>
+        (value.Length <= Length) && (Substring(Length - value.Length) == value);
+
+    /* A negative number if this comes first, a positive one if other does, and 0 if they are equal.
+     * null comes before every string. */
+    public builtin int CompareTo(string? other);
+
+    public bool Equals(string? other) => this == other;
+
+    public IEnumerator<char> GetEnumerator()
+    {
+        for (int i = 0; i < Length; i++)
+        {
+            yield return this[i];
+        }
+    }
+
+
+    // Operators.
+    public static builtin bool operator ==(string? left, string? right);
+
+    public static bool operator !=(string? left, string? right) => !(left == right);
+
+    public static string operator +(string? left, string? right) => Concat(left, right);
+
+    public static string operator +(string? left, object? right) => Concat(left, right?.ToString());
+
+    public static string operator +(object? left, string? right) => Concat(left?.ToString(), right);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is string) && (this == (string)obj);
+
+    public override builtin int GetHashCode();
+
+    public override string ToString() => this;
+}

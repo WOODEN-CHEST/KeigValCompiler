@@ -1,0 +1,19 @@
+namespace KGVL;
+
+/* Thrown when a result does not fit in its type and wrapping around is not an option: Abs of a
+ * signed integer's MinValue, dividing a signed integer's MinValue by -1, Parse given a number out
+ * of range, and converting a decimal into an integer type too small for it. */
+public class OverflowException : ArithmeticException
+{
+    // Constants.
+    private const string DefaultMessage = "Arithmetic operation resulted in an overflow.";
+
+
+    // Constructors.
+    public OverflowException() : base(DefaultMessage) { }
+
+    public OverflowException(string? message) : base(message ?? DefaultMessage) { }
+
+    public OverflowException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

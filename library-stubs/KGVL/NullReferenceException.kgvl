@@ -1,0 +1,17 @@
+namespace KGVL;
+
+/* Thrown when a member is reached through null, as in text.Length when text is null. */
+public class NullReferenceException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "Object reference not set to an instance of an object.";
+
+
+    // Constructors.
+    public NullReferenceException() : base(DefaultMessage) { }
+
+    public NullReferenceException(string? message) : base(message ?? DefaultMessage) { }
+
+    public NullReferenceException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

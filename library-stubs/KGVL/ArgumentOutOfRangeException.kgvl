@@ -1,0 +1,19 @@
+namespace KGVL;
+
+/* Thrown when a function is given a number outside the range it accepts, such as a Substring which
+ * would run past the end of the string. As in C#, the name of the parameter comes before the message
+ * in these constructors, unlike in ArgumentException's. */
+public class ArgumentOutOfRangeException : ArgumentException
+{
+    // Constants.
+    private const string DefaultMessage = "Specified argument was out of the range of valid values.";
+
+
+    // Constructors.
+    public ArgumentOutOfRangeException() : base(DefaultMessage) { }
+
+    public ArgumentOutOfRangeException(string? paramName) : base(DefaultMessage, paramName) { }
+
+    public ArgumentOutOfRangeException(string? paramName, string? message)
+        : base(message ?? DefaultMessage, paramName) { }
+}

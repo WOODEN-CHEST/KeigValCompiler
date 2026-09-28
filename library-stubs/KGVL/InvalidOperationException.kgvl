@@ -1,0 +1,18 @@
+namespace KGVL;
+
+/* Thrown when a function is called while the object is in a state which does not allow it, such
+ * as reading the Value of a Nullable which has none. */
+public class InvalidOperationException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "Operation is not valid due to the current state of the object.";
+
+
+    // Constructors.
+    public InvalidOperationException() : base(DefaultMessage) { }
+
+    public InvalidOperationException(string? message) : base(message ?? DefaultMessage) { }
+
+    public InvalidOperationException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

@@ -1,0 +1,44 @@
+namespace KGVL;
+
+/* The type of "bool": true or false. Besides the operators below, && and || work on it, evaluating
+ * their right side only when the left one does not already decide the result, as in C#. */
+public builtin readonly struct Boolean : IEquatable<bool>, IComparable<bool>, IParsable<bool>
+{
+    // Constants.
+    public const string TrueString = "True";
+    public const string FalseString = "False";
+
+
+    // Methods.
+    /* Reads TrueString or FalseString in any case, with any whitespace around it, as C# does. Throws
+     * ArgumentNullException for null and FormatException for any other text. */
+    public static builtin bool Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to false. */
+    public static builtin bool TryParse(string? text, out bool result);
+
+    /* false comes before true. */
+    public int CompareTo(bool other) => (this == other) ? 0 : (this ? 1 : -1);
+
+    public bool Equals(bool other) => this == other;
+
+
+    // Operators.
+    public static builtin bool operator !(bool value);
+
+    /* Unlike && and ||, these always evaluate both sides. */
+    public static builtin bool operator &(bool left, bool right);
+    public static builtin bool operator |(bool left, bool right);
+    public static builtin bool operator ^(bool left, bool right);
+
+    public static builtin bool operator ==(bool left, bool right);
+    public static builtin bool operator !=(bool left, bool right);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is bool) && (this == (bool)obj);
+
+    public override int GetHashCode() => this ? 1 : 0;
+
+    public override string ToString() => this ? TrueString : FalseString;
+}

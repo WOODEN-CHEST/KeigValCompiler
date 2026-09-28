@@ -1,0 +1,18 @@
+namespace KGVL;
+
+/* Thrown when an integer is divided by zero, with / or %. Dividing a decimal by zero does not
+ * throw, and gives an infinity or NaN instead. */
+public class DivideByZeroException : ArithmeticException
+{
+    // Constants.
+    private const string DefaultMessage = "Attempted to divide by zero.";
+
+
+    // Constructors.
+    public DivideByZeroException() : base(DefaultMessage) { }
+
+    public DivideByZeroException(string? message) : base(message ?? DefaultMessage) { }
+
+    public DivideByZeroException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

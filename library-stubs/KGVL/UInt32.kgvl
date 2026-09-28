@@ -1,0 +1,95 @@
+namespace KGVL;
+
+/* A 32-bit unsigned integer, from 0 to 4294967295: the type of "uint".
+ *
+ * Arithmetic behaves as in C#. +, -, *, ++ and -- wrap around on overflow, so MaxValue + 1 is
+ * MinValue. / and % throw DivideByZeroException when dividing by zero.
+ * There is no unary -: as in C#, -x converts x to long first.
+ * A shift uses only the low 5 bits of its count, so x << 33 is x << 1. */
+public builtin readonly struct UInt32 : IEquatable<uint>, IComparable<uint>, IParsable<uint>
+{
+    // Constants.
+    public const uint MinValue = 0;
+    public const uint MaxValue = 4294967295;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin uint Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out uint result);
+
+    public static uint Min(uint first, uint second) => (first <= second) ? first : second;
+
+    public static uint Max(uint first, uint second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static uint Clamp(uint value, uint min, uint max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* 1 for a positive value, and 0 for zero. */
+    public static int Sign(uint value) => (value == 0) ? 0 : 1;
+
+    public int CompareTo(uint other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(uint other) => this == other;
+
+
+    // Operators.
+    public static builtin uint operator +(uint value);
+    public static builtin uint operator ~(uint value);
+    public static builtin uint operator ++(uint value);
+    public static builtin uint operator --(uint value);
+
+    public static builtin uint operator +(uint left, uint right);
+    public static builtin uint operator -(uint left, uint right);
+    public static builtin uint operator *(uint left, uint right);
+    public static builtin uint operator /(uint left, uint right);
+    public static builtin uint operator %(uint left, uint right);
+    public static builtin uint operator &(uint left, uint right);
+    public static builtin uint operator |(uint left, uint right);
+    public static builtin uint operator ^(uint left, uint right);
+
+    public static builtin uint operator <<(uint value, int shift);
+    public static builtin uint operator >>(uint value, int shift);
+    public static builtin uint operator >>>(uint value, int shift);
+
+    public static builtin bool operator ==(uint left, uint right);
+    public static builtin bool operator !=(uint left, uint right);
+    public static builtin bool operator <(uint left, uint right);
+    public static builtin bool operator >(uint left, uint right);
+    public static builtin bool operator <=(uint left, uint right);
+    public static builtin bool operator >=(uint left, uint right);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. Converting to decimal rounds
+     * to its 9 significant digits, which is why that one is explicit too. */
+    public static builtin explicit operator byte(uint value);
+    public static builtin explicit operator ubyte(uint value);
+    public static builtin explicit operator short(uint value);
+    public static builtin explicit operator ushort(uint value);
+    public static builtin explicit operator int(uint value);
+    public static builtin implicit operator long(uint value);
+    public static builtin implicit operator ulong(uint value);
+    public static builtin explicit operator char(uint value);
+    public static builtin explicit operator decimal(uint value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is uint) && (this == (uint)obj);
+
+    public override int GetHashCode() => (int)this;
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
+}

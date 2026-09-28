@@ -1,0 +1,72 @@
+namespace KGVL;
+
+/* An 8-bit unsigned integer, from 0 to 255: the type of "ubyte".
+ * Unlike C#'s, KGVL's byte is signed, and this, ubyte, is the unsigned one.
+ *
+ * As in C#, arithmetic on it is done as int: ubyte + ubyte is an int, and only ++ and -- keep
+ * the type. Casting a result back keeps its low 8 bits, so it wraps around: (ubyte)300 is 44. */
+public builtin readonly struct UInt8 : IEquatable<ubyte>, IComparable<ubyte>, IParsable<ubyte>
+{
+    // Constants.
+    public const ubyte MinValue = 0;
+    public const ubyte MaxValue = 255;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin ubyte Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out ubyte result);
+
+    public static ubyte Min(ubyte first, ubyte second) => (first <= second) ? first : second;
+
+    public static ubyte Max(ubyte first, ubyte second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static ubyte Clamp(ubyte value, ubyte min, ubyte max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* 1 for a positive value, and 0 for zero. */
+    public static int Sign(ubyte value) => (value == 0) ? 0 : 1;
+
+    public int CompareTo(ubyte other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(ubyte other) => this == other;
+
+
+    // Operators.
+    /* The only operators of its own. Everything else works on the value as an int. */
+    public static builtin ubyte operator ++(ubyte value);
+    public static builtin ubyte operator --(ubyte value);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. */
+    public static builtin explicit operator byte(ubyte value);
+    public static builtin implicit operator short(ubyte value);
+    public static builtin implicit operator ushort(ubyte value);
+    public static builtin implicit operator int(ubyte value);
+    public static builtin implicit operator uint(ubyte value);
+    public static builtin implicit operator long(ubyte value);
+    public static builtin implicit operator ulong(ubyte value);
+    public static builtin explicit operator char(ubyte value);
+    public static builtin implicit operator decimal(ubyte value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is ubyte) && (this == (ubyte)obj);
+
+    public override int GetHashCode() => this;
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
+}

@@ -1,0 +1,253 @@
+namespace KGVL;
+
+/* The type of "decimal", and KGVL's only fractional number. It is a floating point number in base 10
+ * with 9 significant digits and an exponent from -999999999 to 999999999. Being base 10, it holds
+ * values such as 0.1 exactly, which binary floating point cannot.
+ *
+ * It never throws. A result too large becomes PositiveInfinity or NegativeInfinity, one too close to
+ * zero becomes zero, and one with no answer, such as 0 / 0, becomes NaN, while any other number
+ * divided by zero gives an infinity. Rounding is half away from zero, and there is no negative zero.
+ *
+ * NaN is not equal to anything, itself included, so NaN == NaN is false and every comparison with
+ * NaN is false. Equals is the exception: it finds NaN equal to NaN, so that a NaN can be found again.
+ *
+ * The functions which approximate, such as Sqrt and Sin, have an overload taking a number of
+ * iterations, which trades accuracy for fewer commands. The overload without one uses as many as
+ * all 9 digits need. */
+public builtin readonly struct Decimal : IEquatable<decimal>, IComparable<decimal>, IParsable<decimal>
+{
+    // Constants.
+    public const decimal MinValue = -9.99999999e999999999m;
+    public const decimal MaxValue = 9.99999999e999999999m;
+
+    /* The smallest value above zero. */
+    public const decimal Epsilon = 1e-999999999m;
+
+    public const decimal NaN = 0m / 0m;
+    public const decimal PositiveInfinity = 1m / 0m;
+    public const decimal NegativeInfinity = -1m / 0m;
+
+    public const decimal Zero = 0m;
+    public const decimal One = 1m;
+
+    public const decimal Pi = 3.14159265m;
+    public const decimal Tau = 6.28318531m;
+    public const decimal E = 2.71828183m;
+
+
+    // Methods.
+    /* Reads a number written as ToString writes it, which reads every value back exactly: digits with
+     * an optional decimal point and exponent, as in -1.5e10, or "NaN", "Infinity" or "-Infinity" in
+     * any case. Throws FormatException if the text is not one, and OverflowException if it is out of
+     * range, either too large or too close to zero. */
+    public static builtin decimal Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out decimal result);
+
+    /* Classification. */
+    public static bool IsNaN(decimal value) => value != value;
+
+    public static bool IsPositiveInfinity(decimal value) => value == PositiveInfinity;
+
+    public static bool IsNegativeInfinity(decimal value) => value == NegativeInfinity;
+
+    public static bool IsInfinity(decimal value) => IsPositiveInfinity(value) || IsNegativeInfinity(value);
+
+    public static bool IsFinite(decimal value) => !IsNaN(value) && !IsInfinity(value);
+
+    public static bool IsInteger(decimal value) => IsFinite(value) && (value == Truncate(value));
+
+    /* Selection. Min and Max give NaN if either value is NaN. */
+    public static decimal Min(decimal first, decimal second)
+    {
+        if (IsNaN(first) || IsNaN(second))
+        {
+            return NaN;
+        }
+        return (first <= second) ? first : second;
+    }
+
+    public static decimal Max(decimal first, decimal second)
+    {
+        if (IsNaN(first) || IsNaN(second))
+        {
+            return NaN;
+        }
+        return (first >= second) ? first : second;
+    }
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static decimal Clamp(decimal value, decimal min, decimal max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    public static decimal Abs(decimal value) => (value < 0m) ? -value : value;
+
+    /* -1 for a negative value, 1 for a positive one, and 0 for zero. Throws ArithmeticException for
+     * NaN, which has no sign, as C#'s floating point types do. */
+    public static int Sign(decimal value)
+    {
+        if (IsNaN(value))
+        {
+            throw new ArithmeticException("NaN has no sign.");
+        }
+        return (value > 0m) ? 1 : ((value < 0m) ? -1 : 0);
+    }
+
+    /* Rounding. Each keeps NaN and the infinities as they are. */
+    public static builtin decimal Floor(decimal value);
+
+    public static builtin decimal Ceiling(decimal value);
+
+    /* Towards zero. */
+    public static builtin decimal Truncate(decimal value);
+
+    /* To the nearest whole number, halves away from zero. */
+    public static builtin decimal Round(decimal value);
+
+    /* To a number of digits after the decimal point, halves away from zero. */
+    public static builtin decimal Round(decimal value, int decimals);
+
+    /* Roots. NaN for a negative value, except for the cube root and odd degrees of RootN. */
+    public static builtin decimal Sqrt(decimal value);
+    public static builtin decimal Sqrt(decimal value, int iterations);
+
+    public static builtin decimal Cbrt(decimal value);
+    public static builtin decimal Cbrt(decimal value, int iterations);
+
+    public static builtin decimal RootN(decimal value, int degree);
+    public static builtin decimal RootN(decimal value, int degree, int iterations);
+
+    /* Powers and logarithms. */
+    public static builtin decimal Pow(decimal value, decimal power);
+    public static builtin decimal Pow(decimal value, decimal power, int iterations);
+
+    public static builtin decimal Exp(decimal power);
+    public static builtin decimal Exp(decimal power, int iterations);
+
+    public static builtin decimal Exp10(decimal power);
+    public static builtin decimal Exp10(decimal power, int iterations);
+
+    public static builtin decimal Log(decimal value);
+    public static builtin decimal Log(decimal value, int iterations);
+
+    public static builtin decimal Log(decimal value, decimal numberBase);
+    public static builtin decimal Log(decimal value, decimal numberBase, int iterations);
+
+    public static builtin decimal Log2(decimal value);
+    public static builtin decimal Log2(decimal value, int iterations);
+
+    public static builtin decimal Log10(decimal value);
+    public static builtin decimal Log10(decimal value, int iterations);
+
+    /* Trigonometry, in radians. Accuracy falls by about a digit for every power of ten in the size of
+     * the angle, and past 1e9 there are no correct digits left, so Sin, Cos and Tan give NaN. */
+    public static decimal DegreesToRadians(decimal degrees) => degrees * (Pi / 180m);
+
+    public static decimal RadiansToDegrees(decimal radians) => radians * (180m / Pi);
+
+    public static builtin decimal Sin(decimal radians);
+    public static builtin decimal Sin(decimal radians, int iterations);
+
+    public static builtin decimal Cos(decimal radians);
+    public static builtin decimal Cos(decimal radians, int iterations);
+
+    public static builtin decimal Tan(decimal radians);
+    public static builtin decimal Tan(decimal radians, int iterations);
+
+    public static builtin decimal Asin(decimal value);
+    public static builtin decimal Asin(decimal value, int iterations);
+
+    public static builtin decimal Acos(decimal value);
+    public static builtin decimal Acos(decimal value, int iterations);
+
+    public static builtin decimal Atan(decimal value);
+    public static builtin decimal Atan(decimal value, int iterations);
+
+    public static builtin decimal Atan2(decimal y, decimal x);
+    public static builtin decimal Atan2(decimal y, decimal x, int iterations);
+
+    public static builtin decimal Sinh(decimal value);
+    public static builtin decimal Sinh(decimal value, int iterations);
+
+    public static builtin decimal Cosh(decimal value);
+    public static builtin decimal Cosh(decimal value, int iterations);
+
+    public static builtin decimal Tanh(decimal value);
+    public static builtin decimal Tanh(decimal value, int iterations);
+
+    /* Comparison. NaN sorts before every other value and equal to itself, as in C#'s floating point
+     * types, so that sorting works even with NaN present. */
+    public int CompareTo(decimal other)
+    {
+        if (this < other)
+        {
+            return -1;
+        }
+        if (this > other)
+        {
+            return 1;
+        }
+        if (this == other)
+        {
+            return 0;
+        }
+        if (IsNaN(this))
+        {
+            return IsNaN(other) ? 0 : -1;
+        }
+        return 1;
+    }
+
+    public bool Equals(decimal other) => (this == other) || (IsNaN(this) && IsNaN(other));
+
+
+    // Operators.
+    public static builtin decimal operator +(decimal value);
+    public static builtin decimal operator -(decimal value);
+    public static builtin decimal operator ++(decimal value);
+    public static builtin decimal operator --(decimal value);
+
+    public static builtin decimal operator +(decimal left, decimal right);
+    public static builtin decimal operator -(decimal left, decimal right);
+    public static builtin decimal operator *(decimal left, decimal right);
+    public static builtin decimal operator /(decimal left, decimal right);
+    public static builtin decimal operator %(decimal left, decimal right);
+
+    public static builtin bool operator ==(decimal left, decimal right);
+    public static builtin bool operator !=(decimal left, decimal right);
+    public static builtin bool operator <(decimal left, decimal right);
+    public static builtin bool operator >(decimal left, decimal right);
+    public static builtin bool operator <=(decimal left, decimal right);
+    public static builtin bool operator >=(decimal left, decimal right);
+
+
+    // Conversions.
+    /* All explicit, since every one can lose the fraction or not fit. Each truncates towards zero,
+     * and throws OverflowException when the result does not fit in the type, which includes NaN and
+     * the infinities. */
+    public static builtin explicit operator byte(decimal value);
+    public static builtin explicit operator ubyte(decimal value);
+    public static builtin explicit operator short(decimal value);
+    public static builtin explicit operator ushort(decimal value);
+    public static builtin explicit operator int(decimal value);
+    public static builtin explicit operator uint(decimal value);
+    public static builtin explicit operator long(decimal value);
+    public static builtin explicit operator ulong(decimal value);
+    public static builtin explicit operator char(decimal value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is decimal) && Equals((decimal)obj);
+
+    public override builtin int GetHashCode();
+
+    /* Text which Parse reads back as exactly this value. */
+    public override builtin string ToString();
+}

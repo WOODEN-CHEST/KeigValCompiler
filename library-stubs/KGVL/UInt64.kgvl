@@ -1,0 +1,95 @@
+namespace KGVL;
+
+/* A 64-bit unsigned integer, from 0 to 18446744073709551615: the type of "ulong".
+ *
+ * Arithmetic behaves as in C#. +, -, *, ++ and -- wrap around on overflow, so MaxValue + 1 is
+ * MinValue. / and % throw DivideByZeroException when dividing by zero.
+ * There is no unary -, so as in C#, -x is an error.
+ * A shift uses only the low 6 bits of its count, so x << 65 is x << 1. */
+public builtin readonly struct UInt64 : IEquatable<ulong>, IComparable<ulong>, IParsable<ulong>
+{
+    // Constants.
+    public const ulong MinValue = 0;
+    public const ulong MaxValue = 18446744073709551615;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin ulong Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out ulong result);
+
+    public static ulong Min(ulong first, ulong second) => (first <= second) ? first : second;
+
+    public static ulong Max(ulong first, ulong second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static ulong Clamp(ulong value, ulong min, ulong max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* 1 for a positive value, and 0 for zero. */
+    public static int Sign(ulong value) => (value == 0) ? 0 : 1;
+
+    public int CompareTo(ulong other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(ulong other) => this == other;
+
+
+    // Operators.
+    public static builtin ulong operator +(ulong value);
+    public static builtin ulong operator ~(ulong value);
+    public static builtin ulong operator ++(ulong value);
+    public static builtin ulong operator --(ulong value);
+
+    public static builtin ulong operator +(ulong left, ulong right);
+    public static builtin ulong operator -(ulong left, ulong right);
+    public static builtin ulong operator *(ulong left, ulong right);
+    public static builtin ulong operator /(ulong left, ulong right);
+    public static builtin ulong operator %(ulong left, ulong right);
+    public static builtin ulong operator &(ulong left, ulong right);
+    public static builtin ulong operator |(ulong left, ulong right);
+    public static builtin ulong operator ^(ulong left, ulong right);
+
+    public static builtin ulong operator <<(ulong value, int shift);
+    public static builtin ulong operator >>(ulong value, int shift);
+    public static builtin ulong operator >>>(ulong value, int shift);
+
+    public static builtin bool operator ==(ulong left, ulong right);
+    public static builtin bool operator !=(ulong left, ulong right);
+    public static builtin bool operator <(ulong left, ulong right);
+    public static builtin bool operator >(ulong left, ulong right);
+    public static builtin bool operator <=(ulong left, ulong right);
+    public static builtin bool operator >=(ulong left, ulong right);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. Converting to decimal rounds
+     * to its 9 significant digits, which is why that one is explicit too. */
+    public static builtin explicit operator byte(ulong value);
+    public static builtin explicit operator ubyte(ulong value);
+    public static builtin explicit operator short(ulong value);
+    public static builtin explicit operator ushort(ulong value);
+    public static builtin explicit operator int(ulong value);
+    public static builtin explicit operator uint(ulong value);
+    public static builtin explicit operator long(ulong value);
+    public static builtin explicit operator char(ulong value);
+    public static builtin explicit operator decimal(ulong value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is ulong) && (this == (ulong)obj);
+
+    public override builtin int GetHashCode();
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
+}

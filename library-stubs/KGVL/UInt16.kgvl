@@ -1,0 +1,71 @@
+namespace KGVL;
+
+/* A 16-bit unsigned integer, from 0 to 65535: the type of "ushort".
+ *
+ * As in C#, arithmetic on it is done as int: ushort + ushort is an int, and only ++ and -- keep
+ * the type. Casting a result back keeps its low 16 bits, so it wraps around: (ushort)70000 is 4464. */
+public builtin readonly struct UInt16 : IEquatable<ushort>, IComparable<ushort>, IParsable<ushort>
+{
+    // Constants.
+    public const ushort MinValue = 0;
+    public const ushort MaxValue = 65535;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin ushort Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out ushort result);
+
+    public static ushort Min(ushort first, ushort second) => (first <= second) ? first : second;
+
+    public static ushort Max(ushort first, ushort second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static ushort Clamp(ushort value, ushort min, ushort max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* 1 for a positive value, and 0 for zero. */
+    public static int Sign(ushort value) => (value == 0) ? 0 : 1;
+
+    public int CompareTo(ushort other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(ushort other) => this == other;
+
+
+    // Operators.
+    /* The only operators of its own. Everything else works on the value as an int. */
+    public static builtin ushort operator ++(ushort value);
+    public static builtin ushort operator --(ushort value);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. */
+    public static builtin explicit operator byte(ushort value);
+    public static builtin explicit operator ubyte(ushort value);
+    public static builtin explicit operator short(ushort value);
+    public static builtin implicit operator int(ushort value);
+    public static builtin implicit operator uint(ushort value);
+    public static builtin implicit operator long(ushort value);
+    public static builtin implicit operator ulong(ushort value);
+    public static builtin explicit operator char(ushort value);
+    public static builtin implicit operator decimal(ushort value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is ushort) && (this == (ushort)obj);
+
+    public override int GetHashCode() => this;
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
+}

@@ -1,0 +1,30 @@
+using KGVL.Collections.Generic;
+
+namespace KGVL;
+
+/* The type behind T[]: a fixed number of values of one type. int[] means Array<int>, and int[][]
+ * means Array<Array<int>>. An array is made with new, as in new int[4] or new int[] { 1, 2 }, and
+ * its length never changes after that. Every element starts as the default value of its type. */
+public builtin sealed class Array<T> : IEnumerable<T>
+{
+    // Constructors.
+    /* Arrays are made with "new T[length]", so there is no constructor to call. */
+    private Array() { }
+
+
+    // Properties.
+    public builtin int Length { get; }
+
+    /* Throws IndexOutOfRangeException if index is below 0, or not below Length. */
+    public builtin T this[int index] { get; set; }
+
+
+    // Methods.
+    public IEnumerator<T> GetEnumerator()
+    {
+        for (int i = 0; i < Length; i++)
+        {
+            yield return this[i];
+        }
+    }
+}

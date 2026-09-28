@@ -1,6 +1,108 @@
 namespace KGVL;
 
-public builtin readonly struct Int32
+/* A 32-bit signed integer, from -2147483648 to 2147483647: the type of "int".
+ * A whole-number literal is an int whenever it fits in one.
+ *
+ * Arithmetic behaves as in C#. +, -, *, ++ and -- wrap around on overflow, so MaxValue + 1 is
+ * MinValue. / and % round towards zero, and throw DivideByZeroException when dividing by zero,
+ * and MinValue / -1 throws OverflowException.
+ * A shift uses only the low 5 bits of its count, so x << 33 is x << 1. */
+public builtin readonly struct Int32 : IEquatable<int>, IComparable<int>, IParsable<int>
 {
-    
+    // Constants.
+    /* Written as a subtraction because 2147483648, without its sign, is too large for an int. */
+    public const int MinValue = -2147483647 - 1;
+    public const int MaxValue = 2147483647;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin int Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out int result);
+
+    public static int Min(int first, int second) => (first <= second) ? first : second;
+
+    public static int Max(int first, int second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static int Clamp(int value, int min, int max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* Throws OverflowException for MinValue, whose absolute value is one too large to fit. */
+    public static int Abs(int value)
+    {
+        if (value == MinValue)
+        {
+            throw new OverflowException("Negating the minimum value of a signed integer is invalid.");
+        }
+        return (value < 0) ? -value : value;
+    }
+
+    /* -1 for a negative value, 1 for a positive one, and 0 for zero. */
+    public static int Sign(int value) => (value > 0) ? 1 : ((value < 0) ? -1 : 0);
+
+    public int CompareTo(int other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(int other) => this == other;
+
+
+    // Operators.
+    public static builtin int operator +(int value);
+    public static builtin int operator -(int value);
+    public static builtin int operator ~(int value);
+    public static builtin int operator ++(int value);
+    public static builtin int operator --(int value);
+
+    public static builtin int operator +(int left, int right);
+    public static builtin int operator -(int left, int right);
+    public static builtin int operator *(int left, int right);
+    public static builtin int operator /(int left, int right);
+    public static builtin int operator %(int left, int right);
+    public static builtin int operator &(int left, int right);
+    public static builtin int operator |(int left, int right);
+    public static builtin int operator ^(int left, int right);
+
+    public static builtin int operator <<(int value, int shift);
+    public static builtin int operator >>(int value, int shift);
+    public static builtin int operator >>>(int value, int shift);
+
+    public static builtin bool operator ==(int left, int right);
+    public static builtin bool operator !=(int left, int right);
+    public static builtin bool operator <(int left, int right);
+    public static builtin bool operator >(int left, int right);
+    public static builtin bool operator <=(int left, int right);
+    public static builtin bool operator >=(int left, int right);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. Converting to decimal rounds
+     * to its 9 significant digits, which is why that one is explicit too. */
+    public static builtin explicit operator byte(int value);
+    public static builtin explicit operator ubyte(int value);
+    public static builtin explicit operator short(int value);
+    public static builtin explicit operator ushort(int value);
+    public static builtin explicit operator uint(int value);
+    public static builtin implicit operator long(int value);
+    public static builtin explicit operator ulong(int value);
+    public static builtin explicit operator char(int value);
+    public static builtin explicit operator decimal(int value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is int) && (this == (int)obj);
+
+    public override int GetHashCode() => this;
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
 }

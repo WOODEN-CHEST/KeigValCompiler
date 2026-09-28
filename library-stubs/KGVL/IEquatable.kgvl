@@ -1,0 +1,8 @@
+namespace KGVL;
+
+/* A type whose values can be compared for equality with each other, without the boxing that
+ * Object.Equals needs for a value type. */
+public interface IEquatable<T>
+{
+    bool Equals(T other);
+}

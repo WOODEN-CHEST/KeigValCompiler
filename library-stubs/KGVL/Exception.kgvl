@@ -1,0 +1,37 @@
+namespace KGVL;
+
+/* The base of everything which can be thrown and caught: throw takes an Exception, and catch picks
+ * exceptions by type, so catching Exception catches all of them.
+ *
+ * Besides what a program throws itself, some operations throw when they fail, as in C#: dividing an
+ * integer by zero, reaching a member through null, indexing outside an array, and a cast which does
+ * not hold. The exception each one throws says so. */
+public class Exception
+{
+    // Constants.
+    private const string DefaultMessage = "An exception was thrown.";
+
+
+    // Constructors.
+    public Exception() : this(null, null) { }
+
+    public Exception(string? message) : this(message, null) { }
+
+    public Exception(string? message, Exception? innerException)
+    {
+        Message = message ?? DefaultMessage;
+        InnerException = innerException;
+    }
+
+
+    // Properties.
+    /* What went wrong, written for a person to read. */
+    public virtual string Message { get; }
+
+    /* The exception this one was thrown because of, if there was one. */
+    public Exception? InnerException { get; }
+
+
+    // Inherited methods.
+    public override string ToString() => Message;
+}

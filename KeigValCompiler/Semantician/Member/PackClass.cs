@@ -6,7 +6,7 @@ internal class PackClass : PackMember, IPackTypeHolder, IPackFieldHolder, IPackF
     // Fields.
     public OperatorOverloadCollection OperatorOverloads => _members.OperatorOverloads;
     public GenericTypeParameterCollection GenericParameters { get; private init; } = new();
-    public IEnumerable<Identifier> ExtendedMembers => _extendedMembers.ToArray();
+    public IEnumerable<TypeTargetIdentifier> ExtendedMembers => _extendedMembers.ToArray();
     public IEnumerable<PackClass> Classes => _members.Classes;
     public IEnumerable<PackInterface> Interfaces => _members.Interfaces;
     public IEnumerable<PackStruct> Structs => _members.Structs;
@@ -42,7 +42,7 @@ internal class PackClass : PackMember, IPackTypeHolder, IPackFieldHolder, IPackF
 
 
     // Private fields.
-    private readonly List<Identifier> _extendedMembers = new();
+    private readonly List<TypeTargetIdentifier> _extendedMembers = new();
     private readonly MemberContainer _members = new();
 
 
@@ -142,14 +142,14 @@ internal class PackClass : PackMember, IPackTypeHolder, IPackFieldHolder, IPackF
         _members.RemoveIndexer(item);
     }
 
-    public void AddExtendedMember(Identifier identifier)
+    public void AddExtendedMember(TypeTargetIdentifier type)
     {
-        _extendedMembers.Add(identifier);
+        _extendedMembers.Add(type);
     }
 
-    public void RemoveExtendedMember(Identifier identifier)
+    public void RemoveExtendedMember(TypeTargetIdentifier type)
     {
-        _extendedMembers.Remove(identifier);
+        _extendedMembers.Remove(type);
     }
 
     public void RemoveDelegate(PackDelegate packDelegate)

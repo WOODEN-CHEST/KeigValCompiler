@@ -1,0 +1,18 @@
+namespace KGVL;
+
+/* Thrown when text is not in the form a function reads, such as Parse given something which is
+ * not a number. */
+public class FormatException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "One of the identified items was in an invalid format.";
+
+
+    // Constructors.
+    public FormatException() : base(DefaultMessage) { }
+
+    public FormatException(string? message) : base(message ?? DefaultMessage) { }
+
+    public FormatException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

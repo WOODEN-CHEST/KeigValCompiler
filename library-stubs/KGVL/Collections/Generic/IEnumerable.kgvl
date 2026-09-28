@@ -1,0 +1,9 @@
+namespace KGVL.Collections.Generic;
+
+/* A sequence of values which can be walked from the start, which is what foreach needs. A function
+ * returning one can be written with "yield return". */
+public interface IEnumerable<T>
+{
+    /* A new enumerator, starting before the first value. */
+    IEnumerator<T> GetEnumerator();
+}

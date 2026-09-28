@@ -1,0 +1,43 @@
+namespace KGVL;
+
+/* The type behind T? when T is a value type: either a T, or no value at all. int? means
+ * Nullable<int>. null converts to one with no value, and a T converts to one holding it.
+ *
+ * Operators work on it as in C#: an operator a value type declares also works on the nullable form,
+ * so int? + int? is an int?, and is null whenever either side is. == and != compare two nullables
+ * as equal when both are null, and the other comparisons are false when either side is null. */
+public builtin readonly struct Nullable<T> where T : struct
+{
+    // Constructors.
+    public builtin Nullable(T value);
+
+
+    // Properties.
+    public builtin bool HasValue { get; }
+
+    /* Throws InvalidOperationException if there is no value. */
+    public builtin T Value { get; }
+
+
+    // Methods.
+    public T GetValueOrDefault() => HasValue ? Value : default;
+
+    public T GetValueOrDefault(T defaultValue) => HasValue ? Value : defaultValue;
+
+
+    // Conversions.
+    public static builtin implicit operator Nullable<T>(T value);
+
+    /* Throws InvalidOperationException if there is no value. */
+    public static builtin explicit operator T(Nullable<T> value);
+
+
+    // Inherited methods.
+    /* With no value, equal only to null. */
+    public override bool Equals(object? other) => HasValue ? Value.Equals(other) : (other == null);
+
+    public override int GetHashCode() => HasValue ? Value.GetHashCode() : 0;
+
+    /* With no value, empty text. */
+    public override string ToString() => HasValue ? Value.ToString() : string.Empty;
+}

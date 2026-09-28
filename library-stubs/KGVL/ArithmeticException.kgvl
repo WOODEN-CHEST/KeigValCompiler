@@ -1,0 +1,18 @@
+namespace KGVL;
+
+/* The base of the exceptions arithmetic throws, DivideByZeroException and OverflowException, so
+ * that catching it catches both. */
+public class ArithmeticException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "Overflow or underflow in the arithmetic operation.";
+
+
+    // Constructors.
+    public ArithmeticException() : base(DefaultMessage) { }
+
+    public ArithmeticException(string? message) : base(message ?? DefaultMessage) { }
+
+    public ArithmeticException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

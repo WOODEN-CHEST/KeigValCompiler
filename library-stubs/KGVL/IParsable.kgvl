@@ -1,0 +1,12 @@
+namespace KGVL;
+
+/* A type whose values can be read from text. Its members are static, so generic code reaches them
+ * through the type, as in T.Parse(text) for a T constrained to IParsable<T>. */
+public interface IParsable<TSelf> where TSelf : IParsable<TSelf>
+{
+    /* Throws FormatException if the text is not a TSelf, and ArgumentNullException for null. */
+    static abstract TSelf Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing. */
+    static abstract bool TryParse(string? text, out TSelf result);
+}

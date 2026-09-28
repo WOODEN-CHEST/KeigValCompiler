@@ -1,0 +1,17 @@
+namespace KGVL;
+
+/* Thrown when a cast fails at run time, such as unboxing an object into the wrong type. */
+public class InvalidCastException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "Specified cast is not valid.";
+
+
+    // Constructors.
+    public InvalidCastException() : base(DefaultMessage) { }
+
+    public InvalidCastException(string? message) : base(message ?? DefaultMessage) { }
+
+    public InvalidCastException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

@@ -210,6 +210,11 @@ interpolated strings and all literal forms. The standard library is read from
   through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
+- A cast directly followed by a unary operator, as in `(int)-x`, parses as a
+  subtraction. C# reads it as a cast because `int` is a keyword, which
+  `ExpressionParser.IsCastTarget`'s comment describes but its code does not do.
+- Char and string escapes lack C#'s `\0` and `\u`; `\x` and the letter escapes
+  work, so the library writes `'\x0'` for C#'s `'\0'`.
 
 ## Suggested order of work
 
@@ -229,7 +234,8 @@ Roughly dependency-ordered; the owner decides priorities.
       types, `Decimal`, `String`, `Array`, `Nullable`, `IEquatable`,
       `IComparable`, `IParsable`, the exceptions that compiler-inserted checks
       and `Parse` throw, and `IEnumerable`/`IEnumerator`. They must parse with
-      zero errors, which makes them a second parser fixture.
+      zero errors, which makes them a second parser fixture. Drafted and
+      parsing cleanly; awaiting the owner's review.
    4. `Semantician/Library/` and the binding files. These can only be checked
       once step 5 runs.
 

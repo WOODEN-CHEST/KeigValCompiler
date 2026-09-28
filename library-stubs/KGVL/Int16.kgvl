@@ -1,0 +1,81 @@
+namespace KGVL;
+
+/* A 16-bit signed integer, from -32768 to 32767: the type of "short".
+ *
+ * As in C#, arithmetic on it is done as int: short + short is an int, and only ++ and -- keep
+ * the type. Casting a result back keeps its low 16 bits, so it wraps around: (short)40000 is -25536. */
+public builtin readonly struct Int16 : IEquatable<short>, IComparable<short>, IParsable<short>
+{
+    // Constants.
+    public const short MinValue = -32768;
+    public const short MaxValue = 32767;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin short Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out short result);
+
+    public static short Min(short first, short second) => (first <= second) ? first : second;
+
+    public static short Max(short first, short second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static short Clamp(short value, short min, short max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* Throws OverflowException for MinValue, whose absolute value is one too large to fit. */
+    public static short Abs(short value)
+    {
+        if (value == MinValue)
+        {
+            throw new OverflowException("Negating the minimum value of a signed integer is invalid.");
+        }
+        return (value < 0) ? (short)(-value) : value;
+    }
+
+    /* -1 for a negative value, 1 for a positive one, and 0 for zero. */
+    public static int Sign(short value) => (value > 0) ? 1 : ((value < 0) ? -1 : 0);
+
+    public int CompareTo(short other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(short other) => this == other;
+
+
+    // Operators.
+    /* The only operators of its own. Everything else works on the value as an int. */
+    public static builtin short operator ++(short value);
+    public static builtin short operator --(short value);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. */
+    public static builtin explicit operator byte(short value);
+    public static builtin explicit operator ubyte(short value);
+    public static builtin explicit operator ushort(short value);
+    public static builtin implicit operator int(short value);
+    public static builtin explicit operator uint(short value);
+    public static builtin implicit operator long(short value);
+    public static builtin explicit operator ulong(short value);
+    public static builtin explicit operator char(short value);
+    public static builtin implicit operator decimal(short value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is short) && (this == (short)obj);
+
+    public override int GetHashCode() => this;
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
+}

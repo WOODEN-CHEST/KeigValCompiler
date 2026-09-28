@@ -1,0 +1,82 @@
+namespace KGVL;
+
+/* An 8-bit signed integer, from -128 to 127: the type of "byte".
+ * Unlike C#'s, KGVL's byte is signed, and ubyte is the unsigned one.
+ *
+ * As in C#, arithmetic on it is done as int: byte + byte is an int, and only ++ and -- keep
+ * the type. Casting a result back keeps its low 8 bits, so it wraps around: (byte)200 is -56. */
+public builtin readonly struct Int8 : IEquatable<byte>, IComparable<byte>, IParsable<byte>
+{
+    // Constants.
+    public const byte MinValue = -128;
+    public const byte MaxValue = 127;
+
+
+    // Methods.
+    /* Reads a whole number written in decimal digits, as ToString writes it. Throws FormatException if
+     * the text is not one, and OverflowException if it does not fit. */
+    public static builtin byte Parse(string text);
+
+    /* Like Parse, but gives false instead of throwing, and sets result to 0. */
+    public static builtin bool TryParse(string? text, out byte result);
+
+    public static byte Min(byte first, byte second) => (first <= second) ? first : second;
+
+    public static byte Max(byte first, byte second) => (first >= second) ? first : second;
+
+    /* Throws ArgumentException if min is greater than max. */
+    public static byte Clamp(byte value, byte min, byte max)
+    {
+        if (min > max)
+        {
+            throw new ArgumentException("The minimum cannot be greater than the maximum.");
+        }
+        return Min(Max(value, min), max);
+    }
+
+    /* Throws OverflowException for MinValue, whose absolute value is one too large to fit. */
+    public static byte Abs(byte value)
+    {
+        if (value == MinValue)
+        {
+            throw new OverflowException("Negating the minimum value of a signed integer is invalid.");
+        }
+        return (value < 0) ? (byte)(-value) : value;
+    }
+
+    /* -1 for a negative value, 1 for a positive one, and 0 for zero. */
+    public static int Sign(byte value) => (value > 0) ? 1 : ((value < 0) ? -1 : 0);
+
+    public int CompareTo(byte other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(byte other) => this == other;
+
+
+    // Operators.
+    /* The only operators of its own. Everything else works on the value as an int. */
+    public static builtin byte operator ++(byte value);
+    public static builtin byte operator --(byte value);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. */
+    public static builtin explicit operator ubyte(byte value);
+    public static builtin implicit operator short(byte value);
+    public static builtin explicit operator ushort(byte value);
+    public static builtin implicit operator int(byte value);
+    public static builtin explicit operator uint(byte value);
+    public static builtin implicit operator long(byte value);
+    public static builtin explicit operator ulong(byte value);
+    public static builtin explicit operator char(byte value);
+    public static builtin implicit operator decimal(byte value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is byte) && (this == (byte)obj);
+
+    public override int GetHashCode() => this;
+
+    /* The value in decimal digits, with a leading - when negative. */
+    public override builtin string ToString();
+}

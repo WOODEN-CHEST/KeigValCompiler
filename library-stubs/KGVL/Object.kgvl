@@ -1,0 +1,35 @@
+namespace KGVL;
+
+/* The type of "object", which every other type derives from, directly or not. A struct or an enum
+ * converted to object, or to an interface, is boxed, as in C#: the object holds a copy of the value.
+ *
+ * Two references compare with == by whether they are the same object, unless their type declares an
+ * == of its own. There is no reflection, so nothing can ask an object for its type at run time
+ * beyond "is" and "as". */
+public builtin class Object
+{
+    // Methods.
+    /* Whether the two are the same object. A boxed value is a copy, so two boxes are never the same
+     * object even when the values in them are equal. */
+    public static builtin bool ReferenceEquals(object? first, object? second);
+
+    /* Whether the two are equal: both null, or equal by the first one's Equals. */
+    public static bool Equals(object? first, object? second)
+    {
+        if (ReferenceEquals(first, second))
+        {
+            return true;
+        }
+        return (first != null) && (second != null) && first.Equals(second);
+    }
+
+    /* Whether this equals another object. Unless overridden, it is whether they are the same object. */
+    public virtual builtin bool Equals(object? obj);
+
+    /* A number which objects that are equal share. Unless overridden, it comes from which object this
+     * is, so it matches Equals left as it is. */
+    public virtual builtin int GetHashCode();
+
+    /* This object as text. Unless overridden, the full name of its type, such as "KGVL.Object". */
+    public virtual builtin string ToString();
+}

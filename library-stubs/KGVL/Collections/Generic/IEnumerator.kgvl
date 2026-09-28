@@ -1,0 +1,12 @@
+namespace KGVL.Collections.Generic;
+
+/* One walk through a sequence. It starts before the first value, so MoveNext has to be called
+ * before Current means anything. */
+public interface IEnumerator<T>
+{
+    /* The value the walk is at. */
+    T Current { get; }
+
+    /* Steps to the next value, and whether there was one to step to. */
+    bool MoveNext();
+}

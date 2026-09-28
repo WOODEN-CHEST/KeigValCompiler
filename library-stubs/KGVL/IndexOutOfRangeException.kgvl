@@ -1,0 +1,17 @@
+namespace KGVL;
+
+/* Thrown when an array or a string is indexed outside its bounds. */
+public class IndexOutOfRangeException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "Index was outside the bounds of the array.";
+
+
+    // Constructors.
+    public IndexOutOfRangeException() : base(DefaultMessage) { }
+
+    public IndexOutOfRangeException(string? message) : base(message ?? DefaultMessage) { }
+
+    public IndexOutOfRangeException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+}

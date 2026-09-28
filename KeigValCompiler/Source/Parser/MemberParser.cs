@@ -1284,8 +1284,7 @@ internal class MemberParser : AbstractParserBase
                 throw new SourceFileReadException(Parser, ExtendEndError);
             }
 
-            Identifier ExtendedMember = new(Parser.ReadIdentifier(IdentifierError));
-            extender.AddExtendedMember(ExtendedMember);
+            extender.AddExtendedMember(Parser.ReadTypeTargetIdentifier(IdentifierError));
 
             Parser.SkipUntilNonWhitespace(null);
             IsAnExtensionExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;

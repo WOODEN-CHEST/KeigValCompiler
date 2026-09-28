@@ -79,6 +79,11 @@ public interface TestInterface5<T1, T2, T3> where T1 : A where T2 : B where T3 :
 
 public interface TestInterface6<T1> : IInterface1, IInterface2, IInterface3 where T1 : class { }
 
+/* Base types with type arguments of their own. */
+public interface TestInterface8<T> : IEquatable<T>, IConverter<T, Map<string, T[]>> where T : class { }
+
+public class TestClass7 : Base<int>, IEquatable<TestClass7> { }
+
 /* Static abstract and static virtual members, including operators, as in C#'s generic maths. */
 public interface TestInterface7<TSelf> where TSelf : TestInterface7<TSelf>
 {

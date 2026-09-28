@@ -1,0 +1,9 @@
+namespace KGVL;
+
+/* A type whose values have an order, such as numbers, which sorting relies on. */
+public interface IComparable<T>
+{
+    /* A negative number if this comes before other, a positive one if it comes after, and 0 if
+     * neither does. */
+    int CompareTo(T other);
+}

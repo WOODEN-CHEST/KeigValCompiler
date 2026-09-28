@@ -1,0 +1,27 @@
+namespace KGVL;
+
+/* Thrown when an argument given to a function is not one it accepts. */
+public class ArgumentException : Exception
+{
+    // Constants.
+    private const string DefaultMessage = "Value does not fall within the expected range.";
+
+
+    // Constructors.
+    public ArgumentException() : base(DefaultMessage) { }
+
+    public ArgumentException(string? message) : base(message ?? DefaultMessage) { }
+
+    public ArgumentException(string? message, string? paramName) : base(message ?? DefaultMessage)
+    {
+        ParamName = paramName;
+    }
+
+    public ArgumentException(string? message, Exception? innerException)
+        : base(message ?? DefaultMessage, innerException) { }
+
+
+    // Properties.
+    /* The name of the parameter the argument was given for, as nameof gives it, if known. */
+    public string? ParamName { get; }
+}

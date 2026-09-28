@@ -9,11 +9,12 @@ namespace KeigValCompiler.Semantician.Member;
 internal interface IPackMemberExtender
 {
     // Fields/
-    IEnumerable<Identifier> ExtendedMembers { get; }
+    /* Types rather than bare names, since a base type can have type arguments, as in IEquatable<int>. */
+    IEnumerable<TypeTargetIdentifier> ExtendedMembers { get; }
     int ExtendedMemberCount { get; }
 
 
     // Methods.
-    void AddExtendedMember(Identifier identifier);
-    void RemoveExtendedMember(Identifier identifier);
+    void AddExtendedMember(TypeTargetIdentifier type);
+    void RemoveExtendedMember(TypeTargetIdentifier type);
 }

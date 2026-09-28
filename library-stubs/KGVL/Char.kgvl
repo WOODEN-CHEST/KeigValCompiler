@@ -1,0 +1,82 @@
+namespace KGVL;
+
+/* A UTF-16 code unit, from 0 to 65535: the type of "char", and what indexing a string gives. It is
+ * the same as C#'s and Java's char, and Minecraft's strings are Java's, made of these.
+ *
+ * As in C#, arithmetic on it is done as int: 'a' + 1 is an int, and only ++ and -- keep the type. */
+public builtin readonly struct Char : IEquatable<char>, IComparable<char>, IParsable<char>
+{
+    // Constants.
+    public const char MinValue = '\x0';
+    public const char MaxValue = '\xFFFF';
+
+
+    // Methods.
+    /* Reads text which is exactly one char long. Throws ArgumentNullException for null, and
+     * FormatException for text of any other length. */
+    public static char Parse(string text)
+    {
+        if (text == null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+        if (text.Length != 1)
+        {
+            throw new FormatException("The text must be exactly one character long.");
+        }
+        return text[0];
+    }
+
+    /* Like Parse, but gives false instead of throwing, and sets result to MinValue. */
+    public static bool TryParse(string? text, out char result)
+    {
+        if ((text == null) || (text.Length != 1))
+        {
+            result = MinValue;
+            return false;
+        }
+        result = text[0];
+        return true;
+    }
+
+    public static bool IsAsciiDigit(char value) => (value >= '0') && (value <= '9');
+
+    public static bool IsAsciiLetterUpper(char value) => (value >= 'A') && (value <= 'Z');
+
+    public static bool IsAsciiLetterLower(char value) => (value >= 'a') && (value <= 'z');
+
+    public static bool IsAsciiLetter(char value) => IsAsciiLetterUpper(value) || IsAsciiLetterLower(value);
+
+    public int CompareTo(char other) => (this < other) ? -1 : ((this > other) ? 1 : 0);
+
+    public bool Equals(char other) => this == other;
+
+
+    // Operators.
+    /* The only operators of its own. Everything else works on the value as an int. */
+    public static builtin char operator ++(char value);
+    public static builtin char operator --(char value);
+
+
+    // Conversions.
+    /* Implicit where no value can be lost, explicit otherwise. An explicit conversion to a smaller
+     * integer type keeps the low bits, so it wraps around, as in C#. */
+    public static builtin explicit operator byte(char value);
+    public static builtin explicit operator ubyte(char value);
+    public static builtin explicit operator short(char value);
+    public static builtin implicit operator ushort(char value);
+    public static builtin implicit operator int(char value);
+    public static builtin implicit operator uint(char value);
+    public static builtin implicit operator long(char value);
+    public static builtin implicit operator ulong(char value);
+    public static builtin implicit operator decimal(char value);
+
+
+    // Inherited methods.
+    public override bool Equals(object? obj) => (obj is char) && (this == (char)obj);
+
+    public override int GetHashCode() => this;
+
+    /* A string one char long, holding this one. */
+    public override builtin string ToString();
+}
