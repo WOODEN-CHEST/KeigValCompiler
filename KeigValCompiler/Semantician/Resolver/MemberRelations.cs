@@ -204,7 +204,7 @@ internal static class MemberRelations
         PackMemberModifiers WrittenAccess = member.Modifiers & ACCESS_MODIFIERS;
         if (WrittenAccess != PackMemberModifiers.None)
         {
-            return WrittenAccess;
+            return IsValidAccess(WrittenAccess) ? WrittenAccess : PackMemberModifiers.Public;
         }
         if (GetExplicitInterface(member) != null)
         {
@@ -218,6 +218,16 @@ internal static class MemberRelations
             PackInterface => PackMemberModifiers.Public,
             _ => PackMemberModifiers.Private
         };
+    }
+
+    /* Whether written access modifiers are one of C#'s accessibilities: a single one, "protected internal"
+     * or "private protected". Any other mix, which ModifierChecker reports, counts as public, as Roslyn
+     * reads it, so that nothing else reports what follows from it. */
+    internal static bool IsValidAccess(PackMemberModifiers access)
+    {
+        return access is PackMemberModifiers.Public or PackMemberModifiers.Protected or PackMemberModifiers.Internal
+            or PackMemberModifiers.Private or (PackMemberModifiers.Protected | PackMemberModifiers.Internal)
+            or (PackMemberModifiers.Private | PackMemberModifiers.Protected);
     }
 
     /* What a member is, as messages call it: "field", "record class", "accessor" and so on. */

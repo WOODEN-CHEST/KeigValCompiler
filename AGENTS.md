@@ -29,9 +29,8 @@ Be honest with yourself about how little exists. As of 2026-09-29:
   `where` clauses, and `builtin` outside the standard library.
 - The **resolver** resolves the types named in declarations, binds the
   standard library, and checks declarations against C#'s rules apart from
-  accessibility and the few other gaps listed in `agents/architecture.md`, but
-  does not look inside function bodies at all: nothing in a body is looked up
-  or type checked.
+  the few gaps listed in `agents/architecture.md`, but does not look inside
+  function bodies at all: nothing in a body is looked up or type checked.
 - The **datapack backend does not exist**. Not one line. The project does not
   currently emit any output at all.
 

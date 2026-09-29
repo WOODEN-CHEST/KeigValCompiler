@@ -274,6 +274,23 @@ internal class ErrorRepository
         "accessor is marked readonly only when what it belongs to is not, and has two accessors of which the " +
         "other is not readonly");
 
+    internal virtual ErrorDefinition AccessorAccessNotNarrower { get; } = new(27,
+        CompilerMessageCategory.MemberModifier,
+        "The accessor \"{0}\" is {1}, which is not narrower than the {2} \"{3}\" it belongs to, which is {4}. " +
+        $"An accessor's own access only ever narrows its member's; \"{KGVL.KEYWORD_PROTECTED}\" and " +
+        $"\"{KGVL.KEYWORD_INTERNAL}\" are each narrower than \"{KGVL.KEYWORD_PROTECTED} {KGVL.KEYWORD_INTERNAL}\", " +
+        "but not than each other");
+
+    internal virtual ErrorDefinition AccessorAccessOnBoth { get; } = new(28,
+        CompilerMessageCategory.MemberModifier,
+        "The {0} \"{1}\" has an access modifier on both of its accessors. Only one of them can narrow the " +
+        "member's access; the other has the member's own");
+
+    internal virtual ErrorDefinition AccessorAccessWithoutOther { get; } = new(29,
+        CompilerMessageCategory.MemberModifier,
+        "The accessor \"{0}\" has an access modifier, but the {1} \"{2}\" has no other accessor. An accessor " +
+        "narrows its member's access only beside another accessor which has the member's own");
+
 
     /* Identifiers. */
     internal virtual ErrorDefinition ExpectedTypeMemberIdentifier { get; } = new(1,
@@ -1557,6 +1574,48 @@ internal class ErrorRepository
         $"The {{0}} \"{{1}}\" overrides with its \"{{2}}\" accessor the \"{{4}}\" accessor of the one of \"{{3}}\" " +
         $"it overrides. Both set the member, but an override's setter is \"{KGVL.KEYWORD_INIT}\" exactly when " +
         "the one it overrides is");
+
+    internal virtual ErrorDefinition InconsistentMemberType { get; } = new(48,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" has the type \"{2}\", but \"{3}\", which is {4}, cannot be used everywhere the {0} can. " +
+        "A declaration names only types at least as accessible as what it declares, since whatever uses it " +
+        "needs those types too");
+
+    internal virtual ErrorDefinition InconsistentReturnType { get; } = new(49,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" returns \"{2}\", but \"{3}\", which is {4}, cannot be used everywhere the {0} can. A " +
+        "declaration names only types at least as accessible as what it declares, since whatever uses it needs " +
+        "those types too");
+
+    internal virtual ErrorDefinition InconsistentParameterType { get; } = new(50,
+        CompilerMessageCategory.Resolution,
+        "The parameter \"{5}\" of the {0} \"{1}\" has the type \"{2}\", but \"{3}\", which is {4}, cannot be " +
+        "used everywhere the {0} can. A declaration names only types at least as accessible as what it " +
+        "declares, since whatever uses it needs those types too");
+
+    internal virtual ErrorDefinition InconsistentConstraintType { get; } = new(51,
+        CompilerMessageCategory.Resolution,
+        "The generic parameter \"{5}\" of the {0} \"{1}\" is constrained to \"{2}\", but \"{3}\", which is {4}, " +
+        "cannot be used everywhere the {0} can. A declaration names only types at least as accessible as what " +
+        "it declares, since whatever uses it needs those types too");
+
+    internal virtual ErrorDefinition InconsistentBaseType { get; } = new(52,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" derives from \"{2}\", but \"{3}\", which is {4}, cannot be used everywhere the {0} " +
+        "can. A class's base class and an interface's base interfaces are at least as accessible as the type, " +
+        "though the interfaces a class or structure implements need not be");
+
+    internal virtual ErrorDefinition RequiredLessAccessible { get; } = new(53,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" is required, but it, or a property's setter, is less accessible than the {2} \"{3}\" " +
+        "holding it. " +
+        "Whatever can create a \"{3}\" has to set its required members, so each of them, and its setter, is " +
+        "at least as accessible as the type");
+
+    internal virtual ErrorDefinition TypeInaccessible { get; } = new(54,
+        CompilerMessageCategory.Resolution,
+        $"The type \"{{0}}\" was found as \"{{1}}\", which is \"{KGVL.KEYWORD_INTERNAL}\" to the other side of " +
+        "the standard library's boundary, so it cannot be used here");
 
 
     /* Warnings. */

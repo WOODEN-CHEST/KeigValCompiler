@@ -1,0 +1,170 @@
+/* Declaration check test source file, for accessibility: accessors' own access, types less accessible
+ * than what names them, and required members. Every error in here is deliberate. The directory parses
+ * cleanly, so that resolution runs at all, and the point is that each mistake is reported once, where
+ * it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 333 errors and 15 warnings. Expected from this
+ * file, 36 errors:
+ *
+ *   line 53 MM error 27     an accessor as wide as its property
+ *   line 54 MM error 27     an accessor wider than its property
+ *   line 55 MM error 28     access on both accessors
+ *   line 56 MM error 29     access on the only accessor
+ *   line 57 MM error 27     protected on an internal property, which is not narrower
+ *   line 58 MM error 27     internal on a protected property, likewise
+ *   line 59 MM error 27     protected on a private protected property
+ *   line 70 RS error 48     a field of an internal type
+ *   line 71 RS error 49     returning an internal type
+ *   line 72 RS error 50     taking an internal type
+ *   line 73 RS error 48     a property of an internal type
+ *   line 74 RS error 48     an indexer of an internal type
+ *   line 75 RS error 48     an event whose type names an internal type
+ *   line 76 RS error 50     an operator taking an internal type
+ *   line 77 RS error 50     a constructor taking an internal type
+ *   line 78 RS error 51     a constraint naming an internal type
+ *   line 80 RS error 48     a public field of a protected nested type
+ *   line 83 RS error 48     an internal field of a protected nested type
+ *   line 88 RS error 52     a public class deriving from an internal one
+ *   line 92 RS error 52     a public interface deriving from an internal one
+ *   line 96 RS error 49     a delegate returning and taking an internal type
+ *   line 96 RS error 50     a delegate returning and taking an internal type
+ *   line 104 RS error 48    a private type in a public nested type's field
+ *   line 105 RS error 48    a protected type in a public nested type's field
+ *   line 114 RS error 48    a private type in a protected nested type's field
+ *   line 121 RS error 53    a required property with a narrower setter
+ *   line 122 RS error 53    a required property narrower than its class
+ *   line 123 RS error 53    a required field narrower than its class
+ *   line 140 RS error 26    an override narrowing an accessor, and no error for one declaring only one accessor with access
+ *   line 145 MM error 27    public on a protected internal property
+ *   line 150 RS error 26    a private accessor overriding a public one
+ *   line 157 RS error 12    a sealed base, reported once
+ *   line 159 RS error 10    a class as an interface's base, reported once
+ *   line 163 MM error 4     an access mix, reported once
+ *   line 168 MM error 29    a lone private accessor of an abstract property, reported once
+ *   line 169 MM error 28    both accessors of an abstract property with access, reported once
+ */
+
+namespace Test.Access;
+
+public class Accessors
+{
+    public int Same { get; public set; }
+    protected int Wider { get; public set; }
+    public int Both { private get; private set; }
+    public int Alone { private get; }
+    internal int Sideways { get; protected set; }
+    protected int OtherSideways { get; internal set; }
+    private protected int Widened { get; protected set; }
+    protected internal int Fine { get; protected set; }
+    public int this[int index] { get => 0; private set { } }
+}
+
+class Hidden { }
+
+public delegate void Handler<T>(T value);
+
+public class Exposing
+{
+    public Hidden Field;
+    public Hidden Function() => null;
+    public void Taking(Hidden hidden) { }
+    public Hidden Property { get; set; }
+    public Hidden this[int index] { get => null; }
+    public event Handler<Hidden> Changed;
+    public static Exposing operator +(Exposing left, Hidden right) => left;
+    public Exposing(Hidden hidden) { }
+    public void Constrained<T>() where T : Hidden { }
+    protected class Nested { }
+    public Nested Public;
+    protected Nested Protected;
+    private Nested Private;
+    internal Nested Internal;
+}
+
+internal class InternalBase { }
+
+public class FromInternal : InternalBase { }
+
+internal interface IInternal { }
+
+public interface IFromInternal : IInternal { }
+
+public class ImplementsInternal : IInternal { }
+
+public delegate Hidden MakeHidden(Hidden from);
+
+public class Outer
+{
+    private class Inner { }
+    protected class Guarded { }
+    public class PublicNested
+    {
+        public Inner First;
+        public Guarded Second;
+    }
+    private class PrivateNested
+    {
+        public Inner First;
+    }
+    protected class GuardedNested
+    {
+        public Guarded First;
+        public Inner Second;
+    }
+}
+
+public class Requiring
+{
+    public required int Plain { get; init; }
+    public required int Guarded { get; protected set; }
+    protected required int Narrow { get; set; }
+    internal required int Field;
+}
+
+internal class InternalRequiring
+{
+    public required int Plain { get; internal set; }
+}
+
+public class Settable
+{
+    public virtual int Value { get; protected set; }
+    public virtual int Open { get; set; }
+}
+
+public class Overriding : Settable
+{
+    public override int Value { protected set { } }
+    public override int Open { protected get => 0; }
+}
+
+public class WiderThanEither
+{
+    protected internal int Value { get; public set; }
+}
+
+public class PrivateOverride : Settable
+{
+    public override int Open { get => 0; private set { } }
+}
+
+internal class SealedHidden { }
+
+internal sealed class Closed { }
+
+public class FromClosed : Closed { }
+
+public interface IFromClass : SealedHidden { }
+
+public class Mixed
+{
+    public private int Value { get; private set; }
+}
+
+public abstract class AbstractAccessors
+{
+    public abstract int Alone { private get; }
+    public abstract int Both { private get; private set; }
+}

@@ -44,5 +44,6 @@ internal class FullPackResolver : IPackResolver
         new ConstraintChecker().ResolvePack(context);
         new FieldTypeChecker().ResolvePack(context);
         new StaticClassUsageChecker().ResolvePack(context);
+        new AccessibilityChecker().ResolvePack(context);
     }
 }

@@ -61,7 +61,9 @@ each relying on what the ones before it set:
    `TypeSearcher` looks names up as C# does: generic parameters and nested types
    around the use, innermost first; then the namespace and each containing it;
    then `using` imports, where two matches are ambiguous. A type matches by name
-   and generic parameter count. Accessibility is not checked yet.
+   and generic parameter count. A namespace's type the use cannot see, in
+   practice the library's `internal` types from user code, is passed over,
+   and reported as inaccessible when nothing else matched.
 6. `MemberIdentifierResolver`: names every other member. A function's name
    carries its parameter types, so overloads stay apart.
 7. `LibraryBindingResolver`: binds the library, as described below.
@@ -84,7 +86,10 @@ it.
   structure, interface, property or indexer), which pairs conflict, that every
   operator is `static` and, outside an interface and unless it implements one
   explicitly, written `public`, and C#'s rules for accessors and readonly
-  members. A modifier not allowed at all is reported and then **taken off the
+  members, an accessor's own access included: on one of two accessors only
+  (an override's other accessor may be inherited), and strictly narrower than
+  its member's. An invalid mix of access modifiers counts as public, as
+  Roslyn reads it (`MemberRelations.IsValidAccess`). A modifier not allowed at all is reported and then **taken off the
   member**, as Roslyn does, into `PackMember.RejectedModifiers`, so the checks
   after it see only what the member may have and do not report what follows
   from a wrong modifier. After resolution, `PackMember.Modifiers` therefore
@@ -155,9 +160,14 @@ inherits, and what an explicit implementation implements.
 - `StaticClassUsageChecker`: a static class used as the type of a value. As
   in C#, only a warning in an interface's signatures, and allowed as a
   delegate's return type.
+- `AccessibilityChecker`: a type less accessible than a member naming it in
+  its declaration (C#'s inconsistent accessibility, a class's base class and
+  an interface's base interfaces included), and required members, and their
+  setters, as accessible as their type. `AccessDomains` compares two
+  members' accessibility domains as Roslyn's `IsAsRestrictive` does.
 
-What remains unchecked in declarations: accessibility, nested types of base
-classes (lookup does not see them yet), whether `notnull` is satisfied, which is
+What remains unchecked in declarations: nested types of base classes (lookup
+does not see them yet), whether `notnull` is satisfied, which is
 nullability checking, and everything inside function bodies. See "Suggested
 order of work".
 
@@ -326,8 +336,8 @@ type named in a declaration resolves, every builtin member of the library is
 bound to what the compiler implements for it, and declarations are checked for
 modifiers, what may hold what, bodies, the shape and types of operators,
 inheritance, names, signatures, overriding and hiding, interface
-implementation, generic constraints, field types and static classes used as
-types.
+implementation, generic constraints, field types, static classes used as
+types, and accessibility.
 
 ### The two blocking gaps
 
@@ -351,10 +361,11 @@ types.
   type names such as `KGVL.Int32` do not parse, nor does the `as` operator, nor
   throw expressions, nor the `\e` and `\U` escapes, nor a record's arguments to
   its base record, as in `record B(int X) : A(X)`, nor a parameter's default
-  value, nor an expression-bodied indexer, nor an indexer's `init`.
-- Declarations are checked against C#'s rules apart from accessibility and
-  nested types of base classes, whose steps are under "Suggested order of
-  work", and `notnull` constraints, which wait for nullability checking.
+  value, nor an expression-bodied indexer, nor an indexer's `init`, nor an
+  event's `add` and `remove` accessors.
+- Declarations are checked against C#'s rules apart from nested types of base
+  classes, whose step is under "Suggested order of work", and `notnull`
+  constraints, which wait for nullability checking.
 
 ## Suggested order of work
 
@@ -416,9 +427,13 @@ Roughly dependency-ordered; the owner decides priorities.
          checks, and `TypeHierarchy` answers with them;
          `GenericParameterType.IsValueType` does not, so function bodies
          should ask `TypeHierarchy`.
-      4. Accessibility, now that `internal` exists: lookup skipping what cannot
-         be seen, and a member exposing a type less accessible than itself.
-      5. Nested types of base classes in lookup, which needs base lists
+      4. ~~Accessibility: lookup skipping what cannot be seen, accessors' own
+         access, a member exposing a type less accessible than itself, and
+         required members.~~ Done: see stage 2.
+      5. The parser gaps in [`parser-gaps.md`](parser-gaps.md), all nine,
+         before step 6, which needs qualified type names. Two are oversights
+         and three are missing features needing model and resolver work too.
+      6. Nested types of base classes in lookup, which needs base lists
          resolved first, on demand. `TypeSearcher` is also where qualified type
          names will land, so this waits for that parser gap to close.
    3. Resolve function bodies: expression types, names inside bodies, overloads,

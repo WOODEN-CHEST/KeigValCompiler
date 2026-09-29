@@ -160,6 +160,13 @@ internal class SignatureResolver : IPackResolver
                 candidate => $"\"{candidate.SelfIdentifier.ResolvedName}\""));
             context.AddError(context.ErrorCreator.AmbiguousType.CreateOptions(Name, Candidates), scope);
         }
+        else if (Result.InaccessibleType != null)
+        {
+            PackMember Inaccessible = Result.InaccessibleType;
+            context.AddError(context.ErrorCreator.TypeInaccessible.CreateOptions(Name,
+                Inaccessible.NameSpace.SelfIdentifier.SourceCodeName + KGVL.NAMESPACE_SEPARATOR
+                + Inaccessible.SelfIdentifier.SourceCodeName), scope);
+        }
         else if (Result.OtherGenericParameterCount != null)
         {
             context.AddError(context.ErrorCreator.WrongTypeArgumentCount.CreateOptions(type.ToString(),

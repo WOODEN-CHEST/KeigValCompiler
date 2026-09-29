@@ -255,7 +255,9 @@ internal class OverrideChecker : IPackResolver
             Expected = PackMemberModifiers.Protected;
         }
 
-        bool IsAccessReported = (Access == PackMemberModifiers.Private)
+        bool IsWrittenAccessor = MemberRelations.IsAccessor(member)
+            && ((member.Modifiers & MemberRelations.ACCESS_MODIFIERS) != PackMemberModifiers.None);
+        bool IsAccessReported = ((Access == PackMemberModifiers.Private) && !IsWrittenAccessor)
             || ((member.RejectedModifiers & MemberRelations.ACCESS_MODIFIERS) != PackMemberModifiers.None);
         if (IsAccessReported || (Access == Expected))
         {

@@ -5,7 +5,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 297 errors and 15 warnings. Expected from this
+ * The whole directory gives 333 errors and 15 warnings. Expected from this
  * file, 8 errors and 2 warnings:
  *
  *   line 31 GE error 25     a static class as a type argument

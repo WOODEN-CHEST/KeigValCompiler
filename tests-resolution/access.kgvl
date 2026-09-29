@@ -1,0 +1,79 @@
+/* What the checks of accessibility have to accept, since C# accepts it: accessors narrowing their member's
+ * access, types only as accessible as what names them, a class implementing a less accessible interface,
+ * required members as accessible as their type, and an override declaring one accessor with its own access.
+ * Part of tests-resolution, so it has to compile with zero errors and no warnings. */
+
+namespace Game.Access;
+
+public class Narrowing
+{
+    public int Settable { get; private set; }
+    protected internal int Guarded { get; protected set; }
+    protected internal int Assembly { get; internal set; }
+    protected internal int Narrowest { get; private protected set; }
+    protected int Inner { get; private protected set; }
+    public int this[int index] { get => 0; protected set { } }
+}
+
+public interface INarrowing
+{
+    int Value { get; internal set; }
+}
+
+class Hidden { }
+
+internal interface IHidden { }
+
+public class Uses : IHidden
+{
+    internal Hidden Field;
+    private Hidden Function() => null;
+    protected class Nested { }
+    protected Nested Guarded;
+    private Nested Private;
+    private protected Nested Narrow;
+}
+
+internal class InternalUses
+{
+    public Hidden Field;
+    public required int Plain { get; internal set; }
+}
+
+public class Outer
+{
+    private class Inner { }
+    private class PrivateNested
+    {
+        public Inner First;
+    }
+    protected class Guarded { }
+    protected class GuardedNested
+    {
+        public Guarded First;
+    }
+}
+
+public class Settable
+{
+    public virtual int Value { get; protected set; }
+}
+
+public class Overriding : Settable
+{
+    public override int Value { protected set { } }
+}
+
+public interface IGuarding
+{
+    protected class Guarded { }
+    public class Implementing : IGuarding
+    {
+        protected Guarded First;
+        private protected Guarded Second;
+    }
+    public interface IExtending : IGuarding
+    {
+        protected Guarded Make();
+    }
+}

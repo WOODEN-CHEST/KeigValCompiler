@@ -9,7 +9,10 @@ namespace KeigValCompiler.Semantician.Resolver;
  * of the namespaces the file imports, where two matches are ambiguous rather than one winning.
  *
  * A type matches by its name and its number of generic parameters, so "Foo<int>" never finds "Foo".
- * Accessibility is not considered yet. */
+ * A type of a namespace which the use cannot see, an internal one on the other side of the standard
+ * library's boundary, is passed over, as C# passes over what it cannot access, and is only given back
+ * when nothing else matched, to be reported as inaccessible. The types around the use can always be
+ * seen from it. */
 internal class TypeSearcher
 {
     // Private fields.
@@ -30,6 +33,7 @@ internal class TypeSearcher
         ArgumentNullException.ThrowIfNull(scope, nameof(scope));
 
         int? OtherGenericParameterCount = null;
+        PackMember? InaccessibleType = null;
 
         for (PackMember? Member = scope; Member != null; Member = Member.ParentItem?.Target as PackMember)
         {
@@ -40,8 +44,8 @@ internal class TypeSearcher
             }
             if (Member is IPackTypeHolder TypeHolder)
             {
-                PackMember? NestedType = FindType(name, typeArgumentCount, TypeHolder.Types,
-                    ref OtherGenericParameterCount);
+                PackMember? NestedType = FindType(name, typeArgumentCount, TypeHolder.Types, null,
+                    ref OtherGenericParameterCount, ref InaccessibleType);
                 if (NestedType != null)
                 {
                     return TypeSearchResult.Found(NestedType);
@@ -51,8 +55,8 @@ internal class TypeSearcher
 
         foreach (PackNameSpace NameSpace in GetNameSpaceAndParents(scope.NameSpace))
         {
-            PackMember? NameSpaceType = FindType(name, typeArgumentCount, NameSpace.Types,
-                ref OtherGenericParameterCount);
+            PackMember? NameSpaceType = FindType(name, typeArgumentCount, NameSpace.Types, scope,
+                ref OtherGenericParameterCount, ref InaccessibleType);
             if (NameSpaceType != null)
             {
                 return TypeSearchResult.Found(NameSpaceType);
@@ -62,8 +66,8 @@ internal class TypeSearcher
         List<PackMember> ImportedTypes = new();
         foreach (PackNameSpace Import in scope.SourceFile.NamespaceImports)
         {
-            PackMember? ImportedType = FindType(name, typeArgumentCount, Import.Types,
-                ref OtherGenericParameterCount);
+            PackMember? ImportedType = FindType(name, typeArgumentCount, Import.Types, scope,
+                ref OtherGenericParameterCount, ref InaccessibleType);
             if (ImportedType != null)
             {
                 ImportedTypes.Add(ImportedType);
@@ -72,7 +76,7 @@ internal class TypeSearcher
 
         return ImportedTypes.Count switch
         {
-            0 => TypeSearchResult.NotFound(OtherGenericParameterCount),
+            0 => TypeSearchResult.NotFound(OtherGenericParameterCount, InaccessibleType),
             1 => TypeSearchResult.Found(ImportedTypes[0]),
             _ => TypeSearchResult.Ambiguous(ImportedTypes)
         };
@@ -90,11 +94,14 @@ internal class TypeSearcher
             parameter => parameter.SelfIdentifier.SourceCodeName == name);
     }
 
-    /* Also notes the generic parameter count of a type which has the name but not the count. */
+    /* Also notes the generic parameter count of a type which has the name but not the count, and, when a
+     * scope is given to see from, the first type which matches but cannot be seen from it. */
     private PackMember? FindType(string name,
         int genericParameterCount,
         IEnumerable<PackMember> types,
-        ref int? otherGenericParameterCount)
+        PackMember? scope,
+        ref int? otherGenericParameterCount,
+        ref PackMember? inaccessibleType)
     {
         foreach (PackMember Type in types)
         {
@@ -104,13 +111,28 @@ internal class TypeSearcher
             }
 
             int TypeGenericParameterCount = TypeDeclarationResolver.GetGenericParameterCount(Type);
-            if (TypeGenericParameterCount == genericParameterCount)
+            if (TypeGenericParameterCount != genericParameterCount)
+            {
+                otherGenericParameterCount ??= TypeGenericParameterCount;
+            }
+            else if ((scope == null) || IsVisibleFrom(Type, scope))
             {
                 return Type;
             }
-            otherGenericParameterCount ??= TypeGenericParameterCount;
+            else
+            {
+                inaccessibleType ??= Type;
+            }
         }
         return null;
+    }
+
+    /* A namespace's type is public or internal, and internal ones are seen on their own side of the
+     * standard library's boundary only. One whose access modifier cannot be used there is reported later,
+     * and counts as its own side's. */
+    private bool IsVisibleFrom(PackMember type, PackMember scope)
+    {
+        return (type.SourceFile.Kind == scope.SourceFile.Kind) || type.HasModifier(PackMemberModifiers.Public);
     }
 
     /* The namespace itself and then each one containing it, as far as any exists in the pack. */

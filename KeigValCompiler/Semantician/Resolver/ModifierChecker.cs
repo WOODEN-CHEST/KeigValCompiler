@@ -523,8 +523,8 @@ internal class ModifierChecker : IPackResolver
         }
     }
 
-    /* An accessor of an abstract property or indexer cannot be private, since whatever supplies the member
-     * could not see it. In a structure, where an accessor can be readonly, it can only be when its member
+    /* An accessor's own access is checked by CheckAccessorAccess. An accessor of an abstract property or
+     * indexer cannot be private, since whatever supplies the member could not see it. In a structure, where an accessor can be readonly, it can only be when its member
      * is not, and only when its member has another accessor which is not, as in C#; and an "init"
      * accessor, or a "set" accessor without a body, which stores a value, cannot be at all. A static
      * member's readonly is reported as a conflict already. */
@@ -540,7 +540,15 @@ internal class ModifierChecker : IPackResolver
         string Name = MemberRelations.GetDisplayName(member);
         string HolderKind = MemberRelations.GetKindName(Holder);
         string HolderName = MemberRelations.GetDisplayName(Holder);
-        if (((member.Modifiers & ACCESS) == PackMemberModifiers.Private) && MemberRelations.IsAbstract(Holder))
+        CheckAccessorAccess(member, Holder, context);
+
+        /* Only beside another accessor, and alone in having its own access, as C# reports it; otherwise what
+         * CheckAccessorAccess reports is the mistake. */
+        PackMember[] Siblings = Holder.SubMembers.ToArray();
+        bool IsAccessAlone = (Siblings.Length == 2)
+            && (Siblings.Count(sibling => (sibling.Modifiers & ACCESS) != PackMemberModifiers.None) == 1);
+        if (((member.Modifiers & ACCESS) == PackMemberModifiers.Private) && IsAccessAlone
+            && MemberRelations.IsAbstract(Holder))
         {
             context.AddError(context.ErrorCreator.PrivateAccessorOfAbstract.CreateOptions(Name, HolderKind,
                 HolderName), member);
@@ -574,6 +582,67 @@ internal class ModifierChecker : IPackResolver
             context.AddError(context.ErrorCreator.ReadonlyAccessorMisplaced.CreateOptions(Name, HolderKind,
                 HolderName), member);
         }
+    }
+
+    /* An accessor's own access narrows its member's, as in C#. It is written on one accessor of a member
+     * which has another, unless the member is an override, whose other accessor is inherited, and it is
+     * strictly narrower than the member's access, where "protected" and "internal" are each narrower than
+     * "protected internal" but not than each other. Of two accessors with it, the later is reported. */
+    private void CheckAccessorAccess(PackMember accessor, PackMember holder, PackResolutionContext context)
+    {
+        PackMemberModifiers Access = accessor.Modifiers & ACCESS;
+        if (Access == PackMemberModifiers.None)
+        {
+            return;
+        }
+
+        string Name = MemberRelations.GetDisplayName(accessor);
+        string HolderKind = MemberRelations.GetKindName(holder);
+        string HolderName = MemberRelations.GetDisplayName(holder);
+        PackMember[] Accessors = holder.SubMembers.ToArray();
+        if (Accessors.Length < 2)
+        {
+            if (!holder.HasModifier(PackMemberModifiers.Override))
+            {
+                context.AddError(context.ErrorCreator.AccessorAccessWithoutOther.CreateOptions(Name, HolderKind,
+                    HolderName), accessor);
+                return;
+            }
+        }
+        else if (Accessors.TakeWhile(other => !ReferenceEquals(other, accessor))
+            .Any(earlier => (earlier.Modifiers & ACCESS) != PackMemberModifiers.None))
+        {
+            context.AddError(context.ErrorCreator.AccessorAccessOnBoth.CreateOptions(HolderKind, HolderName),
+                accessor);
+            return;
+        }
+
+        /* An access mix, or a member access taken off, has been reported, and is not compared. */
+        PackMemberModifiers HolderAccess = MemberRelations.GetEffectiveAccess(holder);
+        bool IsReported = !MemberRelations.IsValidAccess(Access)
+            || !MemberRelations.IsValidAccess(holder.Modifiers & ACCESS)
+            || ((holder.RejectedModifiers & ACCESS) != PackMemberModifiers.None);
+        if (!IsReported && !IsNarrower(Access, HolderAccess))
+        {
+            context.AddError(context.ErrorCreator.AccessorAccessNotNarrower.CreateOptions(Name,
+                ModifierKeywords.FormatAccess(Access), HolderKind, HolderName,
+                ModifierKeywords.FormatAccess(HolderAccess)), accessor);
+        }
+    }
+
+    private bool IsNarrower(PackMemberModifiers access, PackMemberModifiers than)
+    {
+        PackMemberModifiers PrivateProtected = PackMemberModifiers.Private | PackMemberModifiers.Protected;
+        return than switch
+        {
+            PackMemberModifiers.Public => access != PackMemberModifiers.Public,
+            PackMemberModifiers.Protected | PackMemberModifiers.Internal => (access != PackMemberModifiers.Public)
+                && (access != (PackMemberModifiers.Protected | PackMemberModifiers.Internal)),
+            PackMemberModifiers.Protected or PackMemberModifiers.Internal => (access == PrivateProtected)
+                || (access == PackMemberModifiers.Private),
+            PackMemberModifiers.Private | PackMemberModifiers.Protected => access == PackMemberModifiers.Private,
+            _ => false
+        };
     }
 
     /* A readonly property of a structure cannot store a value it sets after the structure is created. In a
