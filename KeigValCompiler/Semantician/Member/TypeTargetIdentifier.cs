@@ -29,6 +29,10 @@ internal class TypeTargetIdentifier
         set => _nullabilityByLevel[^1] = value;
     }
 
+    /* Whether the type is written as an array or with a '?' at any level, as opposed to only by its name
+     * and type arguments, whatever those are written as. */
+    internal bool IsArrayOrNullable => IsArray || _nullabilityByLevel.Any(isNullable => isNullable);
+
     /* Nullability of the innermost element, the "int" of "int?[][]". */
     internal bool IsElementNullable
     {

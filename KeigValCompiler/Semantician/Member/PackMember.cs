@@ -17,7 +17,13 @@ internal abstract class PackMember : IIdentifiable
     internal virtual PackNameSpace NameSpace { get; set; }
     internal virtual PackSourceFile SourceFile { get; set; }
     internal virtual DataPack Pack => SourceFile.Pack;
+    /* The modifiers written on the member. Once ModifierChecker has run, only those the member may have:
+     * the rest are moved to RejectedModifiers. Implied ones, such as a default access, are never added. */
     internal virtual PackMemberModifiers Modifiers { get; set; }
+
+    /* The modifiers written on the member which it cannot have, which ModifierChecker reported and took off,
+     * so that later checks can tell a member written wrongly from one written without them. */
+    internal PackMemberModifiers RejectedModifiers { get; set; } = PackMemberModifiers.None;
     internal virtual IEnumerable<PackMember> SubMembers => Enumerable.Empty<PackMember>();
     internal virtual IEnumerable<PackMember> AllSubMembers => Enumerable.Empty<PackMember>();
     internal SourceFileOrigin SourceFileOrigin { get; set; }
@@ -55,6 +61,7 @@ internal abstract class PackMember : IIdentifiable
     {
         return ((Modifiers & PackMemberModifiers.Private) > 0 ? 1 : 0)
             + ((Modifiers & PackMemberModifiers.Protected) > 0 ? 1 : 0)
+            + ((Modifiers & PackMemberModifiers.Internal) > 0 ? 1 : 0)
             + ((Modifiers & PackMemberModifiers.Public) > 0 ? 1 : 0);
     }
 

@@ -14,6 +14,10 @@ internal class PackConstructor : PackFunction
      * ChainKind is None. */
     internal StatementCollection ChainArguments { get; } = new();
 
+    /* A record's primary constructor, written as a parameter list after the record's name, which has
+     * no body of its own. */
+    internal bool IsPrimary { get; init; } = false;
+
 
     // Constructors.
     internal PackConstructor(Identifier identifier, PackSourceFile sourceFile)

@@ -129,11 +129,13 @@ public static class Compiler
         ErrorRepository errorCreator)
     {
         CompilerMessageCollection Messages = new();
+        BuiltInTypeRegistry Registry = new();
         PackResolutionContext Context = new()
         {
             Pack = pack,
-            Registry = new(),
+            Registry = Registry,
             TypeSearcher = new(pack),
+            TypeReader = new(Registry),
             BindingTable = DefaultLibraryBindings.CreateTable(),
             IdentifierGenerator = new(),
             ErrorCreator = errorCreator,

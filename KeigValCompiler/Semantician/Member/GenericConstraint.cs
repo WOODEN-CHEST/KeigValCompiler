@@ -19,6 +19,15 @@ internal class GenericConstraint
     }
 
 
+    // Private methods.
+    /* The constraining type as its resolved names spell it, or as source code does before resolution,
+     * since TypeTargetIdentifier itself only compares by reference. Null for a special constraint. */
+    private string? GetTypeName()
+    {
+        return ConstrainedItemName?.Format(identifier => identifier.ResolvedName ?? identifier.SourceCodeName);
+    }
+
+
     // Inherited methods.
     public override bool Equals(object? obj)
     {
@@ -26,13 +35,12 @@ internal class GenericConstraint
         {
             return false;
         }
-        return Constraint.ConstrainedItemName?.Equals(Constraint) 
-            ?? (Constraint.SpecialConstraint == SpecialConstraint);
+        return (SpecialConstraint == Constraint.SpecialConstraint) && (GetTypeName() == Constraint.GetTypeName());
     }
 
     public override int GetHashCode()
     {
-        return ConstrainedItemName?.GetHashCode() ?? SpecialConstraint.GetHashCode();
+        return HashCode.Combine(SpecialConstraint, GetTypeName());
     }
 
     public override string ToString()

@@ -1,6 +1,7 @@
 using KeigValCompiler.Error;
 using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Types;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
@@ -10,6 +11,9 @@ internal class PackResolutionContext
     internal required DataPack Pack { get; init; }
     internal required BuiltInTypeRegistry Registry { get; init; }
     internal required TypeSearcher TypeSearcher { get; init; }
+
+    /* Only usable once types are resolved and the library's known types found. */
+    internal required SemanticTypeReader TypeReader { get; init; }
     internal required LibraryBindingTable BindingTable { get; init; }
     internal required IdentifierGenerator IdentifierGenerator { get; init; }
     internal required ErrorRepository ErrorCreator { get; init; }
@@ -23,6 +27,20 @@ internal class PackResolutionContext
     {
         ArgumentNullException.ThrowIfNull(member, nameof(member));
         Messages.AddError(error, GetLocation(member), notes);
+    }
+
+    /* For what is written at a line of its own but is not a member, such as an enum constant or a
+     * "using" directive. */
+    internal void AddError(ErrorCreateOptions error, PackSourceFile file, SourceFileOrigin origin)
+    {
+        ArgumentNullException.ThrowIfNull(file, nameof(file));
+        Messages.AddError(error, new(file.Path, origin.Line, CompilerMessageLocation.COLUMN_UNKNOWN), null);
+    }
+
+    internal void AddWarning(WarningCreateOptions warning, PackMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        Messages.AddWarning(warning, GetLocation(member), null);
     }
 
     internal CompilerMessageLocation GetLocation(PackMember member)

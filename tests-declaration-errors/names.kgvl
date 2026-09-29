@@ -1,0 +1,92 @@
+/* Declaration check test source file, for names which cannot coincide, and a "using" directive naming
+ * no namespace. Every error in here is deliberate. The directory parses cleanly, so that resolution
+ * runs at all, and the point is that each mistake is reported once, where it is, without errors which
+ * only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 142 errors and 2 warnings. Expected from this
+ * file, 17 errors and 2 warnings:
+ *
+ *   line 32 SFR error 10    a using directive naming no namespace
+ *   line 35 EN error 9      two enum constants named One
+ *   line 39 FN error 6      two parameters named value
+ *   line 40 FN error 8      a parameter named like its function's generic parameter
+ *   line 41 FN error 6      two indexer parameters named index
+ *   line 44 FN error 6      two delegate parameters named a
+ *   line 46 GE error 11     two generic parameters named T
+ *   line 47 GE error 12     a generic parameter named like its class
+ *   line 51 GE warning 1    a function's generic parameter hiding its class's
+ *   line 52 GE warning 1    a nested class's generic parameter hiding its outer class's
+ *   line 57 RS error 6      a field named like its class
+ *   line 59 RS error 7      a field named like a function before it
+ *   line 61 RS error 7      a property named like a nested class before it
+ *   line 65 RS error 7      a namespace's function named like its field before it
+ *   line 76 RS error 6      an interface's static field named like the interface
+ *   line 81 RS error 16     a field named like its class's generic parameter
+ *   line 82 RS error 16     a nested class named like its class's generic parameter
+ *   line 85 RS error 17     a class named like a namespace beside it
+ *   line 86 RS error 17     a field named like a namespace beside it
+ */
+
+using Nothing.Here;
+namespace Test.Names;
+
+public enum Repeated { One, Two, One }
+
+public class Parameters
+{
+    public void Twice(int value, int value) { }
+    public void Generic<T>(T T) { }
+    public int this[int index, int index] { get => 0; }
+}
+
+public delegate void Handler(int a, int a);
+
+public class Generics<T, T> { }
+public class T<T> { }
+
+public class Outer<T>
+{
+    public void Inner<T>() { }
+    public class Nested<T> { }
+}
+
+public class Named
+{
+    public int Named;
+    public void Clash() { }
+    public int Clash;
+    public class Clash2 { }
+    public int Clash2 { get; }
+}
+
+public int Colliding;
+public void Colliding() { }
+
+public interface IShape
+{
+    int IShape { get; }
+    static int IShapeStatic;
+    const int Sides = 3;
+}
+
+public interface IStaticNamed
+{
+    static int IStaticNamed;
+}
+
+public class Generic<TValue, TKey>
+{
+    public int TValue;
+    public class TKey { }
+}
+
+public class Space { }
+public int Area;
+
+namespace Test.Names.Space;
+public class Inside { }
+
+namespace Test.Names.Area;
+public class AlsoInside { }

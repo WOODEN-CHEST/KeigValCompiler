@@ -59,6 +59,7 @@ internal class TypeDeclarationResolver : IPackResolver
                 .GetGenericParameterIdentifier(type.SelfIdentifier.ResolvedName!, Parameter);
             Parameter.SelfIdentifier.SelfName = Parameter.SelfIdentifier.SourceCodeName;
             Parameter.SelfIdentifier.Target = Parameter;
+            Parameter.Owner = type;
         }
     }
 

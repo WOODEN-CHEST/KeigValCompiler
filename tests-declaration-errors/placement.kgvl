@@ -1,0 +1,85 @@
+/* Declaration check test source file, for what a namespace, an interface, a static class and a readonly
+ * structure can hold, and event types. Every error in here is deliberate. The directory parses cleanly,
+ * so that resolution runs at all, and the point is that each mistake is reported once, where it is,
+ * without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 142 errors and 2 warnings. Expected from this
+ * file, 16 errors:
+ *
+ *   line 31 MG error 3      an indexer held by a namespace
+ *   line 32 MG error 3      a constructor held by a namespace
+ *   line 36 MG error 6      an instance field in an interface
+ *   line 37 MG error 7      an instance constructor in an interface
+ *   line 43 MG error 8      an instance field in a static class
+ *   line 44 MG error 8      an instance function in a static class
+ *   line 45 MG error 8      an instance constructor in a static class
+ *   line 46 MG error 8      an indexer in a static class
+ *   line 47 MG error 8      an operator in a static class
+ *   line 54 MG error 9      a field which is not readonly in a readonly structure
+ *   line 55 MG error 9      a stored property with a setter in a readonly structure
+ *   line 64 EV error 3      an event of type int
+ *   line 65 EV error 3      an event of an array type
+ *   line 74 MG error 10     an explicit implementation held by a namespace
+ *   line 78 MG error 9      an instance event in a readonly structure
+ *   line 84 MM error 3      const on a property of a static class, reported once
+ */
+
+namespace Placement;
+
+public int this[int index] { get => 0; }
+Placement() { }
+
+public interface IHoldsData
+{
+    int Data;
+    IHoldsData() { }
+    static int StaticIsFine;
+}
+
+public static class StaticHolder
+{
+    public int Instance;
+    public void InstanceMethod() { }
+    public StaticHolder() { }
+    public int this[int index] { get => 0; }
+    public static StaticHolder operator +(StaticHolder a, StaticHolder b) => a;
+    public const int ConstIsFine = 1;
+    public static int StaticIsFine;
+}
+
+public readonly struct Frozen
+{
+    public int Mutable;
+    public int Settable { get; set; }
+    public readonly int ReadonlyIsFine;
+    public int InitIsFine { get; init; }
+}
+
+public delegate void Handler();
+
+public class Events
+{
+    public event int NotDelegate;
+    public event Handler[] Handlers;
+    public event Handler DelegateIsFine;
+}
+
+public interface IFoo
+{
+    int Bar();
+}
+
+int IFoo.Bar() => 1;
+
+public readonly struct Watched
+{
+    public event Handler Changed;
+    public int WithBody { get => 1; set { } }
+}
+
+public static class ConstProperty
+{
+    public const int Value { get => 1; }
+}

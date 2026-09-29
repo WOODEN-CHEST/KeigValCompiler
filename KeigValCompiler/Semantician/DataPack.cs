@@ -32,6 +32,28 @@ internal class DataPack
         _sourceFiles.Add(sourceFile ?? throw new ArgumentNullException(nameof(sourceFile)));
     }
 
+    /* The full name of every namespace which exists, which as in C# is one some file declares, or one
+     * containing a namespace some file declares: "KGVL.Collections" exists because "KGVL.Collections.Generic"
+     * does. A namespace only named by a "using" directive does not exist by that. Given a kind of file, only
+     * the namespaces files of that kind declare are counted, as a C# assembly counts only its own. */
+    internal HashSet<string> GetExistingNamespaceNames(SourceFileKind? kind)
+    {
+        HashSet<string> Existing = new();
+        foreach (PackSourceFile SourceFile in _sourceFiles.Where(file => (kind == null) || (file.Kind == kind)))
+        {
+            foreach (PackNameSpace NameSpace in SourceFile.Namespaces)
+            {
+                string? Name = NameSpace.SelfIdentifier.SourceCodeName;
+                while ((Name != null) && Existing.Add(Name))
+                {
+                    int SeparatorIndex = Name.LastIndexOf(KGVL.NAMESPACE_SEPARATOR);
+                    Name = (SeparatorIndex == -1) ? null : Name[..SeparatorIndex];
+                }
+            }
+        }
+        return Existing;
+    }
+
     public PackNameSpace? TryGetNamespace(string fullName)
     {
         foreach (PackNameSpace NameSpace in NameSpaces)

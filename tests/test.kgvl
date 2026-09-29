@@ -46,6 +46,19 @@ private static class PrivateStaticClass    {   }
 
 class Class { }
 
+internal class InternalClass { }
+internal static class InternalStaticClass { }
+
+public class MoreModifiers : PublicClass
+{
+    public new int Hidden;
+    protected internal int ProtectedInternal;
+    private protected int PrivateProtected;
+    internal inline int Inlined() => 1;
+    public int Accessors { inline get; private inline set; }
+    public new class NestedHidden { }
+}
+
 /* Class tests. */
 public class TestClass1 { }
 

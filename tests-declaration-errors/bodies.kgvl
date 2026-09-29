@@ -1,0 +1,116 @@
+/* Declaration check test source file, for which functions and accessors need bodies and which cannot
+ * have them, what constructors can run first, and the shape of operators. Every error in here is
+ * deliberate. The directory parses cleanly, so that resolution runs at all, and the point is that each
+ * mistake is reported once, where it is, without errors which only follow from others. Run the
+ * directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 142 errors and 2 warnings. Expected from this
+ * file, 27 errors:
+ *
+ *   line 45 RTMC error 14   a function without a body
+ *   line 46 RTMC error 16   a property without accessors
+ *   line 47 RTMC error 17   a stored property without a getter
+ *   line 48 RTMC error 18   init on a static property
+ *   line 49 RTMC error 31   an indexer's accessor without a body
+ *   line 50 RTMC error 20   a static constructor running base(...)
+ *   line 56 FN error 7      a static constructor with parameters
+ *   line 61 RTMC error 15   an abstract function with a body
+ *   line 62 RTMC error 15   an abstract property's accessor with a body
+ *   line 67 RTMC error 14   a static interface function without a body
+ *   line 68 RTMC error 14   a virtual interface function without a body
+ *   line 69 RTMC error 31   an interface property's accessor without a body, beside one with
+ *   line 74 RTMC error 19   a structure's constructor running base(...)
+ *   line 79 RTMC error 21   an operator which is not static
+ *   line 80 MM error 3      an operator which is not public
+ *   line 81 RTMC error 22   ! with two parameters
+ *   line 82 RTMC error 23   * with one parameter
+ *   line 83 RTMC error 24   + with three parameters
+ *   line 84 RTMC error 25   a conversion with two parameters
+ *   line 85 RTMC error 26   a ref parameter of an operator
+ *   line 86 RTMC error 27   an operator returning void
+ *   line 97 RTMC error 14   an explicit implementation in an interface without a body
+ *   line 98 RTMC error 31   an explicit property implementation's accessor in an interface without a body
+ *   line 103 RTMC error 30  a starting value for an interface's instance property
+ *   line 108 RTMC error 30  a starting value for an abstract property
+ *   line 109 RTMC error 30  a starting value for a property whose accessors all have bodies
+ *   line 115 MM error 3     abstract in a structure, reported once, not as a missing body too
+ */
+
+namespace Test.Bodies;
+
+public class Bodies
+{
+    public void NoBody();
+    public int NoAccessors { }
+    public int SetOnly { set; }
+    public static int StaticInit { get; init; }
+    public int this[int index] { get; }
+    static Bodies() : base() { }
+    public Bodies(int value) { }
+}
+
+public class StaticParameters
+{
+    static StaticParameters(int value) { }
+}
+
+public abstract class AbstractBodies
+{
+    public abstract void WithBody() { }
+    public abstract int Property { get => 0; }
+}
+
+public interface IBodies
+{
+    static void StaticNoBody();
+    virtual void VirtualNoBody();
+    int Mixed { get => 0; set; }
+}
+
+public struct Chained
+{
+    public Chained(int value) : base() { }
+}
+
+public class Operators
+{
+    public Operators operator +(Operators a, Operators b) => a;
+    private static Operators operator -(Operators a, Operators b) => a;
+    public static Operators operator !(Operators a, Operators b) => a;
+    public static Operators operator *(Operators a) => a;
+    public static Operators operator +(Operators a, Operators b, Operators c) => a;
+    public static implicit operator int(Operators a, Operators b) => 0;
+    public static Operators operator ~(ref Operators a) => a;
+    public static void operator ++(Operators a) { }
+}
+
+public interface IBase
+{
+    int Method();
+    int Value { get; }
+}
+
+public interface IDerived : IBase
+{
+    int IBase.Method();
+    int IBase.Value { get; }
+}
+
+public interface IInitialized
+{
+    int Instance { get; } = 5;
+}
+
+public abstract class Initialized
+{
+    public abstract int Abstract { get; } = 3;
+    public int Computed { get => 1; set { } } = 4;
+    public int Stored { get; set; } = 5;
+}
+
+public struct AbstractInStruct
+{
+    public abstract void Missing();
+}

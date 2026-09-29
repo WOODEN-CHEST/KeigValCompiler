@@ -58,9 +58,15 @@ internal class SourceFileRootParser : AbstractParserBase
         TypeTargetIdentifier Word = Parser.ReadTypeTargetIdentifier(GetRootKeywordError());
         string ExtractedKeyword = Word.MainTarget.SourceCodeName;
 
+        /* Every file records for itself which namespaces it declares, so a namespace some other file already
+         * brought into the pack still has to be recorded on this one, just never twice. */
         if (ExtractedKeyword == KGVL.KEYWORD_NAMESPACE)
         {
-            _activeNamespace = GetOrCreateNamespace(ParseNamespaceName(false), false);
+            _activeNamespace = GetOrCreateNamespace(ParseNamespaceName(false));
+            if (!SourceFile.Namespaces.Contains(_activeNamespace))
+            {
+                SourceFile.AddNamespace(_activeNamespace);
+            }
             return;
         }
         else if (ExtractedKeyword == KGVL.KEYWORD_USING)
@@ -97,23 +103,11 @@ internal class SourceFileRootParser : AbstractParserBase
         return ErrorCreator.ExpectedNamespaceForSet.CreateOptions();
     }
 
-    /* A namespace is one object for the whole pack, however many files declare or import it, but every
-     * file records for itself which namespaces it declared and which it imported. So a namespace some
-     * other file already brought into the pack still has to be recorded on this one, just never twice. */
-    private PackNameSpace GetOrCreateNamespace(string fullName, bool isImport)
+    /* A namespace is one object for the whole pack, however many files declare or import it, so it is
+     * found by its name, or made if nothing has named it yet. */
+    private PackNameSpace GetOrCreateNamespace(string fullName)
     {
-        PackNameSpace NameSpace = SourceFile.Pack.TryGetNamespace(fullName) ?? new(new(fullName));
-
-        if (isImport && !SourceFile.NamespaceImports.Contains(NameSpace))
-        {
-            SourceFile.AddNamespaceImport(NameSpace);
-        }
-        else if (!isImport && !SourceFile.Namespaces.Contains(NameSpace))
-        {
-            SourceFile.AddNamespace(NameSpace);
-        }
-
-        return NameSpace;
+        return SourceFile.Pack.TryGetNamespace(fullName) ?? new(new(fullName));
     }
 
     private string ParseNamespaceName(bool isUsingDirective)
@@ -167,7 +161,7 @@ internal class SourceFileRootParser : AbstractParserBase
             return;
         }
 
-        GetOrCreateNamespace(NamespaceName, true);
+        SourceFile.AddNamespaceImport(GetOrCreateNamespace(NamespaceName), new(DirectiveLocation.Line));
     }
 
     /* Compared by name rather than by instance, because a namespace which no file declares is built

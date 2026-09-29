@@ -66,6 +66,45 @@ each relying on what the ones before it set:
    carries its parameter types, so overloads stay apart.
 7. `LibraryBindingResolver`: binds the library, as described below.
 
+Then the checks of declarations against C#'s rules, which need all of the above.
+`MemberRelations` answers what they share: what holds a member, what kind of
+member it is, its access once C#'s defaults are applied, and how messages name
+it.
+
+- `ModifierChecker`, first: which modifiers each kind of member can have where
+  it is declared, from a table per holder (namespace, class, static class,
+  structure, interface, property or indexer), which pairs conflict, that every
+  operator is `static` and, outside an interface and unless it implements one
+  explicitly, written `public`, and C#'s rules for accessors and readonly
+  members. A modifier not allowed at all is reported and then **taken off the
+  member**, as Roslyn does, into `PackMember.RejectedModifiers`, so the checks
+  after it see only what the member may have and do not report what follows
+  from a wrong modifier. After resolution, `PackMember.Modifiers` therefore
+  holds only the written modifiers the member may have. Implied ones are never
+  added: a default access, a `const`'s `static`, or an interface member's
+  `abstract`. `MemberRelations.GetEffectiveAccess` and
+  `MemberRelations.IsAbstract` answer those.
+- `ImportChecker`: a `using` naming a namespace nothing declares, which as in C#
+  exists if a namespace inside it does (`DataPack.GetExistingNamespaceNames`).
+- `MemberPlacementChecker`: what a namespace, an interface, a static class or a
+  readonly structure cannot hold, and an event whose type is not a delegate.
+- `MemberBodyChecker`: which functions and accessors need a body and which
+  cannot have one, properties storing their own value, and what constructors
+  can run first.
+- `OperatorDeclarationChecker`: an operator's parameter count and parameter
+  modifiers, its return type, and an interface's equality and conversion
+  operators, which have to be abstract or virtual.
+- `InheritanceChecker`: what each kind of type derives from, and cycles.
+- `DeclarationNameChecker`: names that cannot coincide, from two enum constants
+  of one name to a field named like a function beside it, a type's generic
+  parameter, or a namespace.
+
+What needs types compared is not checked yet: two functions with the same
+signature, operator parameter types and pairs, overriding, hiding, interface
+implementation, generic constraints, an interface listed twice, `const` types
+and structures containing themselves. Nor is accessibility. See "Suggested order
+of work".
+
 Errors are queued, like the parser's, so one missing type does not hide the rest.
 A type which cannot be resolved is left with no `Target`, and later passes skip
 it rather than report it again. Resolved names use internal separators from
@@ -202,9 +241,10 @@ gaps in [`parser-gaps.md`](parser-gaps.md): it reads every construct, down to
 expressions inside function bodies, and builds the full statement tree for them.
 `tests/test.kgvl` exercises the grammar and parses with zero errors.
 
-**The resolver resolves declarations and binds the standard library**, but does
-not look inside function bodies: `Foo bar = Nonexistent();` in a body still
-compiles. Four fixtures cover what exists, all run by hand:
+**The resolver resolves declarations, binds the standard library, and checks
+declarations against the C# rules which need no types compared**, but does not
+look inside function bodies: `Foo bar = Nonexistent();` in a body still
+compiles. Five fixtures cover what exists, all run by hand:
 
 | Directory | Run with | Expect |
 |---|---|---|
@@ -212,6 +252,7 @@ compiles. Four fixtures cover what exists, all run by hand:
 | `tests-errors/` | | the parse errors its header lists |
 | `tests-resolution/` | | zero errors |
 | `tests-resolution-errors/` | | the resolution errors its header lists |
+| `tests-declaration-errors/` | | the errors and warnings each file's header lists |
 
 ### Works
 The grammar, apart from the parser gaps listed under the smaller known gaps
@@ -225,8 +266,10 @@ ternary, lambdas, `switch` expressions, `new` with object/collection/array
 initializers, indexing, member and conditional access, `yield`, `catch ... when`,
 interpolated strings and all literal forms. The standard library is read from
 `library-stubs/` before the user's code, and only it may use `builtin`. Every
-type named in a declaration resolves, and every builtin member of the library
-is bound to what the compiler implements for it.
+type named in a declaration resolves, every builtin member of the library is
+bound to what the compiler implements for it, and declarations are checked for
+modifiers, what may hold what, bodies, the shape of operators, inheritance and
+names.
 
 ### The two blocking gaps
 
@@ -236,7 +279,7 @@ is bound to what the compiler implements for it.
 
 2. **No test harness.** `KeigValCompilerTest` has no `ProjectReference` to the
    compiler and its `Main` prints `Hello, World!`. `ICodeTester`, `TestResults`
-   and `TwoIntDecimalTester` exist but nothing runs them. The four fixtures above
+   and `TwoIntDecimalTester` exist but nothing runs them. The five fixtures above
    are run by hand and their output read by eye.
 
 ### Smaller known gaps
@@ -249,10 +292,11 @@ is bound to what the compiler implements for it.
 - Parser gaps, each detailed in [`parser-gaps.md`](parser-gaps.md): qualified
   type names such as `KGVL.Int32` do not parse, nor does the `as` operator, nor
   throw expressions, nor the `\e` and `\U` escapes.
-- Declarations are resolved but not yet checked against C#'s rules: accessibility,
-  two members with the same signature, a class with two base classes or a struct
-  deriving from one, interfaces left unimplemented, and the rules for declaring
-  operators all go unreported.
+- Declarations are checked against C#'s rules only where no types need
+  comparing, which leaves unreported: two members with the same signature,
+  operator parameter types and the operators declared in pairs, overriding and
+  hiding, interfaces left unimplemented, generic constraints, and accessibility.
+  The steps left are under "Suggested order of work".
 
 ## Suggested order of work
 
@@ -260,7 +304,7 @@ Roughly dependency-ordered; the owner decides priorities.
 
 1. ~~Get the build green.~~ Done.
 2. ~~Finish the parser.~~ Done.
-3. Wire up `KeigValCompilerTest` so the four fixtures run automatically. All are
+3. Wire up `KeigValCompilerTest` so the five fixtures run automatically. All are
    currently checked by eye, which will not survive the resolver work.
 4. ~~Decide how the built-in types and standard library are declared.~~
    Decided: see "The standard library" above. Building it, in order:
@@ -283,8 +327,40 @@ Roughly dependency-ordered; the owner decides priorities.
    generic maths interfaces.
 5. The resolver.
    1. ~~Resolve declarations and bind the standard library.~~ Done: see stage 2.
-   2. Check declarations against C#'s rules, as listed under the smaller known
-      gaps.
+   2. Check declarations against C#'s rules, in this order, agreed with the
+      owner on 2026-09-29:
+      1. ~~What needs nothing new: modifiers, what may hold what, bodies,
+         operator shape, inheritance, names, and `using`.~~ Done: see stage 2.
+      2. ~~A semantic type model, shared with function bodies.~~ Done, in
+         `Semantician/Types/`, though nothing uses it yet: `SemanticType` is
+         a `DeclaredType` (a declaration with its type arguments, and for a
+         nested type the type holding it, since `Outer<int>.Inner` and
+         `Outer<string>.Inner` differ) or a `GenericParameterType`, compared
+         by value. `T[]` is `Array<T>` and a value type's `T?` is
+         `Nullable<T>`; a reference type's `?` is kept as an annotation for
+         nullability checking but plays no part in equality. A
+         `TypeSubstitution` replaces generic parameters, by a type's
+         arguments or, to compare two functions, by position.
+         `SemanticTypeReader` (on the resolution context) builds one on
+         demand from a resolved `TypeTargetIdentifier`, a declaration's
+         instance type, and a type's written base types. `SignatureType`
+         stays as it is for the library bindings.
+      3. What needs types compared: duplicate signatures, operator parameter
+         types and pairs, overriding, hiding and `new`, interface
+         implementation, generic constraints and their type arguments, an
+         interface listed twice, `const` field types, and structures holding
+         themselves. As in C#, an override's or explicit implementation's
+         generic parameters take their constraints from what they override or
+         implement, which cannot be restated. `SemanticTypeReader` already
+         reads a `?` on one of them as `Nullable<T>`, unless it is written
+         with a `class` constraint, as C# does, but `IsValueType` and
+         constraint lookups will need those inherited constraints once
+         overrides are matched.
+      4. Accessibility, now that `internal` exists: lookup skipping what cannot
+         be seen, and a member exposing a type less accessible than itself.
+      5. Nested types of base classes in lookup, which needs base lists
+         resolved first, on demand. `TypeSearcher` is also where qualified type
+         names will land, so this waits for that parser gap to close.
    3. Resolve function bodies: expression types, names inside bodies, overloads,
       conversions and operators, with the operators the library declares on its
       built in types standing in for C#'s predefined ones. Then the enum values

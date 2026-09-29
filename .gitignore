@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # Bullshit
 agents/parser-gaps.md
+
+# Handoffs between agents
+handoff/

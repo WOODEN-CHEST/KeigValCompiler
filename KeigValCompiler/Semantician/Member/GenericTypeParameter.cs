@@ -6,6 +6,9 @@ internal class GenericTypeParameter : IIdentifiable
     public Identifier SelfIdentifier { get; set; }
     public GenericConstraint[] Constraints { get; set; }
 
+    /* The type or function declaring the parameter, set when the resolver names it. */
+    internal PackMember? Owner { get; set; } = null;
+
 
     // Constructors.
     internal GenericTypeParameter(Identifier identifier, GenericConstraint[]? constraints)

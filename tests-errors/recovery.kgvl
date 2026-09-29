@@ -7,28 +7,31 @@
  * It lives outside tests/ because the compiler reads a source directory recursively, and tests/ has
  * to keep parsing cleanly.
  *
- * Expected output, 19 errors and 1 warning:
+ * Expected output, 22 errors and 1 warning:
  *
- *   line 35 SFR warning 1   duplicate using directive
- *   line 39 MM  error 1     duplicate member modifier
- *   line 43 MM  error 2     builtin is reserved
- *   line 47 SFR error 3     stray closing bracket at the root of the file
- *   line 53 ID  error 1     invalid identifier 1Bad
- *   line 54 ID  error 1     invalid identifier 2Bad
- *   line 61 EN  error 8     no enum constant where the comma promised one
- *   line 63 EN  error 8     trailing comma after the last enum constant
- *   line 67 GE  error 4     empty generic parameter list
- *   line 73 ST  error 25    constant field without a value
- *   line 78 ST  error 25    constant local without a value
- *   line 79 ST  error 26    no declaration after const
- *   line 88 RTMC error 9    && cannot be overloaded
- *   line 89 RTMC error 9    operator true cannot be overloaded
- *   line 97 RTMC error 12   field named with an interface
- *   line 101 LI error 15    \u with too few digits in a char
- *   line 102 LI error 1     \x with too many digits in a char
- *   line 103 LI error 15    \u with too few digits in a string, whose reading carries on
- *   line 103 LI error 2     unknown escape \q later in the same string
- *   line 113 TMC error 3    unclosed class body, found at the end of the file
+ *   line 38 SFR warning 1   duplicate using directive
+ *   line 42 MM  error 1     duplicate member modifier
+ *   line 46 MM  error 2     builtin is reserved
+ *   line 50 SFR error 3     stray closing bracket at the root of the file
+ *   line 56 ID  error 1     invalid identifier 1Bad
+ *   line 57 ID  error 1     invalid identifier 2Bad
+ *   line 64 EN  error 8     no enum constant where the comma promised one
+ *   line 66 EN  error 8     trailing comma after the last enum constant
+ *   line 70 GE  error 4     empty generic parameter list
+ *   line 76 ST  error 25    constant field without a value
+ *   line 81 ST  error 25    constant local without a value
+ *   line 82 ST  error 26    no declaration after const
+ *   line 91 RTMC error 9    && cannot be overloaded
+ *   line 92 RTMC error 9    operator true cannot be overloaded
+ *   line 100 RTMC error 12  field named with an interface
+ *   line 104 LI error 15    \u with too few digits in a char
+ *   line 105 LI error 1     \x with too many digits in a char
+ *   line 106 LI error 15    \u with too few digits in a string, whose reading carries on
+ *   line 106 LI error 2     unknown escape \q later in the same string
+ *   line 113 GE error 10    a second where clause for the same generic parameter
+ *   line 115 RTMC error 13  a second get accessor
+ *   line 116 RTMC error 13  an init accessor after a set accessor
+ *   line 124 TMC error 3    unclosed class body, found at the end of the file
  */
 
 using KGVL;
@@ -106,6 +109,14 @@ public class BadEscapesAndExplicitField : IList<int>
 }
 
 public class GoodAfterBadEscapesAndExplicitField { }
+
+public class BadAccessorsAndClauses<T> where T : class where T : IList<T>
+{
+    public int Twice { get; get; }
+    public int SetTwice { get; set; init; }
+}
+
+public class GoodAfterBadAccessorsAndClauses { }
 
 public class Unclosed
 {

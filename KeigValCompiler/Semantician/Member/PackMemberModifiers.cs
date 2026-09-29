@@ -26,5 +26,10 @@ internal enum PackMemberModifiers
 
     Record = 1 << 12,
 
-    Const = 1 << 13
+    Const = 1 << 13,
+
+    Internal = 1 << 14,
+
+    /* Hides an inherited member of the same name on purpose. */
+    New = 1 << 15
 }

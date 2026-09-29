@@ -1,0 +1,64 @@
+/* Declaration check test source file, for what each kind of type can derive from, and types deriving
+ * from themselves. Every error in here is deliberate. The directory parses cleanly, so that resolution
+ * runs at all, and the point is that each mistake is reported once, where it is, without errors which
+ * only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 142 errors and 2 warnings. Expected from this
+ * file, 19 errors:
+ *
+ *   line 43 RS error 8      two base classes
+ *   line 44 RS error 9      the base class after an interface
+ *   line 45 RS error 10     a structure deriving from a class
+ *   line 46 RS error 10     an interface deriving from a class
+ *   line 47 RS error 11     a class deriving from a structure
+ *   line 48 RS error 11     a class deriving from an enum
+ *   line 49 RS error 11     a class deriving from its generic parameter
+ *   line 50 RS error 12     a class deriving from a sealed class
+ *   line 51 RS error 13     a class deriving from a static class
+ *   line 52 RS error 14     a static class implementing an interface
+ *   line 53 RS error 15     two classes deriving from each other, reported on the first
+ *   line 54 RS error 15     and on the second
+ *   line 55 RS error 15     an interface deriving from itself
+ *   line 56 RE error 6      a record deriving from a class
+ *   line 57 RE error 7      a class deriving from a record
+ *   line 58 RS error 2      an unknown base, with nothing reported about the class base after it
+ *   line 59 RS error 18     a class deriving from an array
+ *   line 60 RS error 18     a class deriving from a nullable interface
+ *   line 63 RS error 19     an explicit implementation naming an array of an interface
+ */
+
+namespace Test.Inheritance;
+
+public class First { }
+public class Second { }
+public interface IThing { }
+public struct Value { }
+public sealed class Closed { }
+public static class Util { }
+public record Recorded { }
+public enum Kind { One }
+
+public class TwoClasses : First, Second { }
+public class ClassNotFirst : IThing, First { }
+public struct StructFromClass : First { }
+public interface IFromClass : First { }
+public class FromStruct : Value { }
+public class FromEnum : Kind { }
+public class FromGeneric<T> : T { }
+public class FromSealed : Closed { }
+public class FromStatic : Util { }
+public static class StaticWithBase : IThing { }
+public class LoopA : LoopB { }
+public class LoopB : LoopA { }
+public interface ILoop : ILoop { }
+public record RecordFromClass : First { }
+public class ClassFromRecord : Recorded { }
+public class AfterUnknown : Missing, First { }
+public class FromArray : First[] { }
+public class FromNullable : IThing? { }
+public class ExplicitArray : IThing
+{
+    void IThing[].Nothing() { }
+}

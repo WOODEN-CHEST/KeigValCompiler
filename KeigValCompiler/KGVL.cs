@@ -113,6 +113,7 @@ internal static class KGVL
     public const string KEYWORD_PRIVATE = "private";
     public const string KEYWORD_PROTECTED = "protected";
     public const string KEYWORD_PUBLIC = "public";
+    public const string KEYWORD_INTERNAL = "internal";
     public const string KEYWORD_READONLY = "readonly";
     public const string KEYWORD_BUILTIN = "builtin";
     public const string KEYWORD_INLINE = "inline";
@@ -232,6 +233,8 @@ internal static class KGVL
     public const string NAME_EVENT = "event";
     public const string NAME_CONSTRUCTOR = "constructor";
     public const string NAME_OPERATOR_OVERLOAD = "operator overload";
+    public const string NAME_ACCESSOR = "accessor";
+    public const string NAME_STATIC_CLASS = "static class";
 
     public const string DOUBLE_CURLY_OPEN = "{{";
     public const string DOUBLE_CURLY_CLOSE = "}}";

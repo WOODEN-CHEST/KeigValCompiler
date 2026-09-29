@@ -1,6 +1,7 @@
 namespace KeigValCompiler.Semantician.Resolver;
 
-/* Resolves declarations and binds the standard library. Function bodies are not resolved yet. */
+/* Resolves declarations, binds the standard library, and checks declarations against C#'s rules.
+ * Function bodies are not resolved yet. */
 internal class FullPackResolver : IPackResolver
 {
     // Inherited methods.
@@ -19,5 +20,17 @@ internal class FullPackResolver : IPackResolver
         new SignatureResolver().ResolvePack(context);
         new MemberIdentifierResolver().ResolvePack(context);
         new LibraryBindingResolver().ResolvePack(context);
+
+        /* The checks need every member named and every type in a declaration resolved. ModifierChecker
+         * comes first, since it takes off each modifier a member cannot have, so that the others see only
+         * what the member may have and do not report again what follows from a wrong modifier. Otherwise
+         * their order only decides the order of messages found on the same line. */
+        new ModifierChecker().ResolvePack(context);
+        new ImportChecker().ResolvePack(context);
+        new MemberPlacementChecker().ResolvePack(context);
+        new MemberBodyChecker().ResolvePack(context);
+        new OperatorDeclarationChecker().ResolvePack(context);
+        new InheritanceChecker().ResolvePack(context);
+        new DeclarationNameChecker().ResolvePack(context);
     }
 }

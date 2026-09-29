@@ -1,13 +1,14 @@
 /* Resolution test source file. Unlike tests/test.kgvl, which only has to parse, this has to compile
- * with zero errors: every type it names has to resolve, against the standard library, the other file
- * in this directory, or itself. Run it with:
+ * with zero errors: every type it names has to resolve, against the standard library, helper.kgvl, or
+ * itself. declarations.kgvl, beside it, covers what the checks of declarations have to accept. Run them
+ * with:
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-resolution
  *
  * What it covers: type keywords; library types through "using"; a generic type naming its own type
  * parameter in its base types and constraint; arrays and nullable values; a nested type, which sees
  * the type parameter of the type around it; a type found in the namespace containing this one, in
- * the other file; a generic method's own type parameter; an explicit interface implementation; an
+ * helper.kgvl; a generic method's own type parameter; an explicit interface implementation; an
  * indexer and an operator. */
 
 using KGVL;

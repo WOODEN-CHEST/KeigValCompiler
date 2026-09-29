@@ -104,6 +104,38 @@ internal static class SignatureFormatter
             + KGVL.GENERIC_TYPE_END;
     }
 
+    /* How source code spells an operator, the same for its unary and binary forms. */
+    internal static string GetOperatorSpelling(OverloadableOperator overloadedOperator)
+    {
+        return overloadedOperator switch
+        {
+            OverloadableOperator.Addition => KGVL.OPERATOR_ADD,
+            OverloadableOperator.UnaryPlus => KGVL.OPERATOR_ADD,
+            OverloadableOperator.Subtraction => KGVL.OPERATOR_SUBTRACT,
+            OverloadableOperator.Negation => KGVL.OPERATOR_SUBTRACT,
+            OverloadableOperator.Multiplication => KGVL.OPERATOR_MULTIPLY,
+            OverloadableOperator.Division => KGVL.OPERATOR_DIVIDE,
+            OverloadableOperator.Modulo => KGVL.OPERATOR_MODULO,
+            OverloadableOperator.LogicalNot => KGVL.OPERATOR_NOT,
+            OverloadableOperator.BitwiseComplement => KGVL.OPERATOR_BITWISE_COMPLEMENT,
+            OverloadableOperator.Increment => KGVL.OPERATOR_INCREMENT,
+            OverloadableOperator.Decrement => KGVL.OPERATOR_DECREMENT,
+            OverloadableOperator.BitwiseAnd => KGVL.OPERATOR_BITWISE_AND,
+            OverloadableOperator.BitwiseOr => KGVL.OPERATOR_BITWISE_OR,
+            OverloadableOperator.BitwiseXor => KGVL.OPERATOR_BITWISE_XOR,
+            OverloadableOperator.LeftShift => KGVL.OPERATOR_LEFT_SHIFT,
+            OverloadableOperator.RightShift => KGVL.OPERATOR_RIGHT_SHIFT,
+            OverloadableOperator.UnsignedRightShift => KGVL.OPERATOR_UNSIGNED_RIGHT_SHIFT,
+            OverloadableOperator.Equals => KGVL.OPERATOR_EQUALS,
+            OverloadableOperator.NotEquals => KGVL.OPERATOR_NOT_EQUALS,
+            OverloadableOperator.LargerThan => KGVL.OPERATOR_LARGER_THAN,
+            OverloadableOperator.LessThan => KGVL.OPERATOR_LESS_THAN,
+            OverloadableOperator.LargerOrEqual => KGVL.OPERATOR_LARGER_OR_EQUAL,
+            OverloadableOperator.LessThanOrEqual => KGVL.OPERATOR_LESS_OR_EQUAL,
+            _ => overloadedOperator.ToString()
+        };
+    }
+
 
     // Private static methods.
     private static string FormatDeclaringType(LibraryType type)
@@ -173,36 +205,5 @@ internal static class SignatureFormatter
             _ => string.Empty
         };
         return Keyword.Length == 0 ? Keyword : Keyword + SPACE;
-    }
-
-    private static string GetOperatorSpelling(OverloadableOperator overloadedOperator)
-    {
-        return overloadedOperator switch
-        {
-            OverloadableOperator.Addition => KGVL.OPERATOR_ADD,
-            OverloadableOperator.UnaryPlus => KGVL.OPERATOR_ADD,
-            OverloadableOperator.Subtraction => KGVL.OPERATOR_SUBTRACT,
-            OverloadableOperator.Negation => KGVL.OPERATOR_SUBTRACT,
-            OverloadableOperator.Multiplication => KGVL.OPERATOR_MULTIPLY,
-            OverloadableOperator.Division => KGVL.OPERATOR_DIVIDE,
-            OverloadableOperator.Modulo => KGVL.OPERATOR_MODULO,
-            OverloadableOperator.LogicalNot => KGVL.OPERATOR_NOT,
-            OverloadableOperator.BitwiseComplement => KGVL.OPERATOR_BITWISE_COMPLEMENT,
-            OverloadableOperator.Increment => KGVL.OPERATOR_INCREMENT,
-            OverloadableOperator.Decrement => KGVL.OPERATOR_DECREMENT,
-            OverloadableOperator.BitwiseAnd => KGVL.OPERATOR_BITWISE_AND,
-            OverloadableOperator.BitwiseOr => KGVL.OPERATOR_BITWISE_OR,
-            OverloadableOperator.BitwiseXor => KGVL.OPERATOR_BITWISE_XOR,
-            OverloadableOperator.LeftShift => KGVL.OPERATOR_LEFT_SHIFT,
-            OverloadableOperator.RightShift => KGVL.OPERATOR_RIGHT_SHIFT,
-            OverloadableOperator.UnsignedRightShift => KGVL.OPERATOR_UNSIGNED_RIGHT_SHIFT,
-            OverloadableOperator.Equals => KGVL.OPERATOR_EQUALS,
-            OverloadableOperator.NotEquals => KGVL.OPERATOR_NOT_EQUALS,
-            OverloadableOperator.LargerThan => KGVL.OPERATOR_LARGER_THAN,
-            OverloadableOperator.LessThan => KGVL.OPERATOR_LESS_THAN,
-            OverloadableOperator.LargerOrEqual => KGVL.OPERATOR_LARGER_OR_EQUAL,
-            OverloadableOperator.LessThanOrEqual => KGVL.OPERATOR_LESS_OR_EQUAL,
-            _ => overloadedOperator.ToString()
-        };
     }
 }

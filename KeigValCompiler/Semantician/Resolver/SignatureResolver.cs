@@ -68,6 +68,7 @@ internal class SignatureResolver : IPackResolver
                 .GetGenericParameterIdentifier(OwnerName, Parameter);
             Parameter.SelfIdentifier.SelfName = Parameter.SelfIdentifier.SourceCodeName;
             Parameter.SelfIdentifier.Target = Parameter;
+            Parameter.Owner = function;
         }
     }
 
@@ -108,6 +109,11 @@ internal class SignatureResolver : IPackResolver
         if ((Target != null) && (Target is not PackInterface))
         {
             context.AddError(context.ErrorCreator.ExplicitInterfaceNotInterface.CreateOptions(
+                member.SelfIdentifier.SourceCodeName, explicitInterface.ToString()), member);
+        }
+        else if (explicitInterface.IsArrayOrNullable)
+        {
+            context.AddError(context.ErrorCreator.ExplicitInterfaceWithMarkers.CreateOptions(
                 member.SelfIdentifier.SourceCodeName, explicitInterface.ToString()), member);
         }
     }

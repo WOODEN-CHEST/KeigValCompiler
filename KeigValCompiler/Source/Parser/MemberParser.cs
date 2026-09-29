@@ -122,7 +122,7 @@ internal class MemberParser : AbstractParserBase
     {
         if ((appliedModifiers & newModifier) != PackMemberModifiers.None)
         {
-            AddError(ErrorCreator.DuplicateModifiers.CreateOptions(newModifier));
+            AddError(ErrorCreator.DuplicateModifiers.CreateOptions(ModifierKeywords.GetKeyword(newModifier)));
         }
 
         appliedModifiers |= newModifier;
@@ -132,24 +132,8 @@ internal class MemberParser : AbstractParserBase
 
     private PackMemberModifiers StringToModifier(string modifierName)
     {
-        return modifierName switch
-        {
-            KGVL.KEYWORD_STATIC => PackMemberModifiers.Static,
-            KGVL.KEYWORD_PRIVATE => PackMemberModifiers.Private,
-            KGVL.KEYWORD_PROTECTED => PackMemberModifiers.Protected,
-            KGVL.KEYWORD_PUBLIC => PackMemberModifiers.Public,
-            KGVL.KEYWORD_RECORD => PackMemberModifiers.Record,
-            KGVL.KEYWORD_READONLY => PackMemberModifiers.Readonly,
-            KGVL.KEYWORD_ABSTRACT => PackMemberModifiers.Abstract,
-            KGVL.KEYWORD_VIRTUAL => PackMemberModifiers.Virtual,
-            KGVL.KEYWORD_OVERRIDE => PackMemberModifiers.Override,
-            KGVL.KEYWORD_BUILTIN => ReadBuiltInModifier(),
-            KGVL.KEYWORD_INLINE => PackMemberModifiers.Inline,
-            KGVL.KEYWORD_SEALED => PackMemberModifiers.Sealed,
-            KGVL.KEYWORD_REQUIRED => PackMemberModifiers.Required,
-            KGVL.KEYWORD_CONST => PackMemberModifiers.Const,
-            _ => PackMemberModifiers.None
-        };
+        return (modifierName == KGVL.KEYWORD_BUILTIN) ? ReadBuiltInModifier()
+            : ModifierKeywords.GetModifier(modifierName);
     }
 
     /* Only the standard library's own files may mark what the compiler implements itself. Anywhere
@@ -245,7 +229,13 @@ internal class MemberParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(ErrorCreator.ExpectedRecordPrimaryConstructorParameters
             .CreateOptions(RecordName));
 
-        PackFunction Constructor = new(new(recordClass.SelfIdentifier.SourceCodeName), SourceFile);
+        /* Public, as a record's primary constructor is in C#. */
+        PackConstructor Constructor = new(new(recordClass.SelfIdentifier.SourceCodeName), SourceFile)
+        {
+            Modifiers = PackMemberModifiers.Public,
+            SourceFileOrigin = new(Parser.Line),
+            IsPrimary = true
+        };
         Constructor.Parameters.SetFrom(ParseFunctionParameters(recordClass.SelfIdentifier.SourceCodeName,
             KGVL.NAME_RECORD_CLASS, KGVL.CLOSE_PARENTHESIS));
 
@@ -1175,7 +1165,10 @@ internal class MemberParser : AbstractParserBase
         /* "SomeType Name => value;" is a property with nothing but a getter. */
         if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
         {
-            PackFunction Getter = new(new Identifier(KGVL.KEYWORD_GET), SourceFile);
+            PackFunction Getter = new(new Identifier(KGVL.KEYWORD_GET), SourceFile)
+            {
+                SourceFileOrigin = new(Parser.Line)
+            };
             ParseFunctionBody(Getter, modifiers);
             Property.GetFunction = Getter;
             FunctionHolder.AddProperty(Property);
@@ -1208,7 +1201,9 @@ internal class MemberParser : AbstractParserBase
     }
 
     /* The braced "{ get; set; }" of a property or indexer. Each accessor is stored as a function
-     * so that a body written for it has somewhere to live. An indexer passes null for init. */
+     * so that a body written for it has somewhere to live. An indexer passes null for init. An
+     * accessor repeating one already read is reported and dropped, and "set" and "init" count as the
+     * same one, since both set the member. */
     private void ParseAccessorBlock(string memberTypeName,
         Action<PackFunction> setGetter,
         Action<PackFunction> setSetter,
@@ -1223,35 +1218,50 @@ internal class MemberParser : AbstractParserBase
         Parser.IncrementDataIndex();
         Parser.SkipUntilNonWhitespace(null);
 
+        bool HasGetter = false;
+        bool HasSetter = false;
         while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
         {
             PackMemberModifiers AccessorModifiers = ParseAccessorModifiers();
 
             Parser.SkipUntilNonWhitespace(null);
+            CompilerMessageLocation AccessorLocation = GetCurrentLocation();
             string Keyword = ReadKeywordOrEmpty();
 
             PackFunction Accessor = new(new Identifier(Keyword), SourceFile)
             {
-                Modifiers = AccessorModifiers
+                Modifiers = AccessorModifiers,
+                SourceFileOrigin = new(Parser.Line)
             };
             ParseFunctionBody(Accessor, AccessorModifiers);
 
-            if (Keyword == KGVL.KEYWORD_GET)
+            bool IsGetter = Keyword == KGVL.KEYWORD_GET;
+            bool IsSetter = (Keyword == KGVL.KEYWORD_SET)
+                || ((Keyword == KGVL.KEYWORD_INIT) && (setInit != null));
+            if (!IsGetter && !IsSetter)
+            {
+                throw new SourceFileReadException(Parser,
+                    ErrorCreator.ExpectedAccessor.CreateOptions(memberTypeName));
+            }
+
+            if ((IsGetter && HasGetter) || (IsSetter && HasSetter))
+            {
+                AddError(ErrorCreator.DuplicateAccessor.CreateOptions(Keyword, memberTypeName), AccessorLocation);
+            }
+            else if (IsGetter)
             {
                 setGetter(Accessor);
+                HasGetter = true;
             }
             else if (Keyword == KGVL.KEYWORD_SET)
             {
                 setSetter(Accessor);
-            }
-            else if ((Keyword == KGVL.KEYWORD_INIT) && (setInit != null))
-            {
-                setInit(Accessor);
+                HasSetter = true;
             }
             else
             {
-                throw new SourceFileReadException(Parser,
-                    ErrorCreator.ExpectedAccessor.CreateOptions(memberTypeName));
+                setInit!(Accessor);
+                HasSetter = true;
             }
 
             Parser.SkipUntilNonWhitespace(null);
@@ -1427,11 +1437,14 @@ internal class MemberParser : AbstractParserBase
         Parser.DataIndex = SavedIndex;
     }
 
+    /* A second clause for the same parameter is read, so that parsing carries on after it, but only the
+     * first clause is kept. */
     private void ParseSingleGenericParameterConstraints(
         string memberName,
         string memberTypeName,
         GenericTypeParameterCollection parameters)
     {
+        CompilerMessageLocation ClauseLocation = GetCurrentLocation();
         string TypeParamName = Parser.ReadIdentifier(ErrorCreator.ExpectedGenericTypeNameForConstraint
             .CreateOptions(memberTypeName, memberName));
 
@@ -1477,6 +1490,12 @@ internal class MemberParser : AbstractParserBase
             }
         }
 
+        if (Parameter.Constraints.Length > 0)
+        {
+            AddError(ErrorCreator.DuplicateConstraintClause.CreateOptions(TypeParamName, memberTypeName,
+                memberName), ClauseLocation);
+            return;
+        }
         Parameter.Constraints = Constraints.ToArray();
     }
 

@@ -4,16 +4,17 @@ internal class PackSourceFile
 {
     // Internal fields.
     internal DataPack Pack { get; private set; }
-    internal PackNameSpace[] NamespaceImports => _namespaceImports.ToArray();
+    internal PackNameSpace[] NamespaceImports => _namespaceImports.Select(import => import.NameSpace).ToArray();
+    internal NamespaceImport[] ImportDirectives => _namespaceImports.ToArray();
     internal PackNameSpace[] Namespaces => _namespaces.ToArray();
-    internal PackNameSpace[] AllUsedNamespaces => _namespaces.Concat(_namespaceImports).ToArray();
+    internal PackNameSpace[] AllUsedNamespaces => _namespaces.Concat(NamespaceImports).ToArray();
     internal string Path { get; private init; }
     internal SourceFileKind Kind { get; private init; }
     internal bool IsLibraryFile => Kind == SourceFileKind.Library;
 
 
     // Private fields.
-    private readonly List<PackNameSpace> _namespaceImports = new();
+    private readonly List<NamespaceImport> _namespaceImports = new();
     private readonly List<PackNameSpace> _namespaces = new();
 
 
@@ -27,9 +28,10 @@ internal class PackSourceFile
 
 
     // Internal methods.
-    internal void AddNamespaceImport(PackNameSpace packNameSpace)
+    internal void AddNamespaceImport(PackNameSpace packNameSpace, SourceFileOrigin origin)
     {
-        _namespaceImports.Add(packNameSpace ?? throw new ArgumentNullException(nameof(packNameSpace)));
+        _namespaceImports.Add(new(packNameSpace ?? throw new ArgumentNullException(nameof(packNameSpace)),
+            origin));
     }
 
     internal void AddNamespace(PackNameSpace nameSpace)

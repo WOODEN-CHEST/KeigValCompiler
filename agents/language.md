@@ -10,7 +10,7 @@ the worked example.
 Familiar from C#: namespaces and `using`; `class`, `struct`, `interface`,
 `record`, `enum`, `delegate`, `event`; generics with `where` constraints;
 properties and indexers; access modifiers and `static` / `abstract` / `virtual`
-/ `override` / `sealed` / `readonly` / `required` / `const`; `if` / `for` / `foreach` /
+/ `override` / `sealed` / `readonly` / `required` / `const` / `new`; `if` / `for` / `foreach` /
 `while` / `do` / `switch` / `try` / `catch` / `finally` / `throw` / `return`;
 `ref` / `out` / `in` / `params`; string interpolation; `nameof` / `typeof`.
 
@@ -26,6 +26,19 @@ Divergences from C# worth knowing:
   today, as `PackMemberModifiers.BuiltIn` and `.Inline`). `builtin` is only
   for the standard library's own files — see
   [Built-in types and the standard library](#built-in-types-and-the-standard-library).
+  `inline` forces a function's code to be inlined wherever it is called. It can
+  help optimisation, especially where the compiler can simplify the inlined code
+  for the arguments at a particular call site, at the cost of datapack size and
+  duplicated commands. It is accepted on every kind of function: methods,
+  constructors, operators and accessors (decided 2026-09-29). Nothing acts on it
+  yet, since the backend does not exist.
+- **Access modifiers** are C#'s, `internal` included (added 2026-09-29), with
+  the same defaults. The two "assemblies" `internal` separates are the standard
+  library and the code being compiled, so the library can keep helpers from
+  user code; later, user-made libraries or runtime datapacks could be more.
+  What a namespace holds, types and KGVL's own fields, properties, functions and
+  events alike, can only be `public` or `internal`, as C#'s top-level types can.
+  `protected internal` and `private protected` mean what they do in C#.
 - **`params`** marks a variadic final parameter, alongside `ref`, `out` and `in`.
 - **`raw` and `constalloc`** keywords.
 `raw` currently does nothing, but the intended idea is to allow running "raw"
@@ -60,6 +73,8 @@ this file can do
     // etc.
 }
 ```
+  Whether such a member may, must, or must not be written `static` is not
+  decided; see the open questions. The compiler accepts it either way for now.
 
 ## Member syntax
 
@@ -77,7 +92,7 @@ public int Count { get; set; }    public int Total { get => _total; }
 public int Once { get; init; }    public int Quick => _total * 2;
 public int Narrow { get; private set; }
 
-public int this[int index] { get; set; }
+public int this[int index] { get => _items[index]; set => _items[index] = value; }
 
 public static Vec operator +(Vec a, Vec b) { }
 public static implicit operator int(Vec v) => v._value;
@@ -116,6 +131,12 @@ Functions, operators, properties and indexers can do this; the parser reports a
 field which tries. The parser stores the interface on the member
 (`IExplicitInterfaceMember.ExplicitInterface`) and checks nothing else: C#'s
 rules, such as no access modifier on such a member, are the resolver's.
+
+**Hiding** is C#'s, `new` modifier included (added 2026-09-29): a member with the
+name of an inherited one hides it, and is to be written `new` to say that is
+meant. As in C#, hiding without `new` is a warning, and so is `new` hiding
+nothing. The modifier is parsed and allowed where C# allows it, but neither
+warning exists yet: both need inherited members looked up.
 
 ## Generic calls and the `<` ambiguity
 
@@ -193,9 +214,10 @@ four. As in C#, `\x` takes as many hex digits as follow, up to four, so
 
 ## Built-in types and the standard library
 
-Decided on 2026-09-28. Almost none of it is enforced yet, since the resolver
-which would enforce it does not run; see [`architecture.md`](architecture.md)
-for how it is to be built.
+Decided on 2026-09-28. The resolver loads the library, binds its builtin
+members to what the compiler implements, and checks declarations, but what
+depends on function bodies, such as conversions, operators and boxing, is not
+enforced yet; see [`architecture.md`](architecture.md).
 
 **Where it lives.** The built-in types and the standard library are ordinary
 `.kgvl` files under [`library-stubs/`](../library-stubs/), laid out like .NET's:
@@ -226,6 +248,14 @@ builtin so that the compiler can recognise and optimise them.
 `T?` on a value type is `KGVL.Nullable<T>`; on a reference type it is only an
 annotation, as in C#. `T[]` is `KGVL.Array<T>`, a generic class unlike C#'s
 `System.Array`, since without a runtime type system a generic one is simpler.
+
+The annotation is kept, not thrown away (decided 2026-09-29): the owner wants the
+compiler to be able to check nullability, which helps debugging. It plays no part
+in whether two types are the same, as in C#, so `Foo(string)` and `Foo(string?)`
+are the same signature and cannot both be declared, and an override or an
+interface implementation may differ from what it overrides in annotations only.
+How strict nullability checking in function bodies should be is to be decided
+with them.
 
 **`object` and boxing.** Every type derives from `KGVL.Object`, which declares
 `ToString`, `Equals` and `GetHashCode`. Structs and enums are boxed when
@@ -429,6 +459,10 @@ The repository owner decides these. Agents should surface them, not settle them.
   some of them as commands inside the library itself.
 - What is the interop story for reading and writing actual game state —
   entities, blocks, inventories?
+- May the fields, properties, functions and events a namespace holds be written
+  `static`, must they be, or must they not be? They belong to no object either
+  way. C# has nothing to compare: its nearest relative, a `const`, is static
+  already and may not say so. The compiler accepts both for now.
 
 If a task requires an answer to one of these, **ask rather than picking one.**
 An assumption baked into the front-end is expensive to remove later.

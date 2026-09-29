@@ -1,0 +1,131 @@
+/* Declarations the resolution stage's checks have to accept, since C# accepts them: modifiers where
+ * each is allowed, including the pairs "protected internal" and "private protected", "new", "inline"
+ * and "internal"; static classes and constructors; abstract, sealed and overriding members; a readonly
+ * structure; an interface's default, private, sealed, static, static abstract and static virtual
+ * members, and one re-declaring an inherited member as abstract; records deriving from records; a
+ * "using" of a namespace which holds no types but contains one which does; and members held directly
+ * by a namespace. Also what C# allows and an early version of the checks did not: a protected type in a
+ * static class, a delegate's parameter named like its generic parameter, an interface's instance member
+ * named like the interface, a readonly structure's property whose "set" has a body, and an interface's
+ * static event and sealed static operator. Part of tests-resolution, so it has to compile with zero
+ * errors. */
+
+using KGVL;
+using KGVL.Collections;
+using KGVL.Collections.Generic;
+namespace Game.Declarations;
+
+internal static class Tools : object
+{
+    public const int Limit = 5;
+    private static int _count;
+    static Tools() { _count = 0; }
+    public static inline int Twice(int value) => value * 2;
+    internal static int Count { get => _count; private set => _count = value; }
+    public class Nested { }
+    protected internal enum Mode { On, Off }
+}
+
+public delegate void Changed(int value);
+public delegate T Map<T>(int T);
+
+public abstract class Shape
+{
+    protected internal int Tag;
+    private protected int Secret;
+    protected Shape() { }
+    public abstract int Sides { get; }
+    public abstract int Area();
+    public virtual string Describe() => "shape";
+    public event Changed OnChanged;
+}
+
+public sealed class Square : Shape
+{
+    public new int Tag;
+    public Square(int side) : base() { Side = side; }
+    public required int Side { get; init; }
+    public override int Sides => 4;
+    public sealed override int Area() => Side * Side;
+    public override string Describe() => "square";
+}
+
+public readonly struct Point : IEquatable<Point>
+{
+    public readonly int X;
+    public readonly int Y;
+    public Point(int x, int y) { X = x; Y = y; }
+    public int Sum { get; init; }
+    public int Ignored { get => 0; set { } }
+    public readonly int Total() => X + Y;
+    public bool Equals(Point other) => (X == other.X) && (Y == other.Y);
+    public override string ToString() => "point";
+    public static Point operator +(Point left, Point right) => new Point(left.X + right.X, left.Y + right.Y);
+    public static Point operator -(Point value) => value;
+    public static implicit operator int(Point value) => value.X;
+}
+
+public interface IShape
+{
+    const int Max = 10;
+    static int Counter;
+    int Sides { get; }
+    int Corners() => Sides;
+    private int Helper() => 1;
+    sealed int Fixed() => 2;
+    virtual int Changeable() => 3;
+    static abstract IShape Create();
+    static virtual int Default() => 0;
+    static event Changed Broadcast;
+    sealed static IShape operator +(IShape left, IShape right) => left;
+    private static sealed int Hidden() => 1;
+}
+
+public interface IName
+{
+    int IName { get; }
+}
+
+public interface IReshaped : IShape
+{
+    abstract int IShape.Corners();
+}
+
+public interface IAddable<TSelf> where TSelf : IAddable<TSelf>
+{
+    static abstract TSelf operator +(TSelf left, TSelf right);
+}
+
+public struct Meters : IAddable<Meters>
+{
+    public int Value;
+    public int Scaled { readonly get => Value; set { } }
+    public readonly int Fixed { get; init; }
+    public static Meters operator +(Meters left, Meters right) => left;
+}
+
+public record Parent { }
+public record Child : Parent { }
+public record Named(string Name);
+public abstract record Sized
+{
+    public abstract int Size();
+}
+
+public enum Colour { Red, Green, Blue = 5 }
+
+public class Container<T>
+{
+    public T Value;
+    public TOut Map<TOut>(T value, TOut fallback) => fallback;
+    public class Inner<TInner>
+    {
+        public TInner Item;
+    }
+}
+
+internal int GlobalCounter;
+public const int GlobalLimit = 3;
+public int GlobalProperty { get; set; }
+public inline int GlobalTwice(int value) => value * 2;
+public event Changed GlobalChanged;

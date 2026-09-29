@@ -24,11 +24,13 @@ Be honest with yourself about how little exists. As of 2026-09-29:
 
 - The **parser is complete** for the language's syntax, including function
   bodies, expressions and operator precedence, apart from the gaps listed in
-  [`agents/parser-gaps.md`](agents/parser-gaps.md). It checks nothing about what
-  it reads.
-- The **resolver** resolves the types named in declarations and binds the
-  standard library, but does not look inside function bodies at all: nothing in
-  a body is looked up or type checked.
+  [`agents/parser-gaps.md`](agents/parser-gaps.md). It checks little about what
+  it reads beyond what only it can see: repeated modifiers, accessors and
+  `where` clauses, and `builtin` outside the standard library.
+- The **resolver** resolves the types named in declarations, binds the
+  standard library, and checks declarations against those of C#'s rules which
+  need no types compared, but does not look inside function bodies at all:
+  nothing in a body is looked up or type checked.
 - The **datapack backend does not exist**. Not one line. The project does not
   currently emit any output at all.
 
@@ -62,8 +64,10 @@ run rather than stopping at the first. Its header comment lists what it should
 produce. It sits outside `tests/` because a source directory is read
 recursively. `tests-resolution/` and `tests-resolution-errors/` are the same
 pair for the resolver: the first must compile with zero errors, and the second
-must report what its header lists. None of the fixtures are automated — you run
-them and read the output.
+must report what its header lists. `tests-declaration-errors/` is a second
+error fixture for the resolver, for its checks of declarations, with each file's
+header listing what that file reports. None of the fixtures are automated — you
+run them and read the output.
 
 The `KeigValCompilerTest` project exists but is **not wired up** — it has no
 `ProjectReference` to the compiler and its `Main` prints `Hello, World!`. There
