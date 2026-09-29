@@ -153,7 +153,7 @@ internal static class SignatureFormatter
         OverloadableOperator Operator = signature.Operator!.Value;
         string TypeText = FormatType(signature.Type!, signature);
 
-        if ((Operator == OverloadableOperator.ImplicitCast) || (Operator == OverloadableOperator.ExplicitCast))
+        if (OverloadableOperatorKinds.IsConversion(Operator))
         {
             string Keyword = Operator == OverloadableOperator.ImplicitCast
                 ? KGVL.KEYWORD_IMPLICIT : KGVL.KEYWORD_EXPLICIT;

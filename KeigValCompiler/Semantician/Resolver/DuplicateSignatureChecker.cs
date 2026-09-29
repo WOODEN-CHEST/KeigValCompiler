@@ -20,11 +20,10 @@ internal class DuplicateSignatureChecker : IPackResolver
         Dictionary<PackSourceFile, int> fileOrder,
         PackResolutionContext context)
     {
-        IEnumerable<PackMember> Members = MemberRelations.GetSignedMembers(holder)
+        IEnumerable<PackMember> Compared = MemberRelations.GetSignedMembers(holder)
             .Where(member => (member is PackFunction or PackIndexer)
-                || ((member is PackProperty) && (MemberRelations.GetExplicitInterface(member) != null)))
-            .OrderBy(member => fileOrder[member.SourceFile])
-            .ThenBy(member => member.SourceFileOrigin.Line);
+                || ((member is PackProperty) && (MemberRelations.GetExplicitInterface(member) != null)));
+        IEnumerable<PackMember> Members = MemberRelations.OrderByDeclaration(Compared, fileOrder);
 
         List<DeclaredSignature> Earlier = new();
         TypeSubstitution NoSubstitution = new();
@@ -121,11 +120,7 @@ internal class DuplicateSignatureChecker : IPackResolver
     {
         ArgumentNullException.ThrowIfNull(context, nameof(context));
 
-        Dictionary<PackSourceFile, int> FileOrder = new();
-        foreach (PackSourceFile SourceFile in context.Pack.SourceFiles)
-        {
-            FileOrder.Add(SourceFile, FileOrder.Count);
-        }
+        Dictionary<PackSourceFile, int> FileOrder = MemberRelations.GetFileOrder(context.Pack);
 
         foreach (PackNameSpace NameSpace in context.Pack.NameSpaces)
         {

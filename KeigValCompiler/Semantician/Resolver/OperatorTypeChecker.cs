@@ -1,5 +1,4 @@
 using KeigValCompiler.Error;
-using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Types;
 
@@ -19,10 +18,6 @@ namespace KeigValCompiler.Semantician.Resolver;
  * did not resolve, and so is the partner either would need. */
 internal class OperatorTypeChecker : IPackResolver
 {
-    // Static fields.
-    private const char SPACE = ' ';
-
-
     // Private methods.
     private void CheckHolder(PackMember holder, PackResolutionContext context)
     {
@@ -65,8 +60,8 @@ internal class OperatorTypeChecker : IPackResolver
 
     private bool HasOperandCount(DeclaredSignature signature)
     {
-        bool IsSingle = IsUnary(signature.Operator!.Value) || IsConversion(signature.Operator!.Value);
-        return signature.ParameterTypes.Count == (IsSingle ? 1 : 2);
+        return signature.ParameterTypes.Count
+            == OverloadableOperatorKinds.GetOperandCount(signature.Operator!.Value);
     }
 
     private void CheckOperandTypes(DeclaredSignature signature,
@@ -87,7 +82,7 @@ internal class OperatorTypeChecker : IPackResolver
         PackResolutionContext context)
     {
         OverloadableOperator Operator = signature.Operator!.Value;
-        if (IsConversion(Operator))
+        if (OverloadableOperatorKinds.IsConversion(Operator))
         {
             return GetConversionError(signature, holder, containing, context);
         }
@@ -99,7 +94,7 @@ internal class OperatorTypeChecker : IPackResolver
         bool IsSelfAllowed = IsSelfParameterAllowed(signature, holder);
         bool IsFirstContaining = IsContaining(Parameters[0], holder, containing, IsSelfAllowed, context);
 
-        if (IsUnary(Operator))
+        if (OverloadableOperatorKinds.IsUnary(Operator))
         {
             if (!IsFirstContaining)
             {
@@ -118,7 +113,7 @@ internal class OperatorTypeChecker : IPackResolver
             return null;
         }
 
-        if (IsShift(Operator))
+        if (OverloadableOperatorKinds.IsShift(Operator))
         {
             return IsFirstContaining ? null
                 : context.ErrorCreator.ShiftOperatorParameterType.CreateOptions(Name, HolderName, ContainingName);
@@ -156,24 +151,6 @@ internal class OperatorTypeChecker : IPackResolver
     {
         return (holder is PackInterface)
             && signature.Member.HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.Virtual);
-    }
-
-    private bool IsUnary(OverloadableOperator overloadedOperator)
-    {
-        return overloadedOperator is OverloadableOperator.UnaryPlus or OverloadableOperator.Negation
-            or OverloadableOperator.LogicalNot or OverloadableOperator.BitwiseComplement
-            or OverloadableOperator.Increment or OverloadableOperator.Decrement;
-    }
-
-    private bool IsShift(OverloadableOperator overloadedOperator)
-    {
-        return overloadedOperator is OverloadableOperator.LeftShift or OverloadableOperator.RightShift
-            or OverloadableOperator.UnsignedRightShift;
-    }
-
-    private bool IsConversion(OverloadableOperator overloadedOperator)
-    {
-        return overloadedOperator is OverloadableOperator.ImplicitCast or OverloadableOperator.ExplicitCast;
     }
 
     /* The source and target are compared without their nullable forms, as C# compares them, though the type
@@ -270,7 +247,7 @@ internal class OperatorTypeChecker : IPackResolver
         {
             context.AddError(context.ErrorCreator.UnpairedOperator.CreateOptions(
                 MemberRelations.GetDisplayName(comparison.Member), holder.SelfIdentifier.SourceCodeName,
-                KGVL.KEYWORD_OPERATOR + SPACE + SignatureFormatter.GetOperatorSpelling(Partner)),
+                MemberRelations.GetOperatorName(Partner, string.Empty)),
                 comparison.Member);
         }
     }

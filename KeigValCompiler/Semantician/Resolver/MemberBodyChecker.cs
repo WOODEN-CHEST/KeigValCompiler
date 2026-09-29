@@ -7,8 +7,9 @@ namespace KeigValCompiler.Semantician.Resolver;
  * abstract without saying so. An abstract one cannot have one. A property's accessors without bodies make
  * it store its own value, which needs a getter, and is the only kind of property which can be given a
  * starting value; an indexer cannot store values. A builtin member's body is LibraryBindingResolver's to
- * check. Also checks what constructors can run first, and that a static constructor, which nothing calls,
- * has no parameters. It relies on ModifierChecker having taken off the modifiers members cannot have. */
+ * check. Also checks what constructors can run first, that a static constructor, which nothing calls,
+ * has no parameters, and that a record's positional parameters are not passed by "ref" or "out". It relies
+ * on ModifierChecker having taken off the modifiers members cannot have. */
 internal class MemberBodyChecker : IPackResolver
 {
     // Private methods.
@@ -144,15 +145,34 @@ internal class MemberBodyChecker : IPackResolver
         }
     }
 
-    /* A record's primary constructor has no body of its own. */
+    /* A record's primary constructor has no body of its own, and its parameters are values its properties
+     * keep, so none is passed by "ref" or "out", as in C#. */
     private void CheckConstructor(PackConstructor constructor, PackResolutionContext context)
     {
+        string TypeName = constructor.SelfIdentifier.SourceCodeName;
         if (!constructor.IsPrimary)
         {
             CheckFunctionBody(constructor, false, context);
         }
+        else
+        {
+            foreach (FunctionParameter Parameter in constructor.Parameters)
+            {
+                string? Keyword = (Parameter.Modifiers & (FunctionParameterModifier.Ref
+                    | FunctionParameterModifier.Out)) switch
+                {
+                    FunctionParameterModifier.Ref => KGVL.KEYWORD_REF,
+                    FunctionParameterModifier.Out => KGVL.KEYWORD_OUT,
+                    _ => null
+                };
+                if (Keyword != null)
+                {
+                    context.AddError(context.ErrorCreator.RecordParameterByReference.CreateOptions(
+                        Parameter.SelfIdentifier.SourceCodeName, TypeName, Keyword), constructor);
+                }
+            }
+        }
 
-        string TypeName = constructor.SelfIdentifier.SourceCodeName;
         if (MemberRelations.IsStaticConstructor(constructor))
         {
             if (constructor.ChainKind != ConstructorChainKind.None)

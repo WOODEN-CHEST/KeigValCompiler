@@ -16,6 +16,9 @@ internal static class MemberRelations
     private const char SPACE = ' ';
     private const string SEPARATOR = ", ";
 
+    /* How FormatChain joins the links of a chain. */
+    private static readonly string _chainSeparator = $" {KGVL.COLON} ";
+
 
     // Internal static methods.
     /* The member holding this one, or null for a member its namespace holds. */
@@ -140,15 +143,22 @@ internal static class MemberRelations
         return (member is PackConstructor) && member.HasModifier(PackMemberModifiers.Static);
     }
 
-    /* The parameters of a record's primary constructor, which C# makes properties of the record, though
-     * KGVL does not yet. None for any other type. */
-    internal static IEnumerable<FunctionParameter> GetPositionalParameters(PackMember type)
+    /* Whether a member is written static, as a constant is without saying so. One whose "static" or "const"
+     * was taken off, as one it cannot have, still counts, since it was not meant to be an instance member,
+     * and the modifier has been reported already. */
+    internal static bool IsWrittenStatic(PackMember member)
     {
-        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        return ((member.Modifiers | member.RejectedModifiers)
+            & (PackMemberModifiers.Static | PackMemberModifiers.Const)) != PackMemberModifiers.None;
+    }
 
-        PackConstructor? Primary = (type as IPackFunctionHolder)?.Functions.OfType<PackConstructor>()
-            .FirstOrDefault(constructor => constructor.IsPrimary);
-        return Primary?.Parameters ?? Enumerable.Empty<FunctionParameter>();
+    /* Whether a static class can hold a member other than a type: one written static, but not an operator
+     * or an indexer, which work on values of their type, of which a static class has none. */
+    internal static bool CanStaticClassHold(PackMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        return IsWrittenStatic(member) && (GetOperatorOverload(member) == null) && (member is not PackIndexer);
     }
 
     /* Whether a member is abstract: written so, or an interface's own instance member without a body which
@@ -288,22 +298,59 @@ internal static class MemberRelations
         return (Holder != null) ? GetDisplayName(Holder) : member.NameSpace.SelfIdentifier.SourceCodeName;
     }
 
+    /* An operator as it is declared, as in "operator +" or "implicit operator int", the type a conversion
+     * converts to being given, and ignored for any other operator. */
+    internal static string GetOperatorName(OverloadableOperator overloadedOperator, string conversionType)
+    {
+        ArgumentNullException.ThrowIfNull(conversionType, nameof(conversionType));
+
+        if (!OverloadableOperatorKinds.IsConversion(overloadedOperator))
+        {
+            return KGVL.KEYWORD_OPERATOR + SPACE + SignatureFormatter.GetOperatorSpelling(overloadedOperator);
+        }
+        string Keyword = (overloadedOperator == OverloadableOperator.ImplicitCast)
+            ? KGVL.KEYWORD_IMPLICIT : KGVL.KEYWORD_EXPLICIT;
+        return Keyword + SPACE + KGVL.KEYWORD_OPERATOR + SPACE + conversionType;
+    }
+
+    /* A chain of types or generic parameters, each deriving from or constrained to the next, as base lists
+     * would write it: "A : B : A". */
+    internal static string FormatChain(IEnumerable<string> names)
+    {
+        ArgumentNullException.ThrowIfNull(names, nameof(names));
+        return string.Join(_chainSeparator, names);
+    }
+
+    /* Each source file's place in the order the pack was read in, for ordering members as they are
+     * declared across files. */
+    internal static Dictionary<PackSourceFile, int> GetFileOrder(DataPack pack)
+    {
+        ArgumentNullException.ThrowIfNull(pack, nameof(pack));
+
+        Dictionary<PackSourceFile, int> FileOrder = new();
+        foreach (PackSourceFile SourceFile in pack.SourceFiles)
+        {
+            FileOrder.Add(SourceFile, FileOrder.Count);
+        }
+        return FileOrder;
+    }
+
+    /* Members in the order they are declared in, across files, which GetFileOrder gives. */
+    internal static IEnumerable<PackMember> OrderByDeclaration(IEnumerable<PackMember> members,
+        Dictionary<PackSourceFile, int> fileOrder)
+    {
+        ArgumentNullException.ThrowIfNull(members, nameof(members));
+        ArgumentNullException.ThrowIfNull(fileOrder, nameof(fileOrder));
+
+        return members.OrderBy(member => fileOrder[member.SourceFile])
+            .ThenBy(member => member.SourceFileOrigin.Line);
+    }
+
 
     // Private static methods.
     private static void AppendOperatorName(StringBuilder builder, OperatorOverload overload)
     {
-        PackFunction Function = overload.Function;
-        if ((overload.OverloadedOperator == OverloadableOperator.ImplicitCast)
-            || (overload.OverloadedOperator == OverloadableOperator.ExplicitCast))
-        {
-            string Keyword = (overload.OverloadedOperator == OverloadableOperator.ImplicitCast)
-                ? KGVL.KEYWORD_IMPLICIT : KGVL.KEYWORD_EXPLICIT;
-            builder.Append(Keyword).Append(SPACE).Append(KGVL.KEYWORD_OPERATOR).Append(SPACE)
-                .Append(Function.ReturnType?.ToString() ?? KGVL.KEYWORD_VOID);
-            return;
-        }
-
-        builder.Append(KGVL.KEYWORD_OPERATOR).Append(SPACE)
-            .Append(SignatureFormatter.GetOperatorSpelling(overload.OverloadedOperator));
+        builder.Append(GetOperatorName(overload.OverloadedOperator,
+            overload.Function.ReturnType?.ToString() ?? KGVL.KEYWORD_VOID));
     }
 }

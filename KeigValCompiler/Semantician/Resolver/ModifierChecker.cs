@@ -12,8 +12,7 @@ namespace KeigValCompiler.Semantician.Resolver;
 internal class ModifierChecker : IPackResolver
 {
     // Static fields.
-    private const PackMemberModifiers ACCESS = PackMemberModifiers.Public | PackMemberModifiers.Protected
-        | PackMemberModifiers.Internal | PackMemberModifiers.Private;
+    private const PackMemberModifiers ACCESS = MemberRelations.ACCESS_MODIFIERS;
 
     /* What a namespace holds is seen either everywhere or only by its own side of the standard library's
      * boundary, as a C# assembly's types are. */

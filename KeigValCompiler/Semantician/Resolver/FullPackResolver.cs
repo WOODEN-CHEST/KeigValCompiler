@@ -12,7 +12,8 @@ internal class FullPackResolver : IPackResolver
         /* The order must NOT be changed: each pass relies on what the ones before it set. Types are
          * named before any is looked up, known types are found before keywords can resolve through
          * them, and signatures are resolved before members can be named after their parameter types
-         * or matched against what the compiler implements. */
+         * or matched against what the compiler implements. Records get their properties last, since
+         * which to make depends on the members they inherit. */
         new NameSpaceResolver().ResolvePack(context);
         new ParentItemResolver().ResolvePack(context);
         new TypeDeclarationResolver().ResolvePack(context);
@@ -20,6 +21,7 @@ internal class FullPackResolver : IPackResolver
         new SignatureResolver().ResolvePack(context);
         new MemberIdentifierResolver().ResolvePack(context);
         new LibraryBindingResolver().ResolvePack(context);
+        new RecordPropertyResolver().ResolvePack(context);
 
         /* The checks need every member named and every type in a declaration resolved. ModifierChecker
          * comes first, since it takes off each modifier a member cannot have, so that the others see only

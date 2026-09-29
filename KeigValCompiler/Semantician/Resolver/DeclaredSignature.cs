@@ -1,4 +1,3 @@
-using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Types;
 using System.Text;
@@ -130,16 +129,9 @@ internal sealed class DeclaredSignature
                 AppendParameters(Builder, KGVL.OPEN_SQUARE_BRACKET, KGVL.CLOSE_SQUARE_BRACKET);
                 break;
 
-            case DeclaredSignatureKind.Operator:
-                Builder.Append(KGVL.KEYWORD_OPERATOR).Append(SPACE)
-                    .Append(SignatureFormatter.GetOperatorSpelling(Operator!.Value));
-                AppendParameters(Builder, KGVL.OPEN_PARENTHESIS, KGVL.CLOSE_PARENTHESIS);
-                break;
-
-            case DeclaredSignatureKind.Conversion:
-                Builder.Append((Operator == OverloadableOperator.ImplicitCast) ? KGVL.KEYWORD_IMPLICIT
-                    : KGVL.KEYWORD_EXPLICIT).Append(SPACE).Append(KGVL.KEYWORD_OPERATOR).Append(SPACE)
-                    .Append(Type?.ToString() ?? KGVL.KEYWORD_VOID);
+            case DeclaredSignatureKind.Operator or DeclaredSignatureKind.Conversion:
+                Builder.Append(MemberRelations.GetOperatorName(Operator!.Value,
+                    Type?.ToString() ?? KGVL.KEYWORD_VOID));
                 AppendParameters(Builder, KGVL.OPEN_PARENTHESIS, KGVL.CLOSE_PARENTHESIS);
                 break;
 

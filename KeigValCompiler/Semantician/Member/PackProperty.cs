@@ -14,6 +14,10 @@ internal class PackProperty : PackMember, IExplicitInterfaceMember
     internal PackFunction? GetFunction { get;set; }
     internal PackFunction? SetFunction { get; set; }
     internal PackFunction? InitFunction { get; set; }
+
+    /* Made by the compiler rather than written, as a record's property for one of its positional
+     * parameters is. */
+    internal bool IsSynthesized { get; init; } = false;
     internal override IEnumerable<PackMember> SubMembers
     {
         get

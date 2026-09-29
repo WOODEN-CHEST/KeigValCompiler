@@ -65,6 +65,14 @@ each relying on what the ones before it set:
 6. `MemberIdentifierResolver`: names every other member. A function's name
    carries its parameter types, so overloads stay apart.
 7. `LibraryBindingResolver`: binds the library, as described below.
+8. `RecordPropertyResolver`: gives each record a property for each positional
+   parameter, as C# does, unless it declares or inherits a member keeping that
+   value; see `language.md`. It runs last because which to make depends on
+   inherited members, and it names what it makes. A made property has
+   `IsSynthesized` set, and the checks of the types a member writes
+   (`ConstraintChecker`, `StaticClassUsageChecker`) skip it, since its type is
+   the parameter's, checked with the parameter. The checks of overriding and
+   implementing treat it as any other property.
 
 Then the checks of declarations against C#'s rules, which need all of the above.
 `MemberRelations` answers what they share: what holds a member, what kind of
@@ -150,10 +158,8 @@ inherits, and what an explicit implementation implements.
 
 What remains unchecked in declarations: accessibility, nested types of base
 classes (lookup does not see them yet), whether `notnull` is satisfied, which is
-nullability checking, and everything inside function bodies. A record's
-positional parameters do not become properties yet, so the checks take a
-property one would give to be there rather than report it missing. See
-"Suggested order of work".
+nullability checking, and everything inside function bodies. See "Suggested
+order of work".
 
 Errors are queued, like the parser's, so one missing type does not hide the rest.
 A type which cannot be resolved is left with no `Target`, and later passes skip
@@ -229,7 +235,7 @@ in the family file that binds it, and renaming a type means editing its line in
 `LibraryTypes`. A binding written twice, or a malformed conversion grid, throws
 when the table is built, since either is a mistake in the compiler.
 
-`LibraryBindingResolver`, the last resolution pass, does the matching.
+`LibraryBindingResolver`, the seventh resolution pass, does the matching.
 `BuiltInSignatureReader` turns each resolved builtin member into a
 `MemberSignature`, a property's or indexer's accessors each becoming one, and a
 matched function's `PackFunction.Intrinsic` records its operation. Each side's
@@ -343,13 +349,12 @@ types.
 - `raw` and `constalloc` remain reserved with no meaning.
 - Parser gaps, each detailed in [`parser-gaps.md`](parser-gaps.md): qualified
   type names such as `KGVL.Int32` do not parse, nor does the `as` operator, nor
-  throw expressions, nor the `\e` and `\U` escapes.
+  throw expressions, nor the `\e` and `\U` escapes, nor a record's arguments to
+  its base record, as in `record B(int X) : A(X)`, nor a parameter's default
+  value, nor an expression-bodied indexer, nor an indexer's `init`.
 - Declarations are checked against C#'s rules apart from accessibility and
   nested types of base classes, whose steps are under "Suggested order of
   work", and `notnull` constraints, which wait for nullability checking.
-- A record's positional parameters do not become properties, as C# makes
-  them. Until they do, the checks of interface implementation and abstract
-  members take such a property to be there rather than report it missing.
 
 ## Suggested order of work
 
@@ -419,7 +424,9 @@ Roughly dependency-ordered; the owner decides priorities.
    3. Resolve function bodies: expression types, names inside bodies, overloads,
       conversions and operators, with the operators the library declares on its
       built in types standing in for C#'s predefined ones. Then the enum values
-      and literal ranges described under stage 2.
+      and literal ranges described under stage 2, and C#'s warning for a
+      record's positional parameter which nothing reads, when a member the
+      record declares or inherits keeps its value instead of a made property.
 6. Design and prototype the datapack backend.
 
 Step 6 is worth starting **earlier than its position suggests**, even crudely.

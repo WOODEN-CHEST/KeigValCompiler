@@ -54,8 +54,8 @@ internal class OperatorDeclarationChecker : IPackResolver
      * interface's own would compete with comparing and converting references. */
     private bool IsAbstractOnlyInInterface(OverloadableOperator overloadedOperator)
     {
-        return overloadedOperator is OverloadableOperator.Equals or OverloadableOperator.NotEquals
-            or OverloadableOperator.ImplicitCast or OverloadableOperator.ExplicitCast;
+        return (overloadedOperator is OverloadableOperator.Equals or OverloadableOperator.NotEquals)
+            || OverloadableOperatorKinds.IsConversion(overloadedOperator);
     }
 
     /* Null when the count is right. "+" and "-" are unary with one parameter and binary otherwise, as the
@@ -64,22 +64,20 @@ internal class OperatorDeclarationChecker : IPackResolver
         int parameterCount,
         PackResolutionContext context)
     {
-        switch (overloadedOperator)
+        if (parameterCount == OverloadableOperatorKinds.GetOperandCount(overloadedOperator))
         {
-            case OverloadableOperator.Addition or OverloadableOperator.Subtraction:
-                return (parameterCount == 2) ? null : context.ErrorCreator.PlusMinusOperatorParameterCount;
-
-            case OverloadableOperator.UnaryPlus or OverloadableOperator.Negation
-                or OverloadableOperator.LogicalNot or OverloadableOperator.BitwiseComplement
-                or OverloadableOperator.Increment or OverloadableOperator.Decrement:
-                return (parameterCount == 1) ? null : context.ErrorCreator.UnaryOperatorParameterCount;
-
-            case OverloadableOperator.ImplicitCast or OverloadableOperator.ExplicitCast:
-                return (parameterCount == 1) ? null : context.ErrorCreator.ConversionParameterCount;
-
-            default:
-                return (parameterCount == 2) ? null : context.ErrorCreator.BinaryOperatorParameterCount;
+            return null;
         }
+        if (overloadedOperator is OverloadableOperator.Addition or OverloadableOperator.Subtraction)
+        {
+            return context.ErrorCreator.PlusMinusOperatorParameterCount;
+        }
+        if (OverloadableOperatorKinds.IsConversion(overloadedOperator))
+        {
+            return context.ErrorCreator.ConversionParameterCount;
+        }
+        return OverloadableOperatorKinds.IsUnary(overloadedOperator)
+            ? context.ErrorCreator.UnaryOperatorParameterCount : context.ErrorCreator.BinaryOperatorParameterCount;
     }
 
     private string GetModifierKeyword(FunctionParameterModifier modifier)

@@ -85,8 +85,7 @@ internal class DeclaredSignatureReader
     {
         if (overload != null)
         {
-            return ((overload.OverloadedOperator == OverloadableOperator.ImplicitCast)
-                || (overload.OverloadedOperator == OverloadableOperator.ExplicitCast))
+            return OverloadableOperatorKinds.IsConversion(overload.OverloadedOperator)
                 ? DeclaredSignatureKind.Conversion : DeclaredSignatureKind.Operator;
         }
 

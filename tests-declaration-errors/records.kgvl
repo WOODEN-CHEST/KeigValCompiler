@@ -1,0 +1,158 @@
+/* Declaration check test source file, for the properties records get from their positional parameters.
+ * Every error in here is deliberate. The directory parses cleanly, so that resolution runs at all, and
+ * the point is that each mistake is reported once, where it is, without errors which only follow from
+ * others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 297 errors and 15 warnings. Expected from this
+ * file, 22 errors and 1 warnings:
+ *
+ *   line 38 RE error 8      a declared property of another type
+ *   line 43 RE error 8      a declared static property
+ *   line 48 RE error 8      a declared property without get
+ *   line 55 RS error 7      a declared function sharing the made property's name
+ *   line 58 RS error 6      a positional parameter named like its record
+ *   line 65 RE error 8      an inherited property of another type
+ *   line 72 RE error 8      an inherited function
+ *   line 79 RE error 8      an inherited constant
+ *   line 86 RS error 27     overriding an abstract property without a setter
+ *   line 93 RS error 47     overriding an abstract set with init
+ *   line 97 RTMC error 43   a static class as a positional parameter's type, reported once
+ *   line 106 RS error 47    a written override of set with init
+ *   line 120 RE error 8     a declared override with init but no get of its own
+ *   line 125 RE error 8     an inherited override with init but no get of its own
+ *   line 133 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
+ *   line 133 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
+ *   line 135 RS warning 1   the record's function hiding the inherited property, also warned
+ *   line 139 RE error 10    ref and out positional parameters, each reported
+ *   line 139 RE error 10    ref and out positional parameters, each reported
+ *   line 143 MM error 10    a static abstract property in a class, and no error for the class deriving from it
+ *   line 155 RS error 47    an init overriding a set, and no error for the interface wanting set
+ *   line 158 RS error 2     an inherited function, with the parameter's type named as written
+ *   line 158 RE error 8     an inherited function, with the parameter's type named as written
+ */
+
+namespace Test.Records;
+
+public record WrongType(int Value)
+{
+    public string Value { get; init; } = "";
+}
+
+public record StaticKeeper(int Value)
+{
+    public static int Value { get; }
+}
+
+public record WriteOnly(int Value)
+{
+    public int Value { set { } }
+}
+
+public record Clashing(int Value)
+{
+    public void Value() { }
+}
+
+public record Named(string Named);
+
+public record TypedBase
+{
+    public string Value { get; init; } = "";
+}
+
+public record FromTypedBase(int Value) : TypedBase;
+
+public record FunctionBase
+{
+    public int Value() => 0;
+}
+
+public record FromFunctionBase(int Value) : FunctionBase;
+
+public record ConstantBase
+{
+    public const int Value = 1;
+}
+
+public record FromConstantBase(int Value) : ConstantBase;
+
+public abstract record ReadOnlyBase
+{
+    public abstract int Value { get; }
+}
+
+public record FromReadOnlyBase(int Value) : ReadOnlyBase;
+
+public abstract record SettableBase
+{
+    public abstract int Value { get; set; }
+}
+
+public record FromSettableBase(int Value) : SettableBase;
+
+public static class Tools { }
+
+public record TakesTools(Tools Value);
+
+public class Settable
+{
+    public virtual int Value { get; set; }
+}
+
+public class InitOverride : Settable
+{
+    public override int Value { get; init; }
+}
+
+public record Virtuals
+{
+    public virtual int Declared { get; init; }
+    public virtual int Inherited { get; init; }
+}
+
+public record InitOnly : Virtuals
+{
+    public override int Inherited { init { } }
+}
+
+public record OverridesInit(int Declared) : Virtuals
+{
+    public override int Declared { init { } }
+}
+
+public record InheritsInit(int Inherited) : InitOnly;
+
+public record Keeper
+{
+    public int First { get; init; }
+    public int Second;
+}
+
+public record HidesKeeper(int First, int Second) : Keeper
+{
+    public void First(int value) { }
+    public new class Second { }
+}
+
+public record ByReference(ref int First, out int Second, in int Third);
+
+public abstract class StaticAbstract
+{
+    public static abstract int Value { get; }
+}
+
+public class FromStaticAbstract : StaticAbstract { }
+
+public interface ISettable
+{
+    int Value { get; set; }
+}
+
+public class SettableAgain : Settable, ISettable
+{
+    public override int Value { get => 0; init { } }
+}
+
+public record UnknownFunction(Missing Value) : FunctionBase;

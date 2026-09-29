@@ -152,13 +152,16 @@ internal static class InheritedMembers
         return new(null, null, null, null);
     }
 
-    /* An accessor a property or an indexer has: its own, or when it is an override which does not declare
-     * that accessor, the one of what it overrides, as in C#, where an override can override only some of
-     * the accessors it inherits. Null when there is none the viewer can see. The holder is the type
-     * declaring the member, as the signature sees it. */
+    /* An accessor of a property or an indexer: its own, or when it is an override which declares none
+     * there, the one of what it overrides, as in C#, where an override can override only some of the
+     * accessors it inherits. In place, "set" and "init" are one place, the setter's, so that asking for
+     * either finds whichever there is, as overriding needs; otherwise only the keyword asked for is found,
+     * each override's own accessor of another kind being passed over. Null when there is none the viewer
+     * can see. The holder is the type declaring the member, as the signature sees it. */
     internal static PackFunction? FindAccessor(DeclaredSignature member,
         DeclaredType holder,
         string keyword,
+        bool isInPlace,
         PackMember viewer,
         PackResolutionContext context)
     {
@@ -173,7 +176,8 @@ internal static class InheritedMembers
         DeclaredType? CurrentHolder = holder;
         while ((Current != null) && (CurrentHolder != null) && Followed.Add(Current.Member))
         {
-            PackFunction? Accessor = GetAccessor(Current.Member, keyword);
+            PackFunction? Accessor = isInPlace ? GetAccessorInPlace(Current.Member, keyword)
+                : GetAccessor(Current.Member, keyword);
             if (Accessor != null)
             {
                 return IsVisibleFrom(Accessor, viewer) ? Accessor : null;
@@ -202,6 +206,20 @@ internal static class InheritedMembers
         }
         return member.SubMembers.Cast<PackFunction>().FirstOrDefault(
             accessor => accessor.SelfIdentifier.SourceCodeName == keyword);
+    }
+
+    /* The accessor a property or an indexer declares itself in a keyword's place, where "set" and "init"
+     * share the setter's, if it declares one. */
+    internal static PackFunction? GetAccessorInPlace(PackMember member, string keyword)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        ArgumentNullException.ThrowIfNull(keyword, nameof(keyword));
+
+        if (keyword == KGVL.KEYWORD_GET)
+        {
+            return GetAccessor(member, keyword);
+        }
+        return GetAccessor(member, KGVL.KEYWORD_SET) ?? GetAccessor(member, KGVL.KEYWORD_INIT);
     }
 
     /* The interface an explicit implementation names, and the member of it which it implements: one of the

@@ -11,9 +11,12 @@ namespace KeigValCompiler.Semantician.Resolver;
 internal class StaticClassUsageChecker : IPackResolver
 {
     // Private methods.
+    /* A record's property made for a positional parameter has the parameter's type, which is checked with
+     * the parameter. */
     private void CheckMember(PackMember member, PackResolutionContext context)
     {
-        if (IsMisplacedInStaticClass(member))
+        if (IsMisplacedInStaticClass(member)
+            || ((member is PackProperty RecordProperty) && RecordProperty.IsSynthesized))
         {
             return;
         }
@@ -108,15 +111,8 @@ internal class StaticClassUsageChecker : IPackResolver
     private bool IsMisplacedInStaticClass(PackMember member)
     {
         PackMember? Holder = MemberRelations.GetHoldingMember(member);
-        if ((Holder == null) || !MemberRelations.IsStaticClass(Holder) || MemberRelations.IsType(member))
-        {
-            return false;
-        }
-
-        bool IsWrittenStatic = ((member.Modifiers | member.RejectedModifiers)
-            & (PackMemberModifiers.Static | PackMemberModifiers.Const)) != PackMemberModifiers.None;
-        return !IsWrittenStatic || (member is PackIndexer)
-            || (MemberRelations.GetOperatorOverload(member) != null);
+        return (Holder != null) && MemberRelations.IsStaticClass(Holder) && !MemberRelations.IsType(member)
+            && !MemberRelations.CanStaticClassHold(member);
     }
 
     private bool IsStaticClass(TypeTargetIdentifier type)

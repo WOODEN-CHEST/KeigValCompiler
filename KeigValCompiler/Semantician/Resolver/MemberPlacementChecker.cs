@@ -61,7 +61,7 @@ internal class MemberPlacementChecker : IPackResolver
 
     private void CheckInterfaceMember(PackMember member, PackInterface holder, PackResolutionContext context)
     {
-        bool IsStatic = IsWrittenStatic(member);
+        bool IsStatic = MemberRelations.IsWrittenStatic(member);
         if ((member is PackField) && !IsStatic)
         {
             context.AddError(context.ErrorCreator.InterfaceInstanceField.CreateOptions(
@@ -74,13 +74,9 @@ internal class MemberPlacementChecker : IPackResolver
         }
     }
 
-    /* A constant is static already, and an operator, although static, works on values of its type, of
-     * which a static class has none. */
     private void CheckStaticClassMember(PackMember member, PackClass holder, PackResolutionContext context)
     {
-        bool IsStatic = IsWrittenStatic(member);
-        bool IsOperator = MemberRelations.GetOperatorOverload(member) != null;
-        if (IsStatic && !IsOperator && (member is not PackIndexer))
+        if (MemberRelations.CanStaticClassHold(member))
         {
             return;
         }
@@ -95,7 +91,7 @@ internal class MemberPlacementChecker : IPackResolver
      * one, and it holds no instance event, which subscribing to changes. */
     private void CheckReadonlyStructMember(PackMember member, PackStruct holder, PackResolutionContext context)
     {
-        if (IsWrittenStatic(member))
+        if (MemberRelations.IsWrittenStatic(member))
         {
             return;
         }
@@ -114,15 +110,6 @@ internal class MemberPlacementChecker : IPackResolver
                 holder.SelfIdentifier.SourceCodeName, MemberRelations.GetKindName(member),
                 member.SelfIdentifier.SourceCodeName), member);
         }
-    }
-
-    /* Whether a member is written static, as a constant is without saying so. One whose "static" or "const"
-     * was taken off, as one it cannot have, still counts, since it was not meant to be an instance member,
-     * and the modifier has been reported already. */
-    private bool IsWrittenStatic(PackMember member)
-    {
-        return ((member.Modifiers | member.RejectedModifiers)
-            & (PackMemberModifiers.Static | PackMemberModifiers.Const)) != PackMemberModifiers.None;
     }
 
     /* An event whose type did not resolve has been reported already. */

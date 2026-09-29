@@ -17,13 +17,16 @@ namespace KeigValCompiler.Semantician.Resolver;
  * either. */
 internal class ConstraintChecker : IPackResolver
 {
-    // Static fields.
-    private static readonly string _chainSeparator = $" {KGVL.COLON} ";
-
-
     // Private methods.
+    /* A record's property made for a positional parameter has the parameter's type, which is checked with
+     * the parameter. */
     private void CheckMember(PackMember member, PackResolutionContext context)
     {
+        if ((member is PackProperty Property) && Property.IsSynthesized)
+        {
+            return;
+        }
+
         bool IsRestating = (member is PackFunction Function)
             && (Function.HasModifier(PackMemberModifiers.Override) || (Function.ExplicitInterface != null));
         IEnumerable<TypeTargetIdentifier> Written = MemberRelations.GetWrittenTypes(member);
@@ -249,7 +252,7 @@ internal class ConstraintChecker : IPackResolver
             if (IsConstrainedTo(Parameter, Parameter, holder, Chain, context))
             {
                 context.AddError(context.ErrorCreator.CircularConstraint.CreateOptions(
-                    Parameter.SelfIdentifier.SourceCodeName, string.Join(_chainSeparator,
+                    Parameter.SelfIdentifier.SourceCodeName, MemberRelations.FormatChain(
                         Chain.Select(link => link.SelfIdentifier.SourceCodeName))), holder);
             }
         }

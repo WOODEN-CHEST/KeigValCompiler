@@ -443,6 +443,23 @@ internal class ErrorRepository
         CompilerMessageCategory.Record,
         "The class \"{0}\" cannot derive from the record \"{1}\". Only a record can derive from a record");
 
+    internal virtual ErrorDefinition RecordMemberMismatch { get; } = new(8,
+        CompilerMessageCategory.Record,
+        "The record \"{0}\" keeps its positional parameter \"{1}\" in the member of that name, but the {2} " +
+        "\"{1}\" of \"{3}\" is not a readable instance property or field of the parameter's type, \"{4}\". A " +
+        "record keeps each positional parameter in a property made for it, unless it declares a property or " +
+        "field of that name, or inherits a member of that name, which then has to keep the value");
+
+    internal virtual ErrorDefinition HiddenPositionalMember { get; } = new(9,
+        CompilerMessageCategory.Record,
+        "The record \"{0}\" keeps its positional parameter \"{1}\" in the {2} \"{1}\" it inherits from \"{3}\", " +
+        "but a member of its own of that name hides it. Rename the member, or the parameter");
+
+    internal virtual ErrorDefinition RecordParameterByReference { get; } = new(10,
+        CompilerMessageCategory.Record,
+        "The positional parameter \"{0}\" of the record \"{1}\" cannot be passed by \"{2}\". A record keeps its " +
+        "positional parameters' values in its properties, so they are passed as values");
+
 
     /* Generics. */
     internal virtual ErrorDefinition ExpectedGenericParameterEnd { get; } = new(1,
@@ -1534,6 +1551,12 @@ internal class ErrorRepository
         CompilerMessageCategory.Resolution,
         "The {0} \"{1}\" cannot implement both \"{2}\" and \"{3}\", since some types for its generic " +
         "parameters would make them the same interface, whose members it could then not tell apart");
+
+    internal virtual ErrorDefinition OverrideSetterKind { get; } = new(47,
+        CompilerMessageCategory.Resolution,
+        $"The {{0}} \"{{1}}\" overrides with its \"{{2}}\" accessor the \"{{4}}\" accessor of the one of \"{{3}}\" " +
+        $"it overrides. Both set the member, but an override's setter is \"{KGVL.KEYWORD_INIT}\" exactly when " +
+        "the one it overrides is");
 
 
     /* Warnings. */

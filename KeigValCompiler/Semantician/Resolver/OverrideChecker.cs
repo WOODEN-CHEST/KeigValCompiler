@@ -290,9 +290,9 @@ internal class OverrideChecker : IPackResolver
             && context.Hierarchy.IsSameOrDerived(signature.Type, OverriddenType);
     }
 
-    /* Each accessor an override declares overrides the one of what it overrides, which that member has or
-     * inherits, and which is not private to it. Each keeps that one's access, unless the override's own
-     * access is wrong already. */
+    /* Each accessor an override declares overrides the one in its place of what it overrides, which that
+     * member has or inherits, and which is not private to it. A setter is "init" exactly when that one is,
+     * and each keeps that one's access, unless the override's own access is wrong already. */
     private void CheckOverriddenAccessors(DeclaredSignature signature,
         DeclaredType holder,
         DeclaredSignature overridden,
@@ -309,13 +309,19 @@ internal class OverrideChecker : IPackResolver
                 continue;
             }
 
-            PackFunction? BaseAccessor = InheritedMembers.FindAccessor(overridden, holder, Keyword, type,
+            PackFunction? BaseAccessor = InheritedMembers.FindAccessor(overridden, holder, Keyword, true, type,
                 context);
             if (BaseAccessor == null)
             {
                 context.AddError(context.ErrorCreator.OverrideMissingAccessor.CreateOptions(
                     MemberRelations.GetKindName(Member), MemberRelations.GetDisplayName(Member), Keyword,
                     holder.ToString()), Member);
+            }
+            else if (BaseAccessor.SelfIdentifier.SourceCodeName != Keyword)
+            {
+                context.AddError(context.ErrorCreator.OverrideSetterKind.CreateOptions(
+                    MemberRelations.GetKindName(Member), MemberRelations.GetDisplayName(Member), Keyword,
+                    holder.ToString(), BaseAccessor.SelfIdentifier.SourceCodeName), Member);
             }
             else if (isAccessCompared)
             {
@@ -327,7 +333,8 @@ internal class OverrideChecker : IPackResolver
     /* A class which is not abstract has a body for every abstract member it inherits, and every accessor of
      * one: going from the class furthest back to the class itself, each abstract member, or each accessor of
      * an abstract property or indexer, is noted, and each override takes what it overrides away again. Only
-     * an abstract class's abstract members count, since one in any other class has been reported. */
+     * an abstract class's abstract instance members count, since one in any other class, and a static one,
+     * which nothing could override, have been reported. */
     private void CheckAbstractMembers(PackMember type, DeclaredType instance, PackResolutionContext context)
     {
         List<(DeclaredType Holder, DeclaredSignature Signature, string? Accessor)> Pending = new();
@@ -335,13 +342,6 @@ internal class OverrideChecker : IPackResolver
             .Concat(new DeclaredType[] { instance });
         foreach (DeclaredType Holder in Chain)
         {
-            /* A record's positional parameters are not properties yet, so a property one of them would give
-             * is taken to be there, rather than reported missing. */
-            HashSet<string> PositionalNames = MemberRelations.GetPositionalParameters(Holder.Declaration)
-                .Select(parameter => parameter.SelfIdentifier.SourceCodeName).ToHashSet();
-            Pending.RemoveAll(pending => (pending.Signature.Kind == DeclaredSignatureKind.Property)
-                && PositionalNames.Contains(pending.Signature.Name));
-
             TypeSubstitution Substitution = TypeSubstitution.Of(Holder);
             foreach (PackMember Member in MemberRelations.GetSignedMembers(Holder.Declaration)
                 .Where(InheritedMembers.IsInheritable))
@@ -359,7 +359,8 @@ internal class OverrideChecker : IPackResolver
                     Pending.RemoveAll(
                         entry => IsTakenAway(entry.Signature, entry.Accessor, Overridden, Signature));
                 }
-                if (Member.HasModifier(PackMemberModifiers.Abstract) && !ReferenceEquals(Holder, instance)
+                if (Member.HasModifier(PackMemberModifiers.Abstract)
+                    && !Member.HasModifier(PackMemberModifiers.Static) && !ReferenceEquals(Holder, instance)
                     && Holder.Declaration.HasModifier(PackMemberModifiers.Abstract) && Signature.IsComplete)
                 {
                     Pending.AddRange(GetAbstractParts(Signature).Select(
@@ -370,7 +371,8 @@ internal class OverrideChecker : IPackResolver
         ReportAbstractMembers(type, Pending, context);
     }
 
-    /* An override takes away the first pending member it overrides, or those of its accessors it declares.
+    /* An override takes away the first pending member it overrides, or those of its accessors it declares
+     * one in the place of, a setter taking away a setter whether each is "set" or "init".
      * One some of whose types did not resolve, which has been reported, is taken to override whatever of its
      * kind and name is pending, rather than leave it seeming missing. */
     private bool IsTakenAway(DeclaredSignature pending,
@@ -383,7 +385,7 @@ internal class OverrideChecker : IPackResolver
             return (pending.Kind == signature.Kind) && (pending.Name == signature.Name);
         }
         return ReferenceEquals(pending.Member, overridden)
-            && ((accessor == null) || (InheritedMembers.GetAccessor(signature.Member, accessor) != null));
+            && ((accessor == null) || (InheritedMembers.GetAccessorInPlace(signature.Member, accessor) != null));
     }
 
     /* What of an abstract member needs overriding: each accessor of a property or an indexer, which is

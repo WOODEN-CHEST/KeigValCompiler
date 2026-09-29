@@ -2,13 +2,13 @@
  * accepts it, each a case those checks once rejected: accessors an override inherits rather than declares;
  * implementations found past members which cannot implement; default implementations decided by the most
  * specific interface; covariant returns to object and from get-only indexers; parameters which are
- * reference types through other parameters; records' positional parameters standing for properties;
- * hiding which counts generic parameters and how parameters are passed; conversions involving generic
- * parameters; operators on the nullable forms of parameters constrained to their interface; operators
- * paired however they take their parameters; overrides and explicit implementations using the
- * constraints they take; an implementation keeping its interface's constraints; and generic structures
- * which do not hold what holds them. Part of tests-resolution, so it has to compile with zero errors and
- * no warnings. */
+ * reference types through other parameters; records' properties from positional parameters, and what keeps
+ * their values instead; hiding which counts generic parameters and how parameters are passed; conversions
+ * involving generic parameters; operators on the nullable forms of parameters constrained to their
+ * interface; operators paired however they take their parameters; overrides and explicit implementations
+ * using the constraints they take; an implementation keeping its interface's constraints; and generic
+ * structures which do not hold what holds them. Part of tests-resolution, so it has to compile with zero
+ * errors and no warnings. */
 
 using KGVL;
 namespace Game.Inherited;
@@ -153,7 +153,7 @@ public class ChainedSource<T, U> : AnchorSource where T : U where U : Anchor
     public override T Get() => null;
 }
 
-/* Records' positional parameters stand for properties. */
+/* Records get properties from their positional parameters, or keep them in what they declare or inherit. */
 public interface IHasNumber
 {
     int Number { get; }
@@ -167,6 +167,50 @@ public abstract record Labelled
 }
 
 public record Tag(string Label) : Labelled;
+
+public record Declared(int Count, string Name)
+{
+    public int Count { get; init; } = Count;
+    public string Name = Name;
+}
+
+public record Private(int Secret)
+{
+    private int Secret { get; init; } = Secret;
+}
+
+public record Computed(int Size)
+{
+    public int Size => 0;
+}
+
+public record Kept
+{
+    public int Plain { get; init; }
+    public virtual int Virtual { get; init; }
+    protected int Guarded { get; init; }
+    public int Field;
+    public int Settable { get; set; }
+    private int Private;
+}
+
+public record KeptBelow(int Plain, int Virtual, int Guarded, int Field, int Settable, int Private) : Kept;
+
+public record DerivedFirst(int Value) : BaseAfter;
+
+public record BaseAfter(int Value)
+{
+    public BaseAfter() : this(0) { }
+}
+
+public record GenericNames
+{
+    public int Count<T>() => 0;
+    public class Shape<T> { }
+    public int Hidden { private get; init; }
+}
+
+public record FromGenericNames(int Count, int Shape, int Hidden) : GenericNames;
 
 /* Hiding counts generic parameters, and how each parameter is passed. */
 public class Hidden

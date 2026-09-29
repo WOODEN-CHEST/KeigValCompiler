@@ -75,6 +75,12 @@ this file can do
 ```
   Whether such a member may, must, or must not be written `static` is not
   decided; see the open questions. The compiler accepts it either way for now.
+- `using A;` imports what namespace `A` holds, as in C# (decided 2026-09-29):
+  its types and every member it holds, fields, properties, functions and events,
+  since a KGVL namespace holds those too. It does **not** import the namespaces
+  nested in `A`, so after `using A;`, `B.C` does not find `A.B.C`: reaching it
+  takes `using A.B;` and then `C`, or the full name `A.B.C`. There is no
+  `global::` (decided 2026-09-29).
 
 ## Member syntax
 
@@ -131,6 +137,18 @@ Functions, operators, properties and indexers can do this; the parser reports a
 field which tries. The parser stores the interface on the member
 (`IExplicitInterfaceMember.ExplicitInterface`) and checks nothing else: C#'s
 rules, such as no access modifier on such a member, are the resolver's.
+
+**Records** get a property from each positional parameter, as in C# (decided
+2026-09-29): `record Point(int X, int Y)` has public `X` and `Y` properties with
+`get` and `init`, each starting with its parameter's value. A record declaring a
+property or field of that name keeps the value there instead, and so does one
+inheriting a member of that name declaring no generic parameters, unless it is an
+abstract property, which the made property overrides. What keeps it has to be an
+instance field, or an instance property declaring a `get` of any access, of the
+parameter's type, as C# checks it, and an inherited one cannot be hidden by a
+member of the record's own. Positional parameters cannot be `ref` or `out`.
+`RecordPropertyResolver` makes the properties. Nothing else of C#'s records
+exists yet: no `Equals`, `ToString`, `Deconstruct` or `with`.
 
 **Hiding** is C#'s, `new` modifier included (added 2026-09-29): a member with the
 name of an inherited one hides it, and is to be written `new` to say that is
@@ -463,11 +481,6 @@ The repository owner decides these. Agents should surface them, not settle them.
   `static`, must they be, or must they not be? They belong to no object either
   way. C# has nothing to compare: its nearest relative, a `const`, is static
   already and may not say so. The compiler accepts both for now.
-- Do a record's positional parameters become properties, as in C#, where
-  `record Point(int X, int Y)` has public `X` and `Y` properties with `get` and
-  `init`? The parser makes only the primary constructor of them. Until this is
-  decided, the checks take such a property to be there when an interface or an
-  abstract member asks for it, rather than report it missing.
 
 If a task requires an answer to one of these, **ask rather than picking one.**
 An assumption baked into the front-end is expensive to remove later.

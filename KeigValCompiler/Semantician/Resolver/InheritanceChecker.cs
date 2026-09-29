@@ -12,11 +12,6 @@ namespace KeigValCompiler.Semantician.Resolver;
  * ModifierChecker having taken off the modifiers types cannot have. */
 internal class InheritanceChecker : IPackResolver
 {
-    // Static fields.
-    /* A chain of types, each deriving from the next, is written as base lists would be: "A : B : A". */
-    private static readonly string _chainSeparator = $" {KGVL.COLON} ";
-
-
     // Private methods.
     /* A base written as an array or with '?', as in "Foo[]", is no class or interface itself, and is left
      * out of every other check once reported, which would otherwise take it for the type it is made of. */
@@ -246,7 +241,7 @@ internal class InheritanceChecker : IPackResolver
 
     private void ReportCycle(PackMember type, List<PackMember> chain, PackResolutionContext context)
     {
-        string ChainText = string.Join(_chainSeparator,
+        string ChainText = MemberRelations.FormatChain(
             chain.Select(member => member.SelfIdentifier.SourceCodeName));
         context.AddError(context.ErrorCreator.CircularBase.CreateOptions(type.SelfIdentifier.SourceCodeName,
             ChainText), type);

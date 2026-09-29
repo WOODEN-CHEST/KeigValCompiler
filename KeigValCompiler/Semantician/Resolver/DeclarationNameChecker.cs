@@ -138,10 +138,7 @@ internal class DeclarationNameChecker : IPackResolver
         Dictionary<SourceFileKind, HashSet<string>> nameSpaces,
         PackResolutionContext context)
     {
-        PackMember[] Members = GetNamedMembers(holder)
-            .OrderBy(member => fileOrder[member.SourceFile])
-            .ThenBy(member => member.SourceFileOrigin.Line)
-            .ToArray();
+        PackMember[] Members = MemberRelations.OrderByDeclaration(GetNamedMembers(holder), fileOrder).ToArray();
 
         Dictionary<string, List<PackMember>> MembersByName = new();
         foreach (PackMember Member in Members)
@@ -249,11 +246,7 @@ internal class DeclarationNameChecker : IPackResolver
             CheckGenericParameterNames(Member, context);
         }
 
-        Dictionary<PackSourceFile, int> FileOrder = new();
-        foreach (PackSourceFile SourceFile in context.Pack.SourceFiles)
-        {
-            FileOrder.Add(SourceFile, FileOrder.Count);
-        }
+        Dictionary<PackSourceFile, int> FileOrder = MemberRelations.GetFileOrder(context.Pack);
 
         /* A member only clashes with a namespace on its own side of the standard library's boundary, as in C#,
          * where the two would be in different assemblies. */

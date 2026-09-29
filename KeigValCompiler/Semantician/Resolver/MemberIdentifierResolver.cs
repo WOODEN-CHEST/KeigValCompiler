@@ -7,6 +7,27 @@ namespace KeigValCompiler.Semantician.Resolver;
  * functions are named by what holds them, a property or indexer, or the type declaring the operator. */
 internal class MemberIdentifierResolver : IPackResolver
 {
+    // Internal methods.
+    /* Names a property and its accessors, for a property made after this pass has run, such as one a
+     * record's positional parameter gives. */
+    internal void ResolveProperty(PackProperty property, PackResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(property, nameof(property));
+        ArgumentNullException.ThrowIfNull(context, nameof(context));
+
+        SetIdentifier(property, context.IdentifierGenerator.GetFullResolvedIdentifier(property));
+        foreach (PackFunction? Accessor in new PackFunction?[]
+            { property.GetFunction, property.SetFunction, property.InitFunction })
+        {
+            if (Accessor != null)
+            {
+                SetFunctionIdentifier(Accessor,
+                    context.IdentifierGenerator.GetPropertyFunctionIdentifier(property, Accessor));
+            }
+        }
+    }
+
+
     // Private methods.
     private void ResolveHolder(object holder, PackResolutionContext context)
     {
@@ -55,16 +76,7 @@ internal class MemberIdentifierResolver : IPackResolver
 
         foreach (PackProperty Property in holder.Properties)
         {
-            SetIdentifier(Property, context.IdentifierGenerator.GetFullResolvedIdentifier(Property));
-            foreach (PackFunction? Accessor in new PackFunction?[]
-                { Property.GetFunction, Property.SetFunction, Property.InitFunction })
-            {
-                if (Accessor != null)
-                {
-                    SetFunctionIdentifier(Accessor,
-                        context.IdentifierGenerator.GetPropertyFunctionIdentifier(Property, Accessor));
-                }
-            }
+            ResolveProperty(Property, context);
         }
 
         foreach (PackIndexer Indexer in holder.Indexers)

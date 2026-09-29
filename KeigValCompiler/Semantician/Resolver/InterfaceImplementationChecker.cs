@@ -184,12 +184,7 @@ internal class InterfaceImplementationChecker : IPackResolver
             context.AddError(Mismatch.Value, type);
             return true;
         }
-
-        /* A record's positional parameters are not properties yet, so a property one of them would give is
-         * taken to be there, rather than reported missing. */
-        return (signature.Kind == DeclaredSignatureKind.Property) && holders.Any(
-            holder => MemberRelations.GetPositionalParameters(holder.Declaration).Any(
-                parameter => parameter.SelfIdentifier.SourceCodeName == signature.Name));
+        return false;
     }
 
     /* The member of a type which implements an interface's member explicitly, if it has one. */
@@ -273,7 +268,7 @@ internal class InterfaceImplementationChecker : IPackResolver
         foreach (string Keyword in _accessorKeywords.Where(
             keyword => InheritedMembers.GetAccessor(signature.Member, keyword) != null))
         {
-            PackFunction? Accessor = InheritedMembers.FindAccessor(implementation, holder, Keyword, type,
+            PackFunction? Accessor = InheritedMembers.FindAccessor(implementation, holder, Keyword, false, type,
                 context);
             if ((Accessor == null) || (MemberRelations.GetEffectiveAccess(Accessor) != PackMemberModifiers.Public))
             {
