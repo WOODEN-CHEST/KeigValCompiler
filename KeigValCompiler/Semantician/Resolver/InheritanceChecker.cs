@@ -1,5 +1,6 @@
 using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Types;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
@@ -7,9 +8,8 @@ namespace KeigValCompiler.Semantician.Resolver;
  * is written first, is neither sealed nor static, and is a record exactly when the class is; the rest of
  * what it derives from are interfaces. A static class derives from nothing but object. A structure or an
  * interface derives only from interfaces. No type is among its own base types. A base type which did not
- * resolve has been reported already, and is skipped. It relies on ModifierChecker having taken off the
- * modifiers types cannot have. Whether an interface is listed twice needs types
- * compared, and is not checked here. */
+ * resolve has been reported already, and is skipped. No interface is listed twice. It relies on
+ * ModifierChecker having taken off the modifiers types cannot have. */
 internal class InheritanceChecker : IPackResolver
 {
     // Static fields.
@@ -29,6 +29,41 @@ internal class InheritanceChecker : IPackResolver
                 context.AddError(context.ErrorCreator.BaseTypeWithMarkers.CreateOptions(
                     MemberRelations.GetKindName(type), type.SelfIdentifier.SourceCodeName, Base.ToString()),
                     type);
+            }
+        }
+    }
+
+    /* Two listings of one interface are found by comparing types, so "IFoo<int>" and "IFoo<int?>" are
+     * different but "IFoo<string>" and "IFoo<string?>" are not. Two which differ only in their '?'
+     * annotations, and so in how they are written, are only warned about, as in C#, since they differ in what
+     * checking nullability would make of them. */
+    private void CheckDuplicateInterfaces(PackMember type, PackResolutionContext context)
+    {
+        Dictionary<SemanticType, SemanticType> Listed = new();
+        foreach (TypeTargetIdentifier Base in GetPlainBases(type))
+        {
+            SemanticType? BaseType = context.TypeReader.Read(Base);
+            if ((BaseType is not DeclaredType Declared) || (Declared.Declaration is not PackInterface))
+            {
+                continue;
+            }
+            if (!Listed.TryGetValue(BaseType, out SemanticType? Earlier))
+            {
+                Listed.Add(BaseType, BaseType);
+                continue;
+            }
+
+            string Kind = MemberRelations.GetKindName(type);
+            string Name = type.SelfIdentifier.SourceCodeName;
+            if (Earlier.ToString() == BaseType.ToString())
+            {
+                context.AddError(context.ErrorCreator.DuplicateBaseInterface.CreateOptions(Kind, Name,
+                    Base.ToString()), type);
+            }
+            else
+            {
+                context.AddWarning(context.ErrorCreator.DuplicateInterfaceAnnotations.CreateOptions(Kind, Name,
+                    BaseType.ToString(), Earlier.ToString()), type);
             }
         }
     }
@@ -229,6 +264,7 @@ internal class InheritanceChecker : IPackResolver
             if (Type is IPackMemberExtender)
             {
                 CheckBaseMarkers(Type, context);
+                CheckDuplicateInterfaces(Type, context);
             }
             switch (Type)
             {

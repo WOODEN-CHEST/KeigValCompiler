@@ -94,16 +94,66 @@ it.
 - `OperatorDeclarationChecker`: an operator's parameter count and parameter
   modifiers, its return type, and an interface's equality and conversion
   operators, which have to be abstract or virtual.
-- `InheritanceChecker`: what each kind of type derives from, and cycles.
+- `InheritanceChecker`: what each kind of type derives from, cycles, and an
+  interface listed twice (only a warning when the two differ only in `?`, as
+  in C#).
 - `DeclarationNameChecker`: names that cannot coincide, from two enum constants
   of one name to a field named like a function beside it, a type's generic
   parameter, or a namespace.
 
-What needs types compared is not checked yet: two functions with the same
-signature, operator parameter types and pairs, overriding, hiding, interface
-implementation, generic constraints, an interface listed twice, `const` types
-and structures containing themselves. Nor is accessibility. See "Suggested order
-of work".
+The checks after these compare types, through the model in
+`Semantician/Types/`. `TypeHierarchy` gives a type's base classes and every
+interface it implements, in terms of its own type arguments, and answers
+whether a type is a reference or value type or derives from another.
+`GenericConstraintReader` gives a generic parameter's constraints as types: an
+override's or explicit implementation's parameters take theirs from what they
+override or implement, as in C#, which is why `InheritedConstraintResolver`
+links each to its source before the type-comparing checks run.
+`GenericParameterType.IsValueType` still reads only written constraints; code
+which needs the inherited ones asks `TypeHierarchy`. A `DeclaredSignature`, read
+by `DeclaredSignatureReader`, is what C# compares two functions, indexers or
+operators by: generic parameter count, parameter types with generic parameters
+compared by position, and which are passed by reference. `InheritedMembers`
+holds C#'s rules for what an override overrides, which members hide which (by
+name, generic parameter count and signature), which accessors an override
+inherits, and what an explicit implementation implements.
+
+- `DuplicateSignatureChecker`: two members of one type or namespace with the
+  same signature, and two conversions between the same types.
+- `OperatorTypeChecker`: that an operator takes or converts its own type (in an
+  interface's abstract or virtual operator, a parameter constrained to the
+  interface counts), what `++` and `--` return, what a conversion cannot
+  convert between, and the operators declared in pairs.
+- `OverrideChecker`: what an override overrides, which may be hidden by a
+  nearer member of another kind or ambiguous; its access, type (with covariant
+  returns) and accessors, own or inherited; abstract members and accessors left
+  unoverridden; and hiding, warned about with and without `new` as in C#, and
+  an error for an abstract member.
+- `InterfaceImplementationChecker`: every abstract interface member, static
+  ones included, implemented implicitly (the nearest suitable member, with the
+  interface's accessors and constraints) or explicitly; default
+  implementations and re-abstraction decided by the most specific interface;
+  every explicit implementation naming an interface its type lists and a
+  member of it which can be implemented, with that member's type and
+  accessors; and no two listed interfaces which could unify.
+- `ConstraintChecker`: the constraint lists themselves, constraints cycling
+  through a declaration's generic parameters, conflicting classes reached
+  through other parameters, overrides not restating theirs and agreeing on
+  `class` and `struct`, and every type argument in a declaration satisfying
+  its parameter's constraints.
+- `FieldTypeChecker`: `const` field types, and structures holding themselves,
+  worked out by declaration: which generic parameters each structure holds,
+  then which structures hold which.
+- `StaticClassUsageChecker`: a static class used as the type of a value. As
+  in C#, only a warning in an interface's signatures, and allowed as a
+  delegate's return type.
+
+What remains unchecked in declarations: accessibility, nested types of base
+classes (lookup does not see them yet), whether `notnull` is satisfied, which is
+nullability checking, and everything inside function bodies. A record's
+positional parameters do not become properties yet, so the checks take a
+property one would give to be there rather than report it missing. See
+"Suggested order of work".
 
 Errors are queued, like the parser's, so one missing type does not hide the rest.
 A type which cannot be resolved is left with no `Target`, and later passes skip
@@ -242,7 +292,7 @@ expressions inside function bodies, and builds the full statement tree for them.
 `tests/test.kgvl` exercises the grammar and parses with zero errors.
 
 **The resolver resolves declarations, binds the standard library, and checks
-declarations against the C# rules which need no types compared**, but does not
+declarations against C#'s rules**, apart from the gaps listed below, but does not
 look inside function bodies: `Foo bar = Nonexistent();` in a body still
 compiles. Five fixtures cover what exists, all run by hand:
 
@@ -268,8 +318,10 @@ interpolated strings and all literal forms. The standard library is read from
 `library-stubs/` before the user's code, and only it may use `builtin`. Every
 type named in a declaration resolves, every builtin member of the library is
 bound to what the compiler implements for it, and declarations are checked for
-modifiers, what may hold what, bodies, the shape of operators, inheritance and
-names.
+modifiers, what may hold what, bodies, the shape and types of operators,
+inheritance, names, signatures, overriding and hiding, interface
+implementation, generic constraints, field types and static classes used as
+types.
 
 ### The two blocking gaps
 
@@ -292,11 +344,12 @@ names.
 - Parser gaps, each detailed in [`parser-gaps.md`](parser-gaps.md): qualified
   type names such as `KGVL.Int32` do not parse, nor does the `as` operator, nor
   throw expressions, nor the `\e` and `\U` escapes.
-- Declarations are checked against C#'s rules only where no types need
-  comparing, which leaves unreported: two members with the same signature,
-  operator parameter types and the operators declared in pairs, overriding and
-  hiding, interfaces left unimplemented, generic constraints, and accessibility.
-  The steps left are under "Suggested order of work".
+- Declarations are checked against C#'s rules apart from accessibility and
+  nested types of base classes, whose steps are under "Suggested order of
+  work", and `notnull` constraints, which wait for nullability checking.
+- A record's positional parameters do not become properties, as C# makes
+  them. Until they do, the checks of interface implementation and abstract
+  members take such a property to be there rather than report it missing.
 
 ## Suggested order of work
 
@@ -332,30 +385,32 @@ Roughly dependency-ordered; the owner decides priorities.
       1. ~~What needs nothing new: modifiers, what may hold what, bodies,
          operator shape, inheritance, names, and `using`.~~ Done: see stage 2.
       2. ~~A semantic type model, shared with function bodies.~~ Done, in
-         `Semantician/Types/`, though nothing uses it yet: `SemanticType` is
-         a `DeclaredType` (a declaration with its type arguments, and for a
-         nested type the type holding it, since `Outer<int>.Inner` and
-         `Outer<string>.Inner` differ) or a `GenericParameterType`, compared
-         by value. `T[]` is `Array<T>` and a value type's `T?` is
-         `Nullable<T>`; a reference type's `?` is kept as an annotation for
-         nullability checking but plays no part in equality. A
-         `TypeSubstitution` replaces generic parameters, by a type's
+         `Semantician/Types/`, and used by the checks of stage 2:
+         `SemanticType` is a `DeclaredType` (a declaration with its type
+         arguments, and for a nested type the type holding it, since
+         `Outer<int>.Inner` and `Outer<string>.Inner` differ) or a
+         `GenericParameterType`, compared by value. `T[]` is `Array<T>` and a
+         value type's `T?` is `Nullable<T>`; a reference type's `?` is kept as
+         an annotation for nullability checking but plays no part in equality.
+         A `TypeSubstitution` replaces generic parameters, by a type's
          arguments or, to compare two functions, by position.
-         `SemanticTypeReader` (on the resolution context) builds one on
-         demand from a resolved `TypeTargetIdentifier`, a declaration's
-         instance type, and a type's written base types. `SignatureType`
-         stays as it is for the library bindings.
-      3. What needs types compared: duplicate signatures, operator parameter
+         `SemanticTypeReader` (on the resolution context) builds one on demand
+         from a resolved `TypeTargetIdentifier`, a declaration's instance type,
+         and a type's written base types. `SignatureType` stays as it is for
+         the library bindings.
+      3. ~~What needs types compared: duplicate signatures, operator parameter
          types and pairs, overriding, hiding and `new`, interface
          implementation, generic constraints and their type arguments, an
          interface listed twice, `const` field types, and structures holding
-         themselves. As in C#, an override's or explicit implementation's
-         generic parameters take their constraints from what they override or
-         implement, which cannot be restated. `SemanticTypeReader` already
-         reads a `?` on one of them as `Nullable<T>`, unless it is written
-         with a `class` constraint, as C# does, but `IsValueType` and
-         constraint lookups will need those inherited constraints once
-         overrides are matched.
+         themselves.~~ Done: see stage 2. As in C#, an override's or explicit
+         implementation's generic parameters take their constraints from what
+         they override or implement, which cannot be restated.
+         `SemanticTypeReader` reads a `?` on one of them as `Nullable<T>`,
+         unless it is written with a `class` constraint, as C# does.
+         `GenericConstraintReader` gives the inherited constraints to the
+         checks, and `TypeHierarchy` answers with them;
+         `GenericParameterType.IsValueType` does not, so function bodies
+         should ask `TypeHierarchy`.
       4. Accessibility, now that `internal` exists: lookup skipping what cannot
          be seen, and a member exposing a type less accessible than itself.
       5. Nested types of base classes in lookup, which needs base lists

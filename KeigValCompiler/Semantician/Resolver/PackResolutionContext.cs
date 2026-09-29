@@ -12,8 +12,11 @@ internal class PackResolutionContext
     internal required BuiltInTypeRegistry Registry { get; init; }
     internal required TypeSearcher TypeSearcher { get; init; }
 
-    /* Only usable once types are resolved and the library's known types found. */
+    /* These four are only usable once types are resolved and the library's known types found. */
     internal required SemanticTypeReader TypeReader { get; init; }
+    internal required GenericConstraintReader Constraints { get; init; }
+    internal required TypeHierarchy Hierarchy { get; init; }
+    internal required DeclaredSignatureReader SignatureReader { get; init; }
     internal required LibraryBindingTable BindingTable { get; init; }
     internal required IdentifierGenerator IdentifierGenerator { get; init; }
     internal required ErrorRepository ErrorCreator { get; init; }

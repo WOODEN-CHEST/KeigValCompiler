@@ -1,0 +1,92 @@
+/* Declaration check test source file, for functions, indexers and operators which a call could not tell
+ * apart. Every error in here is deliberate. The directory parses cleanly, so that resolution runs at
+ * all, and the point is that each mistake is reported once, where it is, without errors which only
+ * follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 15 errors:
+ *
+ *   line 33 RS error 20     same parameters, other names
+ *   line 35 RS error 20     differing only in return type
+ *   line 37 RS error 20     differing only in ref against out
+ *   line 40 RS error 20     generic parameters compared by position
+ *   line 43 RS error 20     params against a plain array
+ *   line 45 RS error 20     string against string?
+ *   line 49 RS error 20     a constructor
+ *   line 53 RS error 20     an indexer differing only in type
+ *   line 55 RS error 20     an operator
+ *   line 57 RS error 21     an implicit and an explicit conversion between the same types
+ *   line 61 RS error 20     a function a namespace holds
+ *   line 72 RS error 20     two explicit implementations of one function
+ *   line 74 RS error 7      two explicit implementations of one property
+ *   line 80 RS error 21     conversions between the same types, one taking its parameter by in
+ *   line 91 RS error 19     an explicit implementation naming the interface with '?', reported once
+ */
+
+namespace Test.Signatures;
+
+public class Overloads
+{
+    public void Same(int value) { }
+    public void Same(int other) { }
+    public int Pair(int value, int second) => 0;
+    public string Pair(int value, int second) => "";
+    public void Passing(ref int value) { }
+    public void Passing(out int value) { }
+    public void Passing(int value) { }
+    public void Generic<T>(T value) { }
+    public void Generic<U>(U value) { }
+    public void Generic<T, U>(T value) { }
+    public void Many(params int[] values) { }
+    public void Many(int[] values) { }
+    public void Maybe(string text) { }
+    public void Maybe(string? text) { }
+    public void Maybe(int value) { }
+    public void Maybe(int? value) { }
+    public Overloads(int value) { }
+    public Overloads(int other) { }
+    static Overloads() { }
+    public Overloads() { }
+    public int this[int index] { get => 0; }
+    public string this[int other] { get => ""; }
+    public static Overloads operator +(Overloads a, Overloads b) => a;
+    public static Overloads operator +(Overloads first, Overloads second) => first;
+    public static implicit operator int(Overloads value) => 0;
+    public static explicit operator int(Overloads value) => 0;
+}
+
+public void Global(int value) { }
+public void Global(int other) { }
+
+public interface IValue
+{
+    int Get();
+    int Value { get; }
+}
+
+public class TwiceExplicit : IValue
+{
+    int IValue.Get() => 0;
+    int IValue.Get() => 1;
+    int IValue.Value => 0;
+    int IValue.Value => 1;
+}
+
+public struct Converting
+{
+    public static implicit operator int(in Converting value) => 0;
+    public static explicit operator int(Converting value) => 0;
+}
+
+public interface IQueried
+{
+    void Query();
+}
+
+public class Queried : IQueried
+{
+    void IQueried.Query() { }
+    void IQueried?.Query() { }
+}

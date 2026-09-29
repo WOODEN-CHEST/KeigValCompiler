@@ -10,6 +10,9 @@ namespace KeigValCompiler.Semantician.Resolver;
 internal static class MemberRelations
 {
     // Static fields.
+    internal const PackMemberModifiers ACCESS_MODIFIERS = PackMemberModifiers.Public
+        | PackMemberModifiers.Protected | PackMemberModifiers.Internal | PackMemberModifiers.Private;
+
     private const char SPACE = ' ';
     private const string SEPARATOR = ", ";
 
@@ -20,6 +23,84 @@ internal static class MemberRelations
     {
         ArgumentNullException.ThrowIfNull(member, nameof(member));
         return member.ParentItem?.Target as PackMember;
+    }
+
+    /* The members a type or namespace declares itself which have a signature: functions, constructors and
+     * operators, properties, indexers, events and fields, but neither nested types nor accessors. */
+    internal static IEnumerable<PackMember> GetSignedMembers(object holder)
+    {
+        ArgumentNullException.ThrowIfNull(holder, nameof(holder));
+
+        IEnumerable<PackMember> Members = Enumerable.Empty<PackMember>();
+        if (holder is IPackFunctionHolder FunctionHolder)
+        {
+            Members = Members.Concat(FunctionHolder.Functions).Concat(FunctionHolder.Properties)
+                .Concat(FunctionHolder.Indexers);
+        }
+        if (holder is IPackFieldHolder FieldHolder)
+        {
+            Members = Members.Concat(FieldHolder.Fields);
+        }
+        if (holder is IPackEventHolder EventHolder)
+        {
+            Members = Members.Concat(EventHolder.Events);
+        }
+        if (holder is IOperatorOverloadHolder OverloadHolder)
+        {
+            Members = Members.Concat(OverloadHolder.OperatorOverloads.Select(overload => overload.Function));
+        }
+        return Members;
+    }
+
+    /* Every type written in a member's own declaration: its type, or what it returns, its parameters' types,
+     * what it derives from, its generic parameters' constraints, and the interface it implements explicitly.
+     * Not those written in its body, nor in the members it holds. */
+    internal static IEnumerable<TypeTargetIdentifier> GetWrittenTypes(PackMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+
+        List<TypeTargetIdentifier?> Written = new();
+        switch (member)
+        {
+            case PackField Field:
+                Written.Add(Field.Type);
+                break;
+
+            case PackProperty Property:
+                Written.Add(Property.Type);
+                break;
+
+            case PackIndexer Indexer:
+                Written.Add(Indexer.Type);
+                Written.AddRange(Indexer.Parameters.Select(parameter => parameter.Type));
+                break;
+
+            case PackEvent Event:
+                Written.Add(Event.Type);
+                break;
+
+            case PackDelegate Delegate:
+                Written.Add(Delegate.ReturnType);
+                Written.AddRange(Delegate.Parameters.Select(parameter => parameter.Type));
+                break;
+
+            case PackFunction Function:
+                Written.Add(Function.ReturnType);
+                Written.AddRange(Function.Parameters.Select(parameter => parameter.Type));
+                break;
+        }
+
+        if (member is IPackMemberExtender Extender)
+        {
+            Written.AddRange(Extender.ExtendedMembers);
+        }
+        if (member is IGenericParameterHolder GenericsHolder)
+        {
+            Written.AddRange(GenericsHolder.GenericParameters.SelectMany(parameter => parameter.Constraints)
+                .Select(constraint => constraint.ConstrainedItemName));
+        }
+        Written.Add(GetExplicitInterface(member));
+        return Written.Where(type => type != null).Select(type => type!);
     }
 
     internal static bool IsType(PackMember member)
@@ -57,6 +138,17 @@ internal static class MemberRelations
     internal static bool IsStaticConstructor(PackMember member)
     {
         return (member is PackConstructor) && member.HasModifier(PackMemberModifiers.Static);
+    }
+
+    /* The parameters of a record's primary constructor, which C# makes properties of the record, though
+     * KGVL does not yet. None for any other type. */
+    internal static IEnumerable<FunctionParameter> GetPositionalParameters(PackMember type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        PackConstructor? Primary = (type as IPackFunctionHolder)?.Functions.OfType<PackConstructor>()
+            .FirstOrDefault(constructor => constructor.IsPrimary);
+        return Primary?.Parameters ?? Enumerable.Empty<FunctionParameter>();
     }
 
     /* Whether a member is abstract: written so, or an interface's own instance member without a body which
@@ -99,8 +191,7 @@ internal static class MemberRelations
     {
         ArgumentNullException.ThrowIfNull(member, nameof(member));
 
-        PackMemberModifiers WrittenAccess = member.Modifiers & (PackMemberModifiers.Public
-            | PackMemberModifiers.Protected | PackMemberModifiers.Internal | PackMemberModifiers.Private);
+        PackMemberModifiers WrittenAccess = member.Modifiers & ACCESS_MODIFIERS;
         if (WrittenAccess != PackMemberModifiers.None)
         {
             return WrittenAccess;

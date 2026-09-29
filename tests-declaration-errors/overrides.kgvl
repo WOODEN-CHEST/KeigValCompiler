@@ -1,0 +1,198 @@
+/* Declaration check test source file, for overriding, abstract members left without bodies, and hiding.
+ * Every error in here is deliberate. The directory parses cleanly, so that resolution runs at all, and
+ * the point is that each mistake is reported once, where it is, without errors which only follow from
+ * others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 20 errors and 9 warnings:
+ *
+ *   line 56 RS error 22     an override of nothing
+ *   line 57 RS error 23     an override of a function which is not virtual
+ *   line 58 RS error 25     an override of another type
+ *   line 59 RS error 27     an override adding a set accessor
+ *   line 61 RS error 26     an override changing the access
+ *   line 67 RS error 24     an override of a sealed function
+ *   line 76 RS error 28     abstract members left without overrides, each reported
+ *   line 76 RS error 28     abstract members left without overrides, each reported
+ *   line 96 RS warning 1    a field hiding a field
+ *   line 97 RS warning 2    a function hiding a virtual one
+ *   line 99 RS warning 3    new hiding nothing
+ *   line 100 RS warning 1   a nested class hiding a nested class
+ *   line 109 RS error 40    accessors of abstract members left unoverridden
+ *   line 109 RS error 40    accessors of abstract members left unoverridden
+ *   line 121 RS error 28    an abstract member left, after an ambiguous override
+ *   line 123 RS error 37    an override matching two members
+ *   line 135 RS error 27    overriding a private accessor
+ *   line 136 RS error 26    widening an accessor's access
+ *   line 137 RS error 26    narrowing an accessor's access
+ *   line 152 RS error 38    a field in between hiding the virtual function
+ *   line 164 RS error 39    hiding an abstract function
+ *   line 165 RS error 39    a field hiding an abstract property
+ *   line 166 RS error 39    hiding an abstract function without new, also warned
+ *   line 166 RS warning 2   hiding an abstract function without new, also warned
+ *   line 177 RS warning 1   hiding in an interface, where override is not possible
+ *   line 178 RS warning 1   likewise
+ *   line 189 RS warning 1   a function hiding a nested class
+ *   line 190 RS warning 1   a field hiding a nested class
+ *   line 195 MM error 18    an abstract function in a class which is not, and no error for the class deriving from it
+ */
+
+namespace Test.Overrides;
+
+public class Animal
+{
+    public virtual string Sound() => "";
+    public string Name() => "";
+    public virtual int Legs { get; }
+    public virtual Animal Parent() => null;
+    protected virtual void Guarded() { }
+    public virtual void Final() { }
+}
+
+public class Dog : Animal
+{
+    public override string Sounds() => "";
+    public override string Name() => "";
+    public override int Sound() => 0;
+    public override int Legs { get; set; }
+    public override Dog Parent() => null;
+    public override void Guarded() { }
+    public sealed override void Final() { }
+}
+
+public class Puppy : Dog
+{
+    public override void Final() { }
+}
+
+public abstract class Shape
+{
+    public abstract int Area();
+    public abstract int Sides { get; }
+}
+
+public class Square : Shape
+{
+}
+
+public class Circle : Shape
+{
+    public override int Area() => 3;
+    public override int Sides => 0;
+}
+
+public class Parent
+{
+    public int Field;
+    public virtual void Replaceable() { }
+    public void Plain() { }
+    public class Nested { }
+}
+
+public class Child : Parent
+{
+    public int Field;
+    public void Replaceable() { }
+    public new void Plain() { }
+    public new void Nothing() { }
+    public class Nested { }
+}
+
+public abstract class Gauge
+{
+    public abstract int Level { get; set; }
+    public abstract int this[int index] { get; set; }
+}
+
+public class ReadGauge : Gauge
+{
+    public override int Level { get => 0; }
+    public override int this[int index] { get => 0; }
+}
+
+public abstract class Pair<T>
+{
+    public abstract void Take(T value);
+    public abstract void Take(int value);
+}
+
+public class IntPair : Pair<int>
+{
+    public override void Take(int value) { }
+}
+
+public class Guarded
+{
+    public virtual int Locked { get; private set; }
+    public virtual int Shielded { get; protected set; }
+    public virtual int Open { get; set; }
+}
+
+public class Unguarded : Guarded
+{
+    public override int Locked { get => 0; set { } }
+    public override int Shielded { get => 0; set { } }
+    public override int Open { get => 0; protected set { } }
+}
+
+public class Replaceable
+{
+    public virtual void Blocked() { }
+}
+
+public class Blocking : Replaceable
+{
+    public new int Blocked;
+}
+
+public class Overriding : Blocking
+{
+    public override void Blocked() { }
+}
+
+public abstract class HasAbstract
+{
+    public abstract void Hide();
+    public abstract int Property { get; }
+    public abstract void Plain();
+}
+
+public abstract class HidesAbstract : HasAbstract
+{
+    public new void Hide() { }
+    public new int Property;
+    public void Plain() { }
+}
+
+public interface ITop
+{
+    void Hide();
+    int Count { get; }
+}
+
+public interface IBottom : ITop
+{
+    void Hide();
+    int Count { get; }
+}
+
+public class Outer
+{
+    public class Named { }
+    public class Other { }
+}
+
+public class Inner : Outer
+{
+    public void Named() { }
+    public int Other;
+}
+
+public class NotAbstract
+{
+    public abstract void Missing();
+}
+
+public class FromNotAbstract : NotAbstract { }

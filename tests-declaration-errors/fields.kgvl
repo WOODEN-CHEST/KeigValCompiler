@@ -1,0 +1,131 @@
+/* Declaration check test source file, for the types of constants, and structures which contain
+ * themselves. Every error in here is deliberate. The directory parses cleanly, so that resolution runs
+ * at all, and the point is that each mistake is reported once, where it is, without errors which only
+ * follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 14 errors:
+ *
+ *   line 42 MG error 11     a structure constant
+ *   line 43 MG error 11     a nullable constant
+ *   line 48 MG error 11     a generic parameter constant
+ *   line 53 MG error 12     a structure holding itself
+ *   line 58 MG error 12     two structures holding each other, reported on each
+ *   line 63 MG error 12     likewise
+ *   line 73 MG error 12     through a generic structure
+ *   line 78 MG error 12     through its nullable form
+ *   line 83 MG error 12     through a property storing its value
+ *   line 99 MG error 12     through a generic structure, each way
+ *   line 104 MG error 12    likewise
+ *   line 109 MG error 12    through a generic structure twice
+ *   line 120 MG error 12    through a generic structure's second argument
+ *   line 125 MG error 12    a generic structure holding itself, growing
+ */
+
+namespace Test.Fields;
+
+public struct Plain
+{
+    public int Value;
+}
+
+public enum Colour { Red }
+
+public class Constants
+{
+    public const int Number = 1;
+    public const string Text = "";
+    public const Colour Shade = Colour.Red;
+    public const object Nothing = null;
+    public const Plain Structure = default;
+    public const int? Maybe = 1;
+}
+
+public class Generic<T>
+{
+    public const T Value = default;
+}
+
+public struct Loop
+{
+    public Loop Self;
+}
+
+public struct First
+{
+    public Second Next;
+}
+
+public struct Second
+{
+    public First Back;
+}
+
+public struct Box<T>
+{
+    public T Value;
+}
+
+public struct Boxed
+{
+    public Box<Boxed> Inner;
+}
+
+public struct Wrapped
+{
+    public Wrapped? Maybe;
+}
+
+public struct Stored
+{
+    public Stored Auto { get; set; }
+}
+
+public struct Fine
+{
+    public Fine[] Many;
+    public static Fine Shared;
+}
+
+public struct Wrap<T>
+{
+    public T Value;
+}
+
+public struct Forth
+{
+    public Wrap<Back> Backs;
+}
+
+public struct Back
+{
+    public Wrap<Forth> Forths;
+}
+
+public struct Nest
+{
+    public Wrap<Wrap<Nest>> Nested;
+}
+
+public struct Couple<A, B>
+{
+    public A Left;
+    public B Right;
+}
+
+public struct Coupled
+{
+    public Couple<int, Couple<Coupled, int>> Pair;
+}
+
+public struct Growing<T>
+{
+    public Growing<Growing<T>> Grown;
+}
+
+public struct HoldsGrowing
+{
+    public Growing<int> Held;
+}

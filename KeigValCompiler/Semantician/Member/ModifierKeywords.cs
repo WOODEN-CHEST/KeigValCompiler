@@ -6,6 +6,7 @@ internal static class ModifierKeywords
 {
     // Static fields.
     private const string SEPARATOR = ", ";
+    private const char SPACE = ' ';
 
     /* In the order messages list them: access first, then roughly the order C# writes the rest in. */
     private static readonly (PackMemberModifiers Modifier, string Keyword)[] _keywords = new
@@ -69,6 +70,17 @@ internal static class ModifierKeywords
                 yield return Modifier;
             }
         }
+    }
+
+    /* An access as source code writes it, as in "protected internal". C# writes its other pair as
+     * "private protected", in the opposite order to the one messages list modifiers in. */
+    internal static string FormatAccess(PackMemberModifiers access)
+    {
+        if (access == (PackMemberModifiers.Private | PackMemberModifiers.Protected))
+        {
+            return KGVL.KEYWORD_PRIVATE + SPACE + KGVL.KEYWORD_PROTECTED;
+        }
+        return string.Join(SPACE, Split(access).Select(GetKeyword));
     }
 
     /* The keywords of a combination of modifiers, as in "public, static, readonly". */

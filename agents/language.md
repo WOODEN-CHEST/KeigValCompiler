@@ -135,8 +135,8 @@ rules, such as no access modifier on such a member, are the resolver's.
 **Hiding** is C#'s, `new` modifier included (added 2026-09-29): a member with the
 name of an inherited one hides it, and is to be written `new` to say that is
 meant. As in C#, hiding without `new` is a warning, and so is `new` hiding
-nothing. The modifier is parsed and allowed where C# allows it, but neither
-warning exists yet: both need inherited members looked up.
+nothing, while a class's member hiding an abstract one is an error. All three
+are the resolver's (`OverrideChecker`).
 
 ## Generic calls and the `<` ambiguity
 
@@ -463,6 +463,11 @@ The repository owner decides these. Agents should surface them, not settle them.
   `static`, must they be, or must they not be? They belong to no object either
   way. C# has nothing to compare: its nearest relative, a `const`, is static
   already and may not say so. The compiler accepts both for now.
+- Do a record's positional parameters become properties, as in C#, where
+  `record Point(int X, int Y)` has public `X` and `Y` properties with `get` and
+  `init`? The parser makes only the primary constructor of them. Until this is
+  decided, the checks take such a property to be there when an interface or an
+  abstract member asks for it, rather than report it missing.
 
 If a task requires an answer to one of these, **ask rather than picking one.**
 An assumption baked into the front-end is expensive to remove later.

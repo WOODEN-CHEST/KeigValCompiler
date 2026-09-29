@@ -40,4 +40,7 @@ internal abstract class SemanticType : IEquatable<SemanticType>
     }
 
     public abstract override int GetHashCode();
+
+    /* The type as source code would write it, for messages. */
+    public abstract override string ToString();
 }

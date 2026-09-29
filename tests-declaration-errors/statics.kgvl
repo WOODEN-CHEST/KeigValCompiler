@@ -1,0 +1,50 @@
+/* Declaration check test source file, for static classes used as the types of values. Every error in
+ * here is deliberate. The directory parses cleanly, so that resolution runs at all, and the point is
+ * that each mistake is reported once, where it is, without errors which only follow from others. Run
+ * the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 8 errors and 2 warnings:
+ *
+ *   line 31 GE error 25     a static class as a type argument
+ *   line 32 RTMC error 43   a static class as a parameter's type
+ *   line 33 RTMC error 42   a static class returned
+ *   line 34 RTMC error 41   a static class as a property's type
+ *   line 35 RTMC error 44   an array of a static class
+ *   line 36 RTMC error 41   a static class as a field's type
+ *   line 39 RTMC error 43   a static class taken by a delegate, which may return one
+ *   line 43 RTMC warning 1  a static class returned in an interface, only warned about
+ *   line 44 RTMC warning 2  a static class taken in an interface, only warned about
+ *   line 49 MG error 8      an operator in a static class, reported once
+ */
+
+namespace Test.Statics;
+
+public static class Tools { }
+
+public class Toolbox<T> { }
+
+public class UsesTools
+{
+    public Toolbox<Tools> Boxed;
+    public void Take(Tools tools) { }
+    public Tools Give() => null;
+    public Tools Property { get; set; }
+    public Tools[] Several;
+    public Tools Field;
+}
+
+public delegate Tools MakeTools(Tools from);
+
+public interface IUsesTools
+{
+    Tools Make();
+    void Take(Tools tools);
+}
+
+public static class Operating
+{
+    public static Operating operator +(Operating left, Operating right) => left;
+}

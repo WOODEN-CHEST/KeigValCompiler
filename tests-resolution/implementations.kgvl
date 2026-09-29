@@ -1,0 +1,146 @@
+/* What the checks comparing types have to accept, since C# accepts it: overrides, including one returning a
+ * class deriving from what it overrides returns and one of a generic function; interfaces implemented
+ * directly, through a base class, explicitly, through generic base types, with static abstract members,
+ * with members given bodies by the interface, by another interface, or made abstract again; operators on
+ * nullable forms and in pairs; conversions from and to the type declaring them; constraints satisfied by
+ * type arguments and by generic parameters; constants of every kind of type a constant can have; a
+ * structure holding an array of itself; and overloads which differ only in what C# counts. Part of
+ * tests-resolution, so it has to compile with zero errors and no warnings. */
+
+using KGVL;
+using KGVL.Collections.Generic;
+namespace Game.Implementations;
+
+public interface IShape
+{
+    int Area();
+    int Sides { get; }
+    string Describe() => "shape";
+    static abstract IShape Create();
+}
+
+public abstract class ShapeBase : IShape
+{
+    public abstract int Area();
+    public virtual int Sides => 0;
+    public static IShape Create() => null;
+    public virtual ShapeBase Clone() => null;
+    public abstract T Convert<T>(T value) where T : struct;
+}
+
+public class Square : ShapeBase
+{
+    public override int Area() => 4;
+    public override int Sides => 4;
+    public override Square Clone() => null;
+    public override T Convert<T>(T value) => value;
+}
+
+public sealed class Tile : Square
+{
+    public new int Area() => 1;
+    public string Describe() => "tile";
+}
+
+public class Explicit : IShape
+{
+    int IShape.Area() => 0;
+    int IShape.Sides => 0;
+    static IShape IShape.Create() => null;
+}
+
+public interface IReshaped : IShape
+{
+    abstract string IShape.Describe();
+}
+
+public class Reshaped : IReshaped
+{
+    public int Area() => 0;
+    public int Sides => 0;
+    public static IShape Create() => null;
+    public string Describe() => "reshaped";
+}
+
+public interface IDefaulted : IShape
+{
+    int IShape.Area() => 1;
+}
+
+public class Defaulted : IDefaulted
+{
+    public int Sides => 0;
+    public static IShape Create() => null;
+}
+
+public class Numbers : IEnumerable<int>
+{
+    public IEnumerator<int> GetEnumerator() => null;
+}
+
+public class Comparer<T> : IEquatable<T>
+{
+    public bool Equals(T other) => true;
+}
+
+public class IntComparer : Comparer<int>, IEquatable<int>
+{
+}
+
+public class Pairs
+{
+    public static bool operator ==(Pairs left, Pairs right) => true;
+    public static bool operator !=(Pairs left, Pairs right) => false;
+    public static bool operator <(Pairs left, int right) => true;
+    public static bool operator >(Pairs left, int right) => false;
+}
+
+public struct Temperature
+{
+    public int Degrees;
+    public static implicit operator Temperature(int degrees) => default;
+    public static explicit operator int(Temperature value) => value.Degrees;
+    public static implicit operator Temperature?(long degrees) => null;
+    public static Temperature operator -(Temperature? value) => default;
+    public static Temperature operator +(int left, Temperature? right) => default;
+}
+
+public class Sorted<T> where T : IComparable<T>
+{
+    public Sorted<T> Copy;
+}
+
+public class Keyed<TKey, TValue> where TKey : IEquatable<TKey> where TValue : class
+{
+}
+
+public class Uses
+{
+    public Sorted<int> Numbers;
+    public Sorted<string> Texts;
+    public Keyed<char, Square> Squares;
+}
+
+public class Constants
+{
+    public const decimal Rate = 1.5;
+    public const bool Flag = true;
+    public const char Letter = 'a';
+    public const ulong Large = 5;
+    public const Square Nothing = null;
+}
+
+public struct Linked
+{
+    public Linked[] Next;
+    public static Linked First;
+}
+
+public class Overloads
+{
+    public void Take(int value) { }
+    public void Take(ref int value) { }
+    public void Take(int? value) { }
+    public void Take<T>(T value) { }
+    public void Take(string text, int count) { }
+}

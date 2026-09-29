@@ -23,8 +23,10 @@ internal class FullPackResolver : IPackResolver
 
         /* The checks need every member named and every type in a declaration resolved. ModifierChecker
          * comes first, since it takes off each modifier a member cannot have, so that the others see only
-         * what the member may have and do not report again what follows from a wrong modifier. Otherwise
-         * their order only decides the order of messages found on the same line. */
+         * what the member may have and do not report again what follows from a wrong modifier.
+         * InheritedConstraintResolver comes before the checks which compare types, since they read the
+         * constraints overrides and explicit implementations take from what they override or implement.
+         * Otherwise their order only decides the order of messages found on the same line. */
         new ModifierChecker().ResolvePack(context);
         new ImportChecker().ResolvePack(context);
         new MemberPlacementChecker().ResolvePack(context);
@@ -32,5 +34,13 @@ internal class FullPackResolver : IPackResolver
         new OperatorDeclarationChecker().ResolvePack(context);
         new InheritanceChecker().ResolvePack(context);
         new DeclarationNameChecker().ResolvePack(context);
+        new InheritedConstraintResolver().ResolvePack(context);
+        new DuplicateSignatureChecker().ResolvePack(context);
+        new OperatorTypeChecker().ResolvePack(context);
+        new OverrideChecker().ResolvePack(context);
+        new InterfaceImplementationChecker().ResolvePack(context);
+        new ConstraintChecker().ResolvePack(context);
+        new FieldTypeChecker().ResolvePack(context);
+        new StaticClassUsageChecker().ResolvePack(context);
     }
 }

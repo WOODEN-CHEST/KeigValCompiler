@@ -1,0 +1,95 @@
+/* Declaration check test source file, for the types operators take and return, and the operators
+ * declared in pairs. Every error in here is deliberate. The directory parses cleanly, so that
+ * resolution runs at all, and the point is that each mistake is reported once, where it is, without
+ * errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 20 errors:
+ *
+ *   line 38 RTMC error 32   unary - taking an int
+ *   line 39 RTMC error 33   * taking two ints
+ *   line 40 RTMC error 34   << shifting an int
+ *   line 41 RTMC error 35   ++ returning an int
+ *   line 42 RTMC error 36   a conversion between int and string
+ *   line 43 RTMC error 37   a conversion to an interface
+ *   line 44 RTMC error 38   a conversion to object
+ *   line 45 RTMC error 40   == without !=
+ *   line 46 RTMC error 40   < and > with different return types, reported on each
+ *   line 47 RTMC error 40   likewise
+ *   line 55 RTMC error 39   a conversion from Meters? to Meters
+ *   line 62 RTMC error 38   a conversion to the base class
+ *   line 67 RTMC error 35   ++ returning the nullable form
+ *   line 68 RTMC error 35   -- taking the nullable form
+ *   line 73 RTMC error 35   ++ taking the parameter but not returning it
+ *   line 78 RTMC error 35   ++ returning a type deriving through an interface
+ *   line 85 RTMC error 33   a parameter constrained to the interface, in an operator which is not abstract
+ *   line 86 RTMC error 32   likewise, unary
+ *   line 92 RS error 2      the partner not resolving, but no unpaired error
+ *   line 94 RTMC error 23   the partner with a wrong count, but no unpaired error
+ */
+
+using KGVL;
+namespace Test.OperatorTypes;
+
+public class Money
+{
+    public static Money operator -(int value) => null;
+    public static Money operator *(int left, int right) => null;
+    public static Money operator <<(int value, Money shift) => shift;
+    public static int operator ++(Money value) => 0;
+    public static implicit operator int(string text) => 0;
+    public static implicit operator IComparable<int>(Money value) => null;
+    public static explicit operator object(Money value) => null;
+    public static bool operator ==(Money left, Money right) => true;
+    public static bool operator <(Money left, Money right) => true;
+    public static int operator >(Money left, Money right) => 0;
+    public static Money operator +(Money left, int right) => left;
+    public static Money operator >>(Money value, string shift) => value;
+}
+
+public struct Meters
+{
+    public static Meters operator -(Meters? value) => value.Value;
+    public static implicit operator Meters(Meters? value) => value.Value;
+}
+
+public class Base { }
+
+public class Derived : Base
+{
+    public static implicit operator Base(Derived value) => value;
+}
+
+public struct Stepped
+{
+    public static Stepped? operator ++(Stepped value) => value;
+    public static Stepped operator --(Stepped? value) => default;
+}
+
+public interface IStepping<T> where T : IStepping<T>
+{
+    static abstract IStepping<T> operator ++(T value);
+}
+
+public interface IRelated
+{
+    static IRelatedDerived operator ++(IRelated value) => null;
+}
+
+public interface IRelatedDerived : IRelated { }
+
+public interface IPlain<T> where T : IPlain<T>
+{
+    static IPlain<T> operator +(T left, T right) => left;
+    static IPlain<T> operator -(T value) => null;
+}
+
+public class Cash
+{
+    public static bool operator ==(Cash left, Cash right) => true;
+    public static Unknown operator !=(Cash left, Cash right) => null;
+    public static bool operator <(Cash left, Cash right) => true;
+    public static bool operator >(Cash left) => true;
+}

@@ -3,6 +3,7 @@ using KeigValCompiler.Main.Commandline;
 using KeigValCompiler.Semantician;
 using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Resolver;
+using KeigValCompiler.Semantician.Types;
 using KeigValCompiler.Source;
 using KeigValCompiler.Source.Parser;
 using System.Diagnostics;
@@ -130,12 +131,17 @@ public static class Compiler
     {
         CompilerMessageCollection Messages = new();
         BuiltInTypeRegistry Registry = new();
+        SemanticTypeReader TypeReader = new(Registry);
+        GenericConstraintReader Constraints = new(TypeReader);
         PackResolutionContext Context = new()
         {
             Pack = pack,
             Registry = Registry,
             TypeSearcher = new(pack),
-            TypeReader = new(Registry),
+            TypeReader = TypeReader,
+            Constraints = Constraints,
+            Hierarchy = new(TypeReader, Constraints, Registry),
+            SignatureReader = new(TypeReader),
             BindingTable = DefaultLibraryBindings.CreateTable(),
             IdentifierGenerator = new(),
             ErrorCreator = errorCreator,

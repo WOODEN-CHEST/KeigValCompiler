@@ -7,7 +7,7 @@ namespace KeigValCompiler.Semantician.Resolver;
  * operator has operands, those are plain values, and it produces one. An interface's equality, inequality
  * and conversion operators are abstract or virtual. That an operator is public and static is a matter of
  * its modifiers, which ModifierChecker checks. Which types the parameters have, and which operators have
- * to be declared in pairs, need types compared and are not checked here. */
+ * to be declared in pairs, are OperatorTypeChecker's to check. */
 internal class OperatorDeclarationChecker : IPackResolver
 {
     // Private methods.

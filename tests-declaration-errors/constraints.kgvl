@@ -1,0 +1,102 @@
+/* Declaration check test source file, for generic constraints, and the type arguments which have to
+ * satisfy them. Every error in here is deliberate. The directory parses cleanly, so that resolution
+ * runs at all, and the point is that each mistake is reported once, where it is, without errors which
+ * only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 23 errors:
+ *
+ *   line 44 GE error 13     class after an interface
+ *   line 45 GE error 13     struct after class
+ *   line 46 GE error 14     a class after an interface
+ *   line 47 GE error 15     a sealed class
+ *   line 48 GE error 15     a structure
+ *   line 49 GE error 15     object
+ *   line 50 GE error 16     one interface twice
+ *   line 51 GE error 17     T and U constrained to each other, each reported
+ *   line 51 GE error 17     T and U constrained to each other, each reported
+ *   line 52 GE error 18     a class with struct
+ *   line 61 GE error 19     int for class
+ *   line 62 GE error 19     string for struct
+ *   line 63 GE error 19     int? for struct
+ *   line 64 GE error 19     a class not implementing IMarker
+ *   line 66 GE error 19     a class not implementing IComparable<Open>
+ *   line 67 GE error 19     string for struct, inside another type argument
+ *   line 77 GE error 20     an override restating a constraint
+ *   line 91 GE error 21     an override saying class of a parameter constrained to struct
+ *   line 92 GE error 22     an override saying struct of an unconstrained parameter
+ *   line 95 GE error 20     an override restating constraints, reported once each
+ *   line 95 GE error 20     an override restating constraints, reported once each
+ *   line 98 GE error 23     a parameter constrained to a struct-constrained one
+ *   line 102 GE error 24    classes through parameters which do not derive from each other
+ */
+
+using KGVL;
+namespace Test.Constraints;
+
+public class Open { }
+public sealed class Closed { }
+public interface IMarker { }
+public struct Point { }
+
+public class Order<T> where T : IMarker, class { }
+public class TwoSpecial<T> where T : class, struct { }
+public class ClassLate<T> where T : IMarker, Open { }
+public class SealedConstraint<T> where T : Closed { }
+public class StructConstraint<T> where T : Point { }
+public class ObjectConstraint<T> where T : object { }
+public class Twice<T> where T : IMarker, IMarker { }
+public class Circular<T, U> where T : U where U : T { }
+public class ClassAndStruct<T> where T : struct, Open { }
+
+public class NeedsClass<T> where T : class { }
+public class NeedsStruct<T> where T : struct { }
+public class NeedsMarker<T> where T : IMarker { }
+public class NeedsComparable<T> where T : IComparable<T> { }
+
+public class Uses
+{
+    public NeedsClass<int> A;
+    public NeedsStruct<string> B;
+    public NeedsStruct<int?> C;
+    public NeedsMarker<Open> D;
+    public NeedsComparable<int> E;
+    public NeedsComparable<Open> F;
+    public NeedsClass<NeedsStruct<string>> G;
+}
+
+public abstract class Generic
+{
+    public abstract void Method<T>() where T : IMarker;
+}
+
+public class Restating : Generic
+{
+    public override void Method<T>() where T : IMarker { }
+}
+
+public abstract class Restatable
+{
+    public abstract void Value<T>() where T : struct;
+    public abstract void Free<T>();
+    public abstract void Reference<T>() where T : class;
+    public abstract void Typed<T>() where T : Open;
+    public abstract void Pairs<T, U>();
+}
+
+public class Restated : Restatable
+{
+    public override void Value<T>() where T : class { }
+    public override void Free<T>() where T : struct { }
+    public override void Reference<T>() where T : class { }
+    public override void Typed<T>() where T : class { }
+    public override void Pairs<T, U>() where T : U where U : T { }
+}
+
+public class StructParameter<T, U> where U : struct where T : U { }
+
+public class Unrelated { }
+
+public class ConflictingClasses<T, A, B> where A : Open where B : Unrelated where T : A, B { }

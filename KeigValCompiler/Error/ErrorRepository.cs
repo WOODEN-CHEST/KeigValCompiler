@@ -120,6 +120,18 @@ internal class ErrorRepository
         "The namespace \"{0}\" cannot hold the {1} \"{2}\", which implements a member of \"{3}\" explicitly. " +
         "Only a type can implement an interface");
 
+    internal virtual ErrorDefinition ConstantTypeNotConstant { get; } = new(11,
+        CompilerMessageCategory.MemberGeneric,
+        $"The constant \"{{0}}\" has the type \"{{1}}\", whose values cannot be fixed when the code is " +
+        $"compiled. A constant is a number, a char, a bool, a string, an enum's value, or " +
+        $"\"{KGVL.KEYWORD_NULL}\" for any other reference type");
+
+    internal virtual ErrorDefinition StructContainsItself { get; } = new(12,
+        CompilerMessageCategory.MemberGeneric,
+        "The {0} \"{1}\" of the structure \"{2}\" has the type \"{3}\", so \"{2}\" would hold itself by value, " +
+        "through \"{4}\". A structure holds the values of its fields, and of the properties storing their own, " +
+        "directly, so one holding itself would have no end");
+
 
     /* Member modifier. */
     internal virtual ErrorDefinition DuplicateModifiers { get; } = new(1,
@@ -490,6 +502,76 @@ internal class ErrorRepository
     internal virtual ErrorDefinition GenericParameterNamedLikeHolder { get; } = new(12,
         CompilerMessageCategory.Generics,
         "The generic parameter \"{0}\" has the same name as the {1} declaring it");
+
+    internal virtual ErrorDefinition SpecialConstraintNotFirst { get; } = new(13,
+        CompilerMessageCategory.Generics,
+        $"The constraint \"{{0}}\" of the generic parameter \"{{1}}\" has to be its first, and its only " +
+        $"one of \"{KGVL.KEYWORD_CLASS}\", \"{KGVL.KEYWORD_STRUCT}\" and \"{KGVL.KEYWORD_NOTNULL}\"");
+
+    internal virtual ErrorDefinition ClassConstraintNotFirst { get; } = new(14,
+        CompilerMessageCategory.Generics,
+        $"The class \"{{0}}\" constrains the generic parameter \"{{1}}\", so it has to be its only class " +
+        $"constraint, and come before its other constraints but \"{KGVL.KEYWORD_CLASS}\", " +
+        $"\"{KGVL.KEYWORD_STRUCT}\" or \"{KGVL.KEYWORD_NOTNULL}\"");
+
+    internal virtual ErrorDefinition InvalidConstraintType { get; } = new(15,
+        CompilerMessageCategory.Generics,
+        $"\"{{0}}\" cannot constrain the generic parameter \"{{1}}\". A constraint is an interface, another " +
+        $"generic parameter, or a class which is neither sealed, static nor \"{KGVL.KEYWORD_OBJECT}\", since " +
+        "only those leave more than one type able to satisfy it");
+
+    internal virtual ErrorDefinition DuplicateConstraint { get; } = new(16,
+        CompilerMessageCategory.Generics,
+        "The generic parameter \"{0}\" is constrained to \"{1}\" more than once");
+
+    internal virtual ErrorDefinition CircularConstraint { get; } = new(17,
+        CompilerMessageCategory.Generics,
+        "The generic parameter \"{0}\" is constrained to itself, as in \"{1}\"");
+
+    internal virtual ErrorDefinition ClassConstraintWithSpecial { get; } = new(18,
+        CompilerMessageCategory.Generics,
+        "The generic parameter \"{0}\" is constrained to the class \"{1}\", so it cannot also be " +
+        "constrained to \"{2}\": the class decides already what kind of type it is");
+
+    internal virtual ErrorDefinition ConstraintNotSatisfied { get; } = new(19,
+        CompilerMessageCategory.Generics,
+        "\"{0}\" cannot stand for the generic parameter \"{1}\" in \"{2}\", since it does not satisfy the " +
+        "constraint \"{3}\" of \"{1}\"");
+
+    internal virtual ErrorDefinition OverrideRestatesConstraint { get; } = new(20,
+        CompilerMessageCategory.Generics,
+        $"The generic parameter \"{{0}}\" of \"{{1}}\" cannot be constrained to \"{{2}}\". A function which " +
+        "overrides another or implements one explicitly takes its generic parameters' constraints from it, " +
+        $"so it can only say \"{KGVL.KEYWORD_CLASS}\" or \"{KGVL.KEYWORD_STRUCT}\", to tell what a " +
+        $"'{KGVL.TYPE_NULLABLE_INDICATOR}' on one of them means");
+
+    internal virtual ErrorDefinition RestatedClassConstraint { get; } = new(21,
+        CompilerMessageCategory.Generics,
+        $"The generic parameter \"{{0}}\" of \"{{1}}\" says \"{KGVL.KEYWORD_CLASS}\", but the one of " +
+        "\"{2}\" in \"{3}\", which it takes its constraints from, is not constrained to be a reference type");
+
+    internal virtual ErrorDefinition RestatedStructConstraint { get; } = new(22,
+        CompilerMessageCategory.Generics,
+        $"The generic parameter \"{{0}}\" of \"{{1}}\" says \"{KGVL.KEYWORD_STRUCT}\", but the one of " +
+        "\"{2}\" in \"{3}\", which it takes its constraints from, is not constrained to be a value type which " +
+        "is not nullable");
+
+    internal virtual ErrorDefinition StructParameterAsConstraint { get; } = new(23,
+        CompilerMessageCategory.Generics,
+        $"The generic parameter \"{{0}}\" cannot be constrained to \"{{1}}\", which is constrained to " +
+        $"\"{KGVL.KEYWORD_STRUCT}\": nothing derives from a value type, so only \"{{1}}\" itself could " +
+        "satisfy it");
+
+    internal virtual ErrorDefinition ConflictingClassConstraints { get; } = new(24,
+        CompilerMessageCategory.Generics,
+        "The generic parameter \"{0}\" is constrained to both the class \"{1}\" and the class \"{2}\", through " +
+        "the generic parameters it is constrained to, and neither derives from the other, so no type could " +
+        "satisfy both");
+
+    internal virtual ErrorDefinition StaticClassAsTypeArgument { get; } = new(25,
+        CompilerMessageCategory.Generics,
+        "The {0} \"{1}\" gives the static class \"{2}\" as a type argument, in \"{3}\". A static class has no " +
+        "instances, so no generic parameter can stand for it");
 
 
     /* Return typed members common. */
@@ -934,6 +1016,80 @@ internal class ErrorRepository
         "when none of its accessors has a body, or builtin, or when it belongs to a property which stores its " +
         "own value, which any property but an interface's instance property can. An indexer cannot store values");
 
+    internal virtual ErrorDefinition UnaryOperatorParameterType { get; } = new(32,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" has to take a \"{2}\" as its operand: the type it is declared in or, in an " +
+        "interface's abstract or virtual operator, a generic parameter constrained to the interface, a value " +
+        "type's nullable form counting as the type");
+
+    internal virtual ErrorDefinition BinaryOperatorParameterType { get; } = new(33,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" has to take a \"{2}\" as one of its operands: the type it is declared in or, in " +
+        "an interface's abstract or virtual operator, a generic parameter constrained to the interface, a " +
+        "value type's nullable form counting as the type");
+
+    internal virtual ErrorDefinition ShiftOperatorParameterType { get; } = new(34,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" has to take a \"{2}\" as its left operand, the value shifted: the type it is " +
+        "declared in or, in an interface's abstract or virtual operator, a generic parameter constrained to " +
+        "the interface, a value type's nullable form counting as the type. The right operand, how far to " +
+        "shift, can be of any type");
+
+    internal virtual ErrorDefinition IncrementReturnType { get; } = new(35,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" has to return what it takes, \"{2}\", or a class deriving from it, since its " +
+        "result replaces its operand. An interface's abstract or virtual operator taking the interface can " +
+        "also return a generic parameter constrained to it");
+
+    internal virtual ErrorDefinition ConversionNotContaining { get; } = new(36,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" has to convert from or to \"{2}\": the type it is declared in or, in an " +
+        "interface's abstract or virtual conversion, a generic parameter constrained to the interface, a " +
+        "value type's nullable form counting as the type");
+
+    internal virtual ErrorDefinition ConversionInterface { get; } = new(37,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" converts from or to the interface \"{2}\". Conversions from and to interfaces " +
+        "are the language's own, so none can be declared");
+
+    internal virtual ErrorDefinition ConversionBaseOrDerived { get; } = new(38,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" converts between \"{2}\" and \"{3}\", one of which derives from the other. " +
+        "Conversions between a type and the types it derives from are the language's own, so none can be " +
+        "declared");
+
+    internal virtual ErrorDefinition ConversionIdentity { get; } = new(39,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} of \"{1}\" converts \"{2}\" to itself, which needs no conversion");
+
+    internal virtual ErrorDefinition UnpairedOperator { get; } = new(40,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        $"The {{0}} of \"{{1}}\" has no matching {{2}} with the same parameter and return types. The " +
+        $"operators {KGVL.OPERATOR_EQUALS} and {KGVL.OPERATOR_NOT_EQUALS}, {KGVL.OPERATOR_LESS_THAN} and " +
+        $"{KGVL.OPERATOR_LARGER_THAN}, and {KGVL.OPERATOR_LESS_OR_EQUAL} and " +
+        $"{KGVL.OPERATOR_LARGER_OR_EQUAL} are declared in pairs, so that either one of a pair can be used " +
+        "wherever the other can");
+
+    internal virtual ErrorDefinition StaticClassAsType { get; } = new(41,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} \"{1}\" has the type \"{2}\", which is a static class. A static class has no instances, so " +
+        "nothing can hold one");
+
+    internal virtual ErrorDefinition StaticClassAsReturnType { get; } = new(42,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} \"{1}\" returns \"{2}\", which is a static class. A static class has no instances, so nothing " +
+        "can return one");
+
+    internal virtual ErrorDefinition StaticClassAsParameterType { get; } = new(43,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The parameter \"{0}\" of the {1} \"{2}\" has the type \"{3}\", which is a static class. A static class " +
+        "has no instances, so none can be passed");
+
+    internal virtual ErrorDefinition StaticClassAsArrayElement { get; } = new(44,
+        CompilerMessageCategory.ReturnTypedMembersCommon,
+        "The {0} \"{1}\" names an array of the static class \"{2}\", in \"{3}\". A static class has no " +
+        "instances, so there can be no array of them");
+
 
     /* Statements. */
     internal virtual ErrorDefinition ExpectedStatementEnd { get; } = new(1,
@@ -1236,6 +1392,149 @@ internal class ErrorRepository
         $"'{KGVL.TYPE_NULLABLE_INDICATOR}'. An explicit implementation names the interface itself, though its " +
         "type arguments can be anything");
 
+    internal virtual ErrorDefinition DuplicateSignature { get; } = new(20,
+        CompilerMessageCategory.Resolution,
+        $"The {{0}} \"{{1}}\" has the same parameters as the one declared in \"{{2}}\" on line {{3}}, so a " +
+        $"call could not tell them apart. Overloads have to differ in their numbers of generic " +
+        $"parameters, their parameters' types, or which parameters are passed by reference; return types, " +
+        $"parameter names and \"{KGVL.KEYWORD_PARAMS}\" do not count, and neither do \"{KGVL.KEYWORD_REF}\", " +
+        $"\"{KGVL.KEYWORD_OUT}\" and \"{KGVL.KEYWORD_IN}\" against each other");
+
+    internal virtual ErrorDefinition DuplicateConversion { get; } = new(21,
+        CompilerMessageCategory.Resolution,
+        "The {0} of \"{1}\" converts between the same types as the one declared in \"{2}\" on line {3}. " +
+        "There can be only one conversion from one type to another, whether implicit or explicit");
+
+    internal virtual ErrorDefinition NothingToOverride { get; } = new(22,
+        CompilerMessageCategory.Resolution,
+        $"The {{0}} \"{{1}}\" is marked \"{KGVL.KEYWORD_OVERRIDE}\", but no class \"{{2}}\" derives from " +
+        "has a {0} of that name and signature which it can see and override");
+
+    internal virtual ErrorDefinition OverrideNotVirtual { get; } = new(23,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" overrides the one of \"{2}\", which is not virtual, abstract or an override " +
+        "itself, so it cannot be overridden");
+
+    internal virtual ErrorDefinition OverrideSealed { get; } = new(24,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" overrides the one of \"{2}\", which is sealed, so that nothing deriving from " +
+        "\"{2}\" can override it");
+
+    internal virtual ErrorDefinition OverrideReturnType { get; } = new(25,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" has the type \"{2}\", but the one of \"{3}\" it overrides has the type \"{4}\". An " +
+        "override has the same type, or, for a function, or a property or indexer without a setter, a class or " +
+        "interface deriving from that type");
+
+    internal virtual ErrorDefinition OverrideAccess { get; } = new(26,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" is {2}, but the one of \"{3}\" it overrides is {4}. An override keeps the access " +
+        "of what it overrides");
+
+    internal virtual ErrorDefinition OverrideMissingAccessor { get; } = new(27,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" overrides its \"{2}\" accessor, but the one of \"{3}\" it overrides has no such " +
+        "accessor, of its own or inherited, which it can see and override");
+
+    internal virtual ErrorDefinition AbstractMemberNotImplemented { get; } = new(28,
+        CompilerMessageCategory.Resolution,
+        "The class \"{0}\" is not abstract, but does not override the abstract {1} \"{2}\" it inherits from " +
+        "\"{3}\". Every abstract member a class inherits needs a body, which an override in the class, or " +
+        "in a class between the two, supplies");
+
+    internal virtual ErrorDefinition InterfaceMemberNotImplemented { get; } = new(29,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\". A type implementing an interface " +
+        "needs a public member matching each abstract member of it, or one implementing it explicitly");
+
+    internal virtual ErrorDefinition InterfaceImplementationNotPublic { get; } = new(30,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": its {2} of that name and signature " +
+        "is not public, as one implementing an interface's member has to be unless it names the interface");
+
+    internal virtual ErrorDefinition InterfaceImplementationStatic { get; } = new(31,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": its {2} of that name and signature " +
+        "is static where the interface's is not, or the other way round");
+
+    internal virtual ErrorDefinition InterfaceImplementationType { get; } = new(32,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": its {2} of that name and signature " +
+        "has the type \"{5}\", where the interface's has \"{6}\"");
+
+    internal virtual ErrorDefinition InterfaceImplementationAccessor { get; } = new(33,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": the interface's has a \"{5}\" " +
+        "accessor, and its own has no public one");
+
+    internal virtual ErrorDefinition ExplicitInterfaceNotImplemented { get; } = new(34,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" implements a member of \"{1}\" explicitly, but \"{2}\" does not list \"{1}\" among the types " +
+        "it derives from, nor an interface deriving from it. Implementing explicitly an interface which only a " +
+        "base class lists takes listing it again");
+
+    internal virtual ErrorDefinition ExplicitMemberNotInInterface { get; } = new(35,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" implements a member of \"{1}\" explicitly, but \"{1}\" has no {2} of that name, signature " +
+        "and staticness which can be implemented: one which is neither private nor sealed, and when static, " +
+        "is abstract or virtual");
+
+    internal virtual ErrorDefinition DuplicateBaseInterface { get; } = new(36,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" lists \"{2}\" more than once among the types it derives from");
+
+    internal virtual ErrorDefinition OverrideAmbiguous { get; } = new(37,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" could override more than one {0} of \"{2}\", such as \"{3}\", since they take the same " +
+        "parameters once the generic parameters of \"{2}\" are given types, so which it overrides is unknown");
+
+    internal virtual ErrorDefinition OverrideHiddenByOtherKind { get; } = new(38,
+        CompilerMessageCategory.Resolution,
+        $"The {{0}} \"{{1}}\" is marked \"{KGVL.KEYWORD_OVERRIDE}\", but the nearest member of its name, in " +
+        "\"{2}\", is a {3}, which hides whatever further back it could override");
+
+    internal virtual ErrorDefinition HidesAbstractMember { get; } = new(39,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" hides the abstract {2} of the same name which \"{3}\" inherits from \"{4}\". An " +
+        "abstract member cannot be hidden, since nothing deriving from \"{3}\" could then give it a body");
+
+    internal virtual ErrorDefinition AbstractAccessorNotImplemented { get; } = new(40,
+        CompilerMessageCategory.Resolution,
+        "The class \"{0}\" is not abstract, but does not override the \"{1}\" accessor of the abstract {2} " +
+        "\"{3}\" it inherits from \"{4}\". Every abstract accessor a class inherits needs a body, which an " +
+        "override in the class, or in a class between the two, supplies");
+
+    internal virtual ErrorDefinition NoMostSpecificImplementation { get; } = new(41,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": both \"{5}\" and \"{6}\" implement it " +
+        "or make it abstract again, and neither derives from the other, so neither decides. A type " +
+        "implementing both has to implement it itself");
+
+    internal virtual ErrorDefinition ImplementationConstraints { get; } = new(42,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" implements the function \"{2}\" of \"{3}\" with a function whose generic parameter " +
+        "\"{4}\" is constrained differently from the interface's \"{5}\". An implementation keeps the " +
+        "constraints of what it implements; one implementing it explicitly takes them without restating them");
+
+    internal virtual ErrorDefinition ExplicitImplementationType { get; } = new(43,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" implements the {1} \"{2}\" of \"{3}\" explicitly, but has the type \"{4}\", where the " +
+        "interface's has \"{5}\"");
+
+    internal virtual ErrorDefinition ExplicitImplementationMissingAccessor { get; } = new(44,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" implements a {1} of \"{2}\" explicitly, but has no \"{3}\" accessor, which the interface's has");
+
+    internal virtual ErrorDefinition ExplicitImplementationExtraAccessor { get; } = new(45,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" implements a {1} of \"{2}\" explicitly, but has a \"{3}\" accessor, which the interface's " +
+        "does not");
+
+    internal virtual ErrorDefinition UnifyingInterfaces { get; } = new(46,
+        CompilerMessageCategory.Resolution,
+        "The {0} \"{1}\" cannot implement both \"{2}\" and \"{3}\", since some types for its generic " +
+        "parameters would make them the same interface, whose members it could then not tell apart");
+
 
     /* Warnings. */
     internal virtual WarningDefinition DuplicateUsingDirective { get; } = new(1,
@@ -1249,4 +1548,42 @@ internal class ErrorRepository
         "The generic parameter \"{0}\" of the {1} \"{2}\" has the same name as a generic parameter of the {3} " +
         "\"{4}\" around it, which it hides: inside \"{2}\", \"{0}\" means only its own",
         CompilerMessageCategory.Generics);
+
+    internal virtual WarningDefinition MemberHidesInherited { get; } = new(1,
+        WarningSeverity.Normal,
+        $"The {{0}} \"{{1}}\" hides the {{2}} of the same name which \"{{3}}\" inherits from \"{{4}}\". If " +
+        $"hiding it is meant, mark it \"{KGVL.KEYWORD_NEW}\"",
+        CompilerMessageCategory.Resolution);
+
+    internal virtual WarningDefinition MemberHidesVirtual { get; } = new(2,
+        WarningSeverity.Normal,
+        $"The {{0}} \"{{1}}\" hides the virtual {{2}} of the same name which \"{{3}}\" inherits from " +
+        $"\"{{4}}\". To replace it wherever it is used, mark it \"{KGVL.KEYWORD_OVERRIDE}\"; to only hide " +
+        $"it, mark it \"{KGVL.KEYWORD_NEW}\"",
+        CompilerMessageCategory.Resolution);
+
+    internal virtual WarningDefinition NewHidesNothing { get; } = new(3,
+        WarningSeverity.Minor,
+        $"The {{0}} \"{{1}}\" is marked \"{KGVL.KEYWORD_NEW}\", but hides nothing it inherits, so " +
+        $"\"{KGVL.KEYWORD_NEW}\" can be taken off",
+        CompilerMessageCategory.Resolution);
+
+    internal virtual WarningDefinition DuplicateInterfaceAnnotations { get; } = new(4,
+        WarningSeverity.Normal,
+        $"The {{0}} \"{{1}}\" lists \"{{2}}\", which it lists already as \"{{3}}\". The two differ only in " +
+        $"their '{KGVL.TYPE_NULLABLE_INDICATOR}' annotations, so they are one interface",
+        CompilerMessageCategory.Resolution);
+
+    internal virtual WarningDefinition StaticClassReturnedInInterface { get; } = new(1,
+        WarningSeverity.Normal,
+        "The {0} \"{1}\" has the type \"{2}\", which is a static class. A static class has no instances, so " +
+        "nothing but null can be of its type. Anywhere but in an interface, this is an error",
+        CompilerMessageCategory.ReturnTypedMembersCommon);
+
+    internal virtual WarningDefinition StaticClassTakenInInterface { get; } = new(2,
+        WarningSeverity.Normal,
+        "The parameter \"{0}\" of the {1} \"{2}\" has the type \"{3}\", which is a static class. A static " +
+        "class has no instances, so nothing but null can be passed. Anywhere but in an interface, this is an " +
+        "error",
+        CompilerMessageCategory.ReturnTypedMembersCommon);
 }

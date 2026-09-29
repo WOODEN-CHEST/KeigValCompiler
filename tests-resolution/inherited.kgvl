@@ -1,0 +1,275 @@
+/* What the checks of inherited members, interface implementation and constraints have to accept, since C#
+ * accepts it, each a case those checks once rejected: accessors an override inherits rather than declares;
+ * implementations found past members which cannot implement; default implementations decided by the most
+ * specific interface; covariant returns to object and from get-only indexers; parameters which are
+ * reference types through other parameters; records' positional parameters standing for properties;
+ * hiding which counts generic parameters and how parameters are passed; conversions involving generic
+ * parameters; operators on the nullable forms of parameters constrained to their interface; operators
+ * paired however they take their parameters; overrides and explicit implementations using the
+ * constraints they take; an implementation keeping its interface's constraints; and generic structures
+ * which do not hold what holds them. Part of tests-resolution, so it has to compile with zero errors and
+ * no warnings. */
+
+using KGVL;
+namespace Game.Inherited;
+
+/* Accessors an override does not declare are inherited from what it overrides. */
+public abstract class Gauge
+{
+    public abstract int Level { get; set; }
+    public virtual int Limit { get; set; }
+    public abstract int this[int index] { get; set; }
+}
+
+public abstract class HalfGauge : Gauge
+{
+    public override int Level { set { } }
+    public override int Limit { get => 1; }
+    public override int this[int index] { set { } }
+}
+
+public class FullGauge : HalfGauge
+{
+    public override int Level { get => 0; }
+    public override int Limit { set { } }
+    public override int this[int index] { get => 0; }
+}
+
+public interface ILevelled
+{
+    int Level { get; set; }
+}
+
+public class LevelBase
+{
+    public virtual int Level { get; set; }
+}
+
+public class Levelled : LevelBase, ILevelled
+{
+    public override int Level { get => 0; }
+}
+
+/* A member which cannot implement an interface's member does not stop the search for one which can. */
+public interface IRun
+{
+    void Run();
+    int Speed();
+    int Pace();
+}
+
+public class Runner
+{
+    public void Run() { }
+    public int Speed() => 0;
+    public int Pace() => 0;
+}
+
+public class Hurdler : Runner, IRun
+{
+    new void Run() { }
+    public new long Speed() => 0;
+    public static new int Pace() => 0;
+}
+
+/* The interface deriving from all others which give a member a body, or make it abstract again, decides. */
+public interface IBase
+{
+    void Act();
+}
+
+public interface IFirst : IBase
+{
+    void IBase.Act() { }
+}
+
+public interface ISecond : IBase
+{
+    void IBase.Act() { }
+}
+
+public interface IAgain : IFirst
+{
+    abstract void IBase.Act();
+}
+
+public interface IRestored : IAgain
+{
+    void IBase.Act() { }
+}
+
+public class Restored : IAgain, IRestored { }
+
+public class BothBodies : IFirst, ISecond
+{
+    public void Act() { }
+}
+
+/* Covariant returns, to object from an interface or a class-constrained parameter, and from a get-only
+ * indexer. */
+public interface IToken { }
+
+public class Source
+{
+    public virtual object Make() => null;
+    public virtual object Made { get; }
+    public virtual object this[int index] { get => null; }
+}
+
+public class TokenSource : Source
+{
+    public override IToken Make() => null;
+    public override IToken Made => null;
+    public override string this[int index] { get => null; }
+}
+
+public class Maker<T> where T : class
+{
+    public virtual object Make() => null;
+}
+
+public class SelfMaker<T> : Maker<T> where T : class
+{
+    public override T Make() => null;
+}
+
+/* A parameter constrained to one constrained to a class is a reference type. */
+public class Anchor { }
+
+public class NeedsReference<X> where X : class { }
+
+public class Chained<T, U> where T : U where U : Anchor
+{
+    public NeedsReference<T> Field;
+}
+
+public class AnchorSource
+{
+    public virtual Anchor Get() => null;
+}
+
+public class ChainedSource<T, U> : AnchorSource where T : U where U : Anchor
+{
+    public override T Get() => null;
+}
+
+/* Records' positional parameters stand for properties. */
+public interface IHasNumber
+{
+    int Number { get; }
+}
+
+public record Numbered(int Number) : IHasNumber;
+
+public abstract record Labelled
+{
+    public abstract string Label { get; init; }
+}
+
+public record Tag(string Label) : Labelled;
+
+/* Hiding counts generic parameters, and how each parameter is passed. */
+public class Hidden
+{
+    public void Deep<T>() { }
+    public class Shallow<T> { }
+    public int Wide;
+    public class Tall<T> { }
+    public class Short { }
+    public void Passed(ref int value) { }
+    public virtual void Virtual(ref int value) { }
+}
+
+public class Hiding : Hidden
+{
+    public class Deep { }
+    public void Shallow() { }
+    public class Wide<T> { }
+    public class Tall<T, U> { }
+    public class Short<T> { }
+    public void Passed(out int value) { value = 0; }
+    public void Virtual(in int value) { }
+}
+
+/* Conversions between a type and a generic parameter take the parameter to derive from nothing. */
+public class SelfConverting<T> where T : SelfConverting<T>
+{
+    public static implicit operator SelfConverting<T>(T value) => null;
+}
+
+public class Unwrapping<T> where T : Unwrapping<T>
+{
+    public static implicit operator T(Unwrapping<T> value) => null;
+}
+
+/* A nullable form of a parameter constrained to the interface counts as the interface. */
+public interface INumeric<T> where T : struct, INumeric<T>
+{
+    static abstract T operator -(T? value);
+    static abstract T operator +(T? left, int right);
+    static abstract implicit operator T?(int value);
+    static abstract T? operator --(T? value);
+    static abstract int operator <<(T? value, int shift);
+}
+
+/* Operators in pairs are paired by their types, however each takes its parameters. */
+public struct Paired
+{
+    public static bool operator ==(in Paired left, in Paired right) => true;
+    public static bool operator !=(Paired left, Paired right) => false;
+}
+
+/* Overrides and explicit implementations take their generic parameters' constraints. */
+public interface IMarked { }
+
+public class NeedsValue<T> where T : struct { }
+
+public class NeedsMarked<T> where T : IMarked { }
+
+public abstract class Constrained
+{
+    public abstract void Reference<T>(NeedsReference<T> value) where T : class;
+    public abstract void Value<T>(NeedsValue<T> value) where T : struct;
+    public abstract NeedsMarked<T> Marked<T>() where T : IMarked;
+}
+
+public class ConstrainedOverride : Constrained
+{
+    public override void Reference<T>(NeedsReference<T> value) where T : class { }
+    public override void Value<T>(NeedsValue<T> value) { }
+    public override NeedsMarked<T> Marked<T>() => null;
+}
+
+public interface IConstrained
+{
+    void Value<T>(NeedsValue<T> value) where T : struct;
+}
+
+public class ConstrainedExplicit : IConstrained
+{
+    void IConstrained.Value<T>(NeedsValue<T> value) { }
+}
+
+/* An implementation keeping the interface's constraints, in any order. */
+public interface IOrdered
+{
+    void Sort<T, U>() where T : U, IMarked where U : class;
+}
+
+public class Ordered : IOrdered
+{
+    public void Sort<A, B>() where A : IMarked, B where B : class { }
+}
+
+/* Structures holding generic structures which never hold them back. */
+public struct Cell<T>
+{
+    public T Value;
+}
+
+public struct Grid
+{
+    public Cell<Cell<int>> Corner;
+    public Cell<Cell<int>> Edge;
+    public Cell<Anchor> Reference;
+}

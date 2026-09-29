@@ -1,0 +1,219 @@
+/* Declaration check test source file, for implementing interfaces, and naming them in explicit
+ * implementations. Every error in here is deliberate. The directory parses cleanly, so that resolution
+ * runs at all, and the point is that each mistake is reported once, where it is, without errors which
+ * only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 275 errors and 14 warnings. Expected from this
+ * file, 33 errors:
+ *
+ *   line 57 RS error 29     three abstract members not implemented, each reported
+ *   line 57 RS error 29     three abstract members not implemented, each reported
+ *   line 57 RS error 29     three abstract members not implemented, each reported
+ *   line 61 RS error 30     a private implementation, and a private set accessor
+ *   line 61 RS error 33     a private implementation, and a private set accessor
+ *   line 68 RS error 32     an implementation of another type, and an instance one of a static member
+ *   line 68 RS error 31     an implementation of another type, and an instance one of a static member
+ *   line 80 RS error 35     an explicit implementation of no member
+ *   line 81 RS error 34     an explicit implementation of an interface not implemented
+ *   line 89 RS error 29     a member made abstract again, not implemented
+ *   line 96 RS error 36     an interface listed twice
+ *   line 113 RS error 43    explicit implementation of the wrong type
+ *   line 114 RS error 43    likewise, for a property
+ *   line 115 RS error 44    explicit implementation missing an accessor
+ *   line 116 RS error 35    static implementation of an instance member
+ *   line 117 RS error 35    implementing a sealed member
+ *   line 118 RS error 35    implementing a private member
+ *   line 119 RS error 35    implementing a static member with a body
+ *   line 129 RS error 45    explicit implementation adding an accessor
+ *   line 144 RS error 34    an interface only the base class lists
+ *   line 152 RS error 29    an explicit conversion for an implicit one
+ *   line 177 RS error 29    made abstract again by the most specific interface
+ *   line 179 RS error 41    no most specific implementation
+ *   line 193 RS error 42    constraints differing from the interface's, each reported
+ *   line 193 RS error 42    constraints differing from the interface's, each reported
+ *   line 193 RS error 42    constraints differing from the interface's, each reported
+ *   line 193 RS error 42    constraints differing from the interface's, each reported
+ *   line 193 RS error 42    constraints differing from the interface's, each reported
+ *   line 203 RS error 46    interfaces which may unify, in an interface
+ *   line 205 RS error 46    likewise, in a class
+ *   line 209 RS error 15    an interface cycle
+ *   line 214 RS error 15    likewise
+ *   line 219 RS error 29    only the interface met first, not what it derives from
+ */
+
+using KGVL;
+namespace Test.Interfaces;
+
+public interface IShape
+{
+    int Area();
+    int Sides { get; set; }
+    string Describe() => "shape";
+    static abstract IShape Create();
+}
+
+public class Missing : IShape
+{
+}
+
+public class Hidden : IShape
+{
+    int Area() => 0;
+    public int Sides { get; private set; }
+    public static IShape Create() => null;
+}
+
+public class WrongType : IShape
+{
+    public long Area() => 0;
+    public int Sides { get; set; }
+    public IShape Create() => null;
+}
+
+public class Explicit : IShape
+{
+    int IShape.Area() => 0;
+    int IShape.Sides { get => 0; set { } }
+    static IShape IShape.Create() => null;
+    void IShape.Unknown() { }
+    bool IEquatable<int>.Equals(int other) => true;
+}
+
+public interface IReshaped : IShape
+{
+    abstract string IShape.Describe();
+}
+
+public class Reshaped : IReshaped
+{
+    public int Area() => 0;
+    public int Sides { get; set; }
+    public static IShape Create() => null;
+}
+
+public interface ITwice : IComparable<int>, IComparable<int>
+{
+}
+
+public interface IShown
+{
+    int Count();
+    int Size { get; }
+    int Both { get; set; }
+    void Instance();
+    sealed void Closed() { }
+    private void Hidden() { }
+    static void Plain() { }
+}
+
+public class Shown : IShown
+{
+    long IShown.Count() => 0;
+    long IShown.Size => 0;
+    int IShown.Both { get => 0; }
+    static void IShown.Instance() { }
+    void IShown.Closed() { }
+    void IShown.Hidden() { }
+    static void IShown.Plain() { }
+}
+
+public interface IExtra
+{
+    int Value { get; }
+}
+
+public class Extra : IExtra
+{
+    int IExtra.Value { get => 0; set { } }
+}
+
+public interface IOnce
+{
+    void Once();
+}
+
+public class OnceBase : IOnce
+{
+    public void Once() { }
+}
+
+public class OnceAgain : OnceBase
+{
+    void IOnce.Once() { }
+}
+
+public interface IConverts<TSelf> where TSelf : IConverts<TSelf>
+{
+    static abstract implicit operator TSelf(int value);
+}
+
+public struct Converted : IConverts<Converted>
+{
+    public static explicit operator Converted(int value) => default;
+}
+
+public interface IActing
+{
+    void Act();
+}
+
+public interface IActingFirst : IActing
+{
+    void IActing.Act() { }
+}
+
+public interface IActingSecond : IActing
+{
+    void IActing.Act() { }
+}
+
+public interface IActingAgain : IActingFirst
+{
+    abstract void IActing.Act();
+}
+
+public class Reabstracted : IActingFirst, IActingAgain { }
+
+public class Diamond : IActingFirst, IActingSecond { }
+
+public class Base0 { }
+
+public class Other0 { }
+
+public interface IMatched<X>
+{
+    void Reference<T>() where T : class;
+    void Typed<T>() where T : X;
+    void Free<T>();
+    void Ordered<T, U>() where T : U;
+}
+
+public class Mismatched : IMatched<Base0>
+{
+    public void Reference<T>() { }
+    public void Typed<T>() where T : Other0 { }
+    public void Free<T>() where T : struct { }
+    public void Ordered<A, B>() where B : A { }
+}
+
+public interface IUnified<T> { }
+
+public interface IBothUnified<T, U> : IUnified<T>, IUnified<U> { }
+
+public class Unified<T> : IUnified<T>, IUnified<int> { }
+
+public class NotUnified<T> : IUnified<T>, IUnified<T[]> { }
+
+public interface ILooping : ILoopingBack
+{
+    void Loop();
+}
+
+public interface ILoopingBack : ILooping
+{
+    void Back();
+}
+
+public class Looped : ILooping { }

@@ -9,8 +9,7 @@ namespace KeigValCompiler.Semantician.Resolver;
  * it. Of the members a namespace or type holds, only functions can share a name, as overloads, and
  * types, whose numbers of generic parameters tell them apart; two types which cannot be told apart are
  * TypeDeclarationResolver's to report. A generic parameter hiding one of a type around it is only warned
- * about, as in C#. Two functions with the same parameters need their types compared, and are not checked
- * here. */
+ * about, as in C#. Two functions with the same parameters are DuplicateSignatureChecker's to report. */
 internal class DeclarationNameChecker : IPackResolver
 {
     // Private methods.

@@ -27,6 +27,9 @@ internal sealed class DeclaredType : SemanticType
 
     internal override bool IsValueType => Declaration is PackStruct or PackEnumeration;
 
+    /* Whether this is a value type's nullable form, Nullable<T>, as opposed to a type a '?' annotates. */
+    internal bool IsNullable => LibraryType == LibraryTypes.Nullable;
+
 
     // Constructors.
     internal DeclaredType(PackMember declaration,
