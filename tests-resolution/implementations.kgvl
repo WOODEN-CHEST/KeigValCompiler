@@ -4,8 +4,9 @@
  * with members given bodies by the interface, by another interface, or made abstract again; operators on
  * nullable forms and in pairs; conversions from and to the type declaring them; constraints satisfied by
  * type arguments and by generic parameters; constants of every kind of type a constant can have; a
- * structure holding an array of itself; and overloads which differ only in what C# counts. Part of
- * tests-resolution, so it has to compile with zero errors and no warnings. */
+ * structure holding an array of itself; overloads which differ only in what C# counts; and indexers with
+ * "init", overridden and implemented, and written with "=>". Part of tests-resolution, so it has to
+ * compile with zero errors and no warnings. */
 
 using KGVL;
 using KGVL.Collections.Generic;
@@ -143,4 +144,31 @@ public class Overloads
     public void Take(int? value) { }
     public void Take<T>(T value) { }
     public void Take(string text, int count) { }
+}
+
+public abstract class InitIndexedBase
+{
+    public abstract int this[int index] { get; init; }
+    public abstract int this[long index] { get; }
+}
+
+public class InitIndexed : InitIndexedBase
+{
+    public override int this[int index] { get => index; init { } }
+    public override int this[long index] => 0;
+}
+
+public interface IInitIndexed
+{
+    int this[int index] { get; init; }
+}
+
+public class InitIndexedImplementation : IInitIndexed
+{
+    public int this[int index] { get => index; init { } }
+}
+
+public class InitIndexedExplicit : IInitIndexed
+{
+    int IInitIndexed.this[int index] { get => index; init { } }
 }

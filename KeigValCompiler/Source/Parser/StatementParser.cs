@@ -40,6 +40,13 @@ internal class StatementParser : AbstractParserBase
         return _expressionParser.ParseExpression();
     }
 
+    /* The value of a member's "=>" body, which may also be a throw expression. */
+    internal Statement ParseExpressionBody()
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        return _expressionParser.ParseExpressionOrThrow();
+    }
+
     /* A braced run of statements. One broken statement inside it is recovered from so that the
      * rest of the body still gets parsed and its errors still get reported. */
     internal StatementCollection ParseStatementBody()
@@ -551,7 +558,8 @@ internal class StatementParser : AbstractParserBase
         ForEachStatement TargetStatement = new(ElementName, EnumeratorProvider)
         {
             /* The "var" keyword leaves the element type to be inferred. */
-            ElementType = ElementType.MainTarget.SourceCodeName == KGVL.KEYWORD_VAR ? null : ElementType
+            ElementType = ((ElementType.Qualifier == null)
+                && (ElementType.MainTarget.SourceCodeName == KGVL.KEYWORD_VAR)) ? null : ElementType
         };
         TargetStatement.Body.SetFrom(Body);
         return TargetStatement;
@@ -701,7 +709,8 @@ internal class StatementParser : AbstractParserBase
             return false;
         }
 
-        bool IsInferred = DeclaredType.MainTarget.SourceCodeName == KGVL.KEYWORD_VAR;
+        bool IsInferred = (DeclaredType.Qualifier == null)
+            && (DeclaredType.MainTarget.SourceCodeName == KGVL.KEYWORD_VAR);
         VariableDeclarationStatement Declaration = new(IsInferred ? null : DeclaredType);
 
         while (true)

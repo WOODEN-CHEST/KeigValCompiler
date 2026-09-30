@@ -200,7 +200,7 @@ internal static class InheritedMembers
         ArgumentNullException.ThrowIfNull(member, nameof(member));
         ArgumentNullException.ThrowIfNull(keyword, nameof(keyword));
 
-        if (member is not (PackProperty or PackIndexer))
+        if (member is not IPackAccessorHolder)
         {
             return null;
         }

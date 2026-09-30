@@ -2,13 +2,15 @@
  * each is allowed, including the pairs "protected internal" and "private protected", "new", "inline"
  * and "internal"; static classes and constructors; abstract, sealed and overriding members; a readonly
  * structure; an interface's default, private, sealed, static, static abstract and static virtual
- * members, and one re-declaring an inherited member as abstract; records deriving from records; a
+ * members, and one re-declaring an inherited member as abstract; records deriving from records, one
+ * passing arguments to its base record's constructor; a
  * "using" of a namespace which holds no types but contains one which does; and members held directly
  * by a namespace. Also what C# allows and an early version of the checks did not: a protected type in a
  * static class, a delegate's parameter named like its generic parameter, an interface's instance member
  * named like the interface, a readonly structure's property whose "set" has a body, and an interface's
- * static event and sealed static operator. Part of tests-resolution, so it has to compile with zero
- * errors. */
+ * static event and sealed static operator. Also default values: after the parameters without one,
+ * before a "params" parameter, on "in" parameters, and in constructors, indexers, delegates and records.
+ * Part of tests-resolution, so it has to compile with zero errors. */
 
 using KGVL;
 using KGVL.Collections;
@@ -107,6 +109,10 @@ public struct Meters : IAddable<Meters>
 public record Parent { }
 public record Child : Parent { }
 public record Named(string Name);
+public record Titled(string Name, string Title) : Named(Title + " " + Name), IEquatable<Titled>
+{
+    public bool Equals(Titled other) => true;
+}
 public abstract record Sized
 {
     public abstract int Size();
@@ -129,3 +135,14 @@ public const int GlobalLimit = 3;
 public int GlobalProperty { get; set; }
 public inline int GlobalTwice(int value) => value * 2;
 public event Changed GlobalChanged;
+
+public delegate int Combiner(int first, int second = 0);
+
+public record Defaulted(int Count = 1, string Label = "none");
+
+public class Optional
+{
+    public Optional(int start = 0) { }
+    public void Take(int first, int second = 2, in int third = 3, params int[] rest) { }
+    public int this[int index, int offset = 0] => index + offset;
+}

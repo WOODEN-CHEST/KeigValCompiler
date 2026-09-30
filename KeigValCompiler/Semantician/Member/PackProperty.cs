@@ -2,18 +2,18 @@
 
 namespace KeigValCompiler.Semantician.Member;
 
-internal class PackProperty : PackMember, IExplicitInterfaceMember
+internal class PackProperty : PackMember, IExplicitInterfaceMember, IPackAccessorHolder
 {
     // Fields.
     public TypeTargetIdentifier? ExplicitInterface { get; set; } = null;
+    public PackFunction? GetFunction { get; set; }
+    public PackFunction? SetFunction { get; set; }
+    public PackFunction? InitFunction { get; set; }
 
 
     // Internal fields.
     internal TypeTargetIdentifier Type { get; set; }
     internal Statement? InitialValue { get; set; }
-    internal PackFunction? GetFunction { get;set; }
-    internal PackFunction? SetFunction { get; set; }
-    internal PackFunction? InitFunction { get; set; }
 
     /* Made by the compiler rather than written, as a record's property for one of its positional
      * parameters is. */

@@ -6,7 +6,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 333 errors and 15 warnings. Expected from this
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
  * file, 27 errors:
  *
  *   line 45 RTMC error 14   a function without a body

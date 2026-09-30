@@ -66,43 +66,27 @@ internal class IdentifierGenerator
     /* A type as its resolved names spell it, or as source code does where one is not resolved. */
     public string GetTypeName(TypeTargetIdentifier type)
     {
-        return type.Format(identifier => identifier.ResolvedName ?? identifier.SourceCodeName);
+        return type.FormatResolved();
     }
 
-    public string GetPropertyFunctionIdentifier(PackProperty property, PackFunction function)
+    /* A property's or an indexer's accessor is named by its member and which accessor it is. */
+    public string GetAccessorIdentifier(IPackAccessorHolder holder, PackFunction function)
     {
         string FuncName;
-        if (function == property.SetFunction)
+        if (function == holder.SetFunction)
         {
             FuncName = FUNC_NAME_SET;
         }
-        else if(function == property.GetFunction)
+        else if (function == holder.GetFunction)
         {
             FuncName = FUNC_NAME_GET;
         }
         else
         {
-            FuncName =FUNC_NAME_INIT;
+            FuncName = FUNC_NAME_INIT;
         }
 
-        return property.SelfIdentifier.ResolvedName
-            + KGVL.IDENTIFIER_ACCESSOR
-            + FuncName;
-    }
-
-    public string GetIndexerFunctionIdentifier(PackIndexer indexer, PackFunction function)
-    {
-        string FuncName;
-        if (function == indexer.SetFunction)
-        {
-            FuncName = FUNC_NAME_SET;
-        }
-        else
-        {
-            FuncName = FUNC_NAME_GET;
-        }
-
-        return indexer.SelfIdentifier.ResolvedName
+        return holder.SelfIdentifier.ResolvedName
             + KGVL.IDENTIFIER_ACCESSOR
             + FuncName;
     }

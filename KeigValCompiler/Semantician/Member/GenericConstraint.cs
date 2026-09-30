@@ -24,7 +24,7 @@ internal class GenericConstraint
      * since TypeTargetIdentifier itself only compares by reference. Null for a special constraint. */
     private string? GetTypeName()
     {
-        return ConstrainedItemName?.Format(identifier => identifier.ResolvedName ?? identifier.SourceCodeName);
+        return ConstrainedItemName?.FormatResolved();
     }
 
 

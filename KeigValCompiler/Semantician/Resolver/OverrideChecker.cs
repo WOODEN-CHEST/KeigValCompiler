@@ -275,12 +275,8 @@ internal class OverrideChecker : IPackResolver
         DeclaredSignature overridden,
         PackResolutionContext context)
     {
-        bool IsReadOnly = signature.Member switch
-        {
-            PackProperty Property => (Property.SetFunction == null) && (Property.InitFunction == null),
-            PackIndexer Indexer => Indexer.SetFunction == null,
-            _ => false
-        };
+        bool IsReadOnly = (signature.Member is IPackAccessorHolder Accessors)
+            && (Accessors.SetFunction == null) && (Accessors.InitFunction == null);
         if (((signature.Kind != DeclaredSignatureKind.Method) && !IsReadOnly) || (signature.Type == null)
             || (overridden.Type == null))
         {
@@ -394,7 +390,7 @@ internal class OverrideChecker : IPackResolver
      * given, or for any other member, the member itself, given as null. */
     private IEnumerable<string?> GetAbstractParts(DeclaredSignature signature)
     {
-        if (signature.Member is not (PackProperty or PackIndexer))
+        if (signature.Member is not IPackAccessorHolder)
         {
             return new string?[] { null };
         }

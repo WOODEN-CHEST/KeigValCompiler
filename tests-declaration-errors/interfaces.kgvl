@@ -5,42 +5,45 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 333 errors and 15 warnings. Expected from this
- * file, 33 errors:
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * file, 36 errors:
  *
- *   line 57 RS error 29     three abstract members not implemented, each reported
- *   line 57 RS error 29     three abstract members not implemented, each reported
- *   line 57 RS error 29     three abstract members not implemented, each reported
- *   line 61 RS error 30     a private implementation, and a private set accessor
- *   line 61 RS error 33     a private implementation, and a private set accessor
- *   line 68 RS error 32     an implementation of another type, and an instance one of a static member
- *   line 68 RS error 31     an implementation of another type, and an instance one of a static member
- *   line 80 RS error 35     an explicit implementation of no member
- *   line 81 RS error 34     an explicit implementation of an interface not implemented
- *   line 89 RS error 29     a member made abstract again, not implemented
- *   line 96 RS error 36     an interface listed twice
- *   line 113 RS error 43    explicit implementation of the wrong type
- *   line 114 RS error 43    likewise, for a property
- *   line 115 RS error 44    explicit implementation missing an accessor
- *   line 116 RS error 35    static implementation of an instance member
- *   line 117 RS error 35    implementing a sealed member
- *   line 118 RS error 35    implementing a private member
- *   line 119 RS error 35    implementing a static member with a body
- *   line 129 RS error 45    explicit implementation adding an accessor
- *   line 144 RS error 34    an interface only the base class lists
- *   line 152 RS error 29    an explicit conversion for an implicit one
- *   line 177 RS error 29    made abstract again by the most specific interface
- *   line 179 RS error 41    no most specific implementation
- *   line 193 RS error 42    constraints differing from the interface's, each reported
- *   line 193 RS error 42    constraints differing from the interface's, each reported
- *   line 193 RS error 42    constraints differing from the interface's, each reported
- *   line 193 RS error 42    constraints differing from the interface's, each reported
- *   line 193 RS error 42    constraints differing from the interface's, each reported
- *   line 203 RS error 46    interfaces which may unify, in an interface
- *   line 205 RS error 46    likewise, in a class
- *   line 209 RS error 15    an interface cycle
- *   line 214 RS error 15    likewise
- *   line 219 RS error 29    only the interface met first, not what it derives from
+ *   line 60 RS error 29     three abstract members not implemented, each reported
+ *   line 60 RS error 29     three abstract members not implemented, each reported
+ *   line 60 RS error 29     three abstract members not implemented, each reported
+ *   line 64 RS error 30     a private implementation, and a private set accessor
+ *   line 64 RS error 33     a private implementation, and a private set accessor
+ *   line 71 RS error 32     an implementation of another type, and an instance one of a static member
+ *   line 71 RS error 31     an implementation of another type, and an instance one of a static member
+ *   line 83 RS error 35     an explicit implementation of no member
+ *   line 84 RS error 34     an explicit implementation of an interface not implemented
+ *   line 92 RS error 29     a member made abstract again, not implemented
+ *   line 99 RS error 36     an interface listed twice
+ *   line 116 RS error 43    explicit implementation of the wrong type
+ *   line 117 RS error 43    likewise, for a property
+ *   line 118 RS error 44    explicit implementation missing an accessor
+ *   line 119 RS error 35    static implementation of an instance member
+ *   line 120 RS error 35    implementing a sealed member
+ *   line 121 RS error 35    implementing a private member
+ *   line 122 RS error 35    implementing a static member with a body
+ *   line 132 RS error 45    explicit implementation adding an accessor
+ *   line 147 RS error 34    an interface only the base class lists
+ *   line 155 RS error 29    an explicit conversion for an implicit one
+ *   line 180 RS error 29    made abstract again by the most specific interface
+ *   line 182 RS error 41    no most specific implementation
+ *   line 196 RS error 42    constraints differing from the interface's, each reported
+ *   line 196 RS error 42    constraints differing from the interface's, each reported
+ *   line 196 RS error 42    constraints differing from the interface's, each reported
+ *   line 196 RS error 42    constraints differing from the interface's, each reported
+ *   line 196 RS error 42    constraints differing from the interface's, each reported
+ *   line 206 RS error 46    interfaces which may unify, in an interface
+ *   line 208 RS error 46    likewise, in a class
+ *   line 212 RS error 15    an interface cycle
+ *   line 217 RS error 15    likewise
+ *   line 222 RS error 29    only the interface met first, not what it derives from
+ *   line 229 RS error 33    an indexer implementing init with set
+ *   line 242 RS error 63    an explicit property implementing init with set, one mistake
+ *   line 243 RS error 63    an explicit indexer implementing set with init, one mistake
  */
 
 using KGVL;
@@ -217,3 +220,25 @@ public interface ILoopingBack : ILooping
 }
 
 public class Looped : ILooping { }
+
+public interface IInitIndexer
+{
+    int this[int index] { get; init; }
+}
+
+public class SetForInitIndexer : IInitIndexer
+{
+    public int this[int index] { get => 0; set { } }
+}
+
+public interface IInitSet
+{
+    int Value { get; init; }
+    int this[int index] { get; set; }
+}
+
+public class SwappedSetters : IInitSet
+{
+    int IInitSet.Value { get => 0; set { } }
+    int IInitSet.this[int index] { get => 0; init { } }
+}

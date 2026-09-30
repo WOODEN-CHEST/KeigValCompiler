@@ -65,7 +65,7 @@ internal class ExpressionParser : AbstractParserBase
     };
 
     private const int PRECEDENCE_NULL_COALESCE = 1;
-    private const int PRECEDENCE_IS_CHECK = 8;
+    private const int PRECEDENCE_TYPE_TEST = 8;
 
     private static readonly Dictionary<string, AssignmentOperator> _assignmentOperators = new()
     {
@@ -110,6 +110,12 @@ internal class ExpressionParser : AbstractParserBase
         return ParseAssignment();
     }
 
+    /* As ParseExpression, for a "=>" body, which as in C# may also be a throw expression. */
+    internal Statement ParseExpressionOrThrow()
+    {
+        return ParseAssignmentOrThrow();
+    }
+
 
     // Private methods.
     /* Assignment is right associative, so "a = b = c" is "a = (b = c)". */
@@ -145,7 +151,7 @@ internal class ExpressionParser : AbstractParserBase
         Parser.IncrementDataIndex();
 
         Parser.SkipUntilNonWhitespace(null);
-        Statement IfBranch = ParseAssignment();
+        Statement IfBranch = ParseAssignmentOrThrow();
 
         Parser.SkipUntilNonWhitespace(null);
         if (Parser.GetCharAtDataIndex() != KGVL.TERNARY_BRANCH_SEPARATOR)
@@ -155,7 +161,7 @@ internal class ExpressionParser : AbstractParserBase
         Parser.IncrementDataIndex();
 
         Parser.SkipUntilNonWhitespace(null);
-        Statement ElseBranch = ParseAssignment();
+        Statement ElseBranch = ParseAssignmentOrThrow();
 
         TernaryStatement Ternary = new(Condition);
         Ternary.IfBody.AddStatement(IfBranch);
@@ -172,9 +178,10 @@ internal class ExpressionParser : AbstractParserBase
         {
             Parser.SkipUntilNonWhitespace(null);
 
-            if (TryReadIsCheck(Left, minimumPrecedence, out Statement? IsCheck))
+            if (TryReadTypeTest(Left, minimumPrecedence, out Statement? TypeTest))
             {
-                Left = IsCheck!;
+                Left = TypeTest!;
+                TryParseSwitchAfterTypeTest(ref Left);
                 continue;
             }
 
@@ -191,28 +198,65 @@ internal class ExpressionParser : AbstractParserBase
             Parser.SkipUntilNonWhitespace(null);
 
             /* Right associative operators re-enter at their own precedence so that they nest to the
-             * right, left associative ones at one above so that they nest to the left. */
+             * right, left associative ones at one above so that they nest to the left. "??" alone may
+             * have a throw expression on its right. */
             int NextPrecedence = Found.Precedence == PRECEDENCE_NULL_COALESCE
                 ? Found.Precedence : Found.Precedence + 1;
-            Left = new BinaryOperatorStatement(Found.Operator, Left, ParseBinary(NextPrecedence));
+            Statement Right = ((Found.Operator == StatementOperator.NotNullOrElse)
+                && TryParseThrowExpression(out Statement? Throw)) ? Throw! : ParseBinary(NextPrecedence);
+            Left = new BinaryOperatorStatement(Found.Operator, Left, Right);
         }
 
         return Left;
     }
 
-    /* "left is SomeType" reads as a binary operator even though its right side is a type rather
-     * than a value, so it is matched here rather than in the symbol table. */
-    private bool TryReadIsCheck(Statement left, int minimumPrecedence, out Statement? result)
+    /* A value which may also be a throw expression, as C# allows where the value would be unused: either
+     * branch of a conditional value, and the "=>" value of a member, a lambda or a switch expression's arm.
+     * The right operand of "??", the other place, is ParseBinary's. */
+    private Statement ParseAssignmentOrThrow()
+    {
+        return TryParseThrowExpression(out Statement? Throw) ? Throw! : ParseAssignment();
+    }
+
+    /* "throw value" used as a value, as in "a ?? throw new SomeException()". What it throws is read as C#
+     * reads it, down to and including "??", so "a ?? throw b ?? c" throws "b ?? c". */
+    private bool TryParseThrowExpression(out Statement? result)
     {
         result = null;
-        if (PRECEDENCE_IS_CHECK < minimumPrecedence)
+        int StartIndex = Parser.DataIndex;
+        if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
+            || (Parser.ReadIdentifier(null) != KGVL.KEYWORD_THROW))
+        {
+            Parser.DataIndex = StartIndex;
+            return false;
+        }
+
+        Parser.SkipUntilNonWhitespace(null);
+        result = new ThrowStatement(ParseBinary(0));
+        return true;
+    }
+
+    /* "left is SomeType" and "left as SomeType" read as binary operators even though their right side
+     * is a type rather than a value, so they are matched here rather than in the symbol table. The type
+     * may end the expression, so a '?' after it is only its own when nothing else could follow. */
+    private bool TryReadTypeTest(Statement left, int minimumPrecedence, out Statement? result)
+    {
+        result = null;
+        if (PRECEDENCE_TYPE_TEST < minimumPrecedence)
         {
             return false;
         }
 
         int StartIndex = Parser.DataIndex;
-        if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
-            || (Parser.ReadIdentifier(null) != KGVL.KEYWORD_IS))
+        string Keyword = Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
+            ? Parser.ReadIdentifier(null) : string.Empty;
+        StatementOperator? Operator = Keyword switch
+        {
+            KGVL.KEYWORD_IS => StatementOperator.IsCheck,
+            KGVL.KEYWORD_AS => StatementOperator.AsCast,
+            _ => null
+        };
+        if (Operator == null)
         {
             Parser.DataIndex = StartIndex;
             return false;
@@ -220,10 +264,23 @@ internal class ExpressionParser : AbstractParserBase
 
         Parser.SkipUntilNonWhitespace(null);
         TypeTargetIdentifier TargetType = Parser.ReadTypeTargetIdentifier(
-            ErrorCreator.ExpectedIsCheckType.CreateOptions());
-        result = new BinaryOperatorStatement(StatementOperator.IsCheck, left,
-            new TypeOfStatement(TargetType));
+            ErrorCreator.ExpectedTypeTestType.CreateOptions(Keyword),
+            () => !CanStartValue() && !CanStartSignedValue());
+        result = new BinaryOperatorStatement(Operator.Value, left, new TypeOfStatement(TargetType));
         return true;
+    }
+
+    /* "x as T switch { ... }" switches on the whole of "x as T", as in C#, which warns about it, since the
+     * switch could as well be read as belonging to T. */
+    private void TryParseSwitchAfterTypeTest(ref Statement typeTest)
+    {
+        Parser.SkipUntilNonWhitespace(null);
+        CompilerMessageLocation SwitchLocation = GetCurrentLocation();
+        if (TryParseSwitchExpression(typeTest, out Statement? Switch))
+        {
+            AddWarning(ErrorCreator.SwitchAfterTypeTest.CreateOptions(), SwitchLocation);
+            typeTest = Switch!;
+        }
     }
 
     private Statement ParseUnary()
@@ -297,7 +354,9 @@ internal class ExpressionParser : AbstractParserBase
      * a value, so "(x)-y" stays a subtraction, and casting it takes "(x)(-y)". */
     private bool IsOnlyEverAType(TypeTargetIdentifier targetType, char lastTypeChar)
     {
-        return KGVL.TYPE_KEYWORDS.Contains(targetType.MainTarget.SourceCodeName)
+        bool IsKeyword = (targetType.Qualifier == null)
+            && KGVL.TYPE_KEYWORDS.Contains(targetType.MainTarget.SourceCodeName);
+        return IsKeyword
             || (lastTypeChar == KGVL.GENERIC_TYPE_END)
             || (lastTypeChar == KGVL.CLOSE_SQUARE_BRACKET)
             || (lastTypeChar == KGVL.TYPE_NULLABLE_INDICATOR);
@@ -752,7 +811,7 @@ internal class ExpressionParser : AbstractParserBase
         Parser.IncrementDataIndexNTimes(KGVL.QUICK_METHOD_BODY.Length);
 
         Parser.SkipUntilNonWhitespace(null);
-        return ParseAssignment();
+        return ParseAssignmentOrThrow();
     }
 
     private Statement ParsePrimary()
@@ -820,6 +879,9 @@ internal class ExpressionParser : AbstractParserBase
 
             case KGVL.KEYWORD_DEFAULT:
                 return ParseDefault();
+
+            case KGVL.KEYWORD_THROW:
+                return ParseMisplacedThrow(StartIndex);
         }
 
         /* A single parameter lambda needs no brackets, as in "x => x + 1". */
@@ -835,12 +897,86 @@ internal class ExpressionParser : AbstractParserBase
         return new IdentifiableAccessStatement(new Identifier(Word));
     }
 
+    /* Everywhere a throw expression is allowed it has been tried already, so one found here is misplaced. It is
+     * still read whole, and reported only once it is, so that a throw with nothing to throw is reported as
+     * that alone. */
+    private Statement ParseMisplacedThrow(int keywordIndex)
+    {
+        CompilerMessageLocation Location = GetLocationOnLine(keywordIndex);
+        Parser.SkipUntilNonWhitespace(null);
+        ThrowStatement Throw = new(ParseBinary(0));
+        AddError(ErrorCreator.MisplacedThrowExpression.CreateOptions(), Location);
+        return Throw;
+    }
+
+    /* What "nameof" names is read on its own rather than as any value, since only a name, or a chain of
+     * member accesses ending in one, has a name to give: a call or an index does not. */
     private Statement ParseNameOf()
     {
         ExpectOpenParenthesis();
-        Identifier Target = new(Parser.ReadIdentifier(ErrorCreator.ExpectedNameOfTarget.CreateOptions()));
+        CompilerMessageLocation TargetLocation = GetCurrentLocation();
+        Statement Target = ParseNameOfPart(true);
+        while (true)
+        {
+            Parser.SkipUntilNonWhitespace(null);
+            if (Parser.GetCharAtDataIndex() != KGVL.MEMBER_ACCESS)
+            {
+                break;
+            }
+            Parser.IncrementDataIndex();
+            Parser.SkipUntilNonWhitespace(null);
+            Target = AppendAccess(Target, ParseNameOfPart(false));
+        }
         ExpectCloseParenthesis();
+
+        /* "this", "base", a literal such as "null" or a type keyword such as "int" on its own names nothing,
+         * though a chain may start with one. It is still kept, so that only this is reported. */
+        string? Nameless = Target switch
+        {
+            ThisStatement => KGVL.KEYWORD_THIS,
+            BaseStatement => KGVL.KEYWORD_BASE,
+            IdentifiableAccessStatement Access when KGVL.NON_QUALIFIER_KEYWORDS.Contains(
+                Access.MemberIdentifier.SourceCodeName) => Access.MemberIdentifier.SourceCodeName,
+            _ => null
+        };
+        if (Nameless != null)
+        {
+            AddError(ErrorCreator.NameOfWithoutName.CreateOptions(Nameless), TargetLocation);
+        }
         return new NameOfStatement(Target);
+    }
+
+    /* One name of a "nameof" chain, with the type arguments it may have, or at its start "this" or "base". A
+     * keyword after a '.' names no member, which is reported. */
+    private Statement ParseNameOfPart(bool isFirst)
+    {
+        CompilerMessageLocation Location = GetCurrentLocation();
+        string Name = Parser.ReadIdentifier(ErrorCreator.ExpectedNameOfTarget.CreateOptions());
+        if (!isFirst && KGVL.NON_QUALIFIER_KEYWORDS.Contains(Name))
+        {
+            AddError(ErrorCreator.ExpectedMemberAccessName.CreateOptions(), Location);
+        }
+        if (isFirst && (Name == KGVL.KEYWORD_THIS))
+        {
+            return new ThisStatement();
+        }
+        if (isFirst && (Name == KGVL.KEYWORD_BASE))
+        {
+            return new BaseStatement();
+        }
+
+        IdentifiableAccessStatement Part = new(new Identifier(Name));
+        int NameEndIndex = Parser.DataIndex;
+        Parser.SkipUntilNonWhitespace(null);
+        if (TryReadGenericArguments(out TypeTargetIdentifier[]? Arguments))
+        {
+            Part.GenericArguments = Arguments!;
+        }
+        else
+        {
+            Parser.DataIndex = NameEndIndex;
+        }
+        return Part;
     }
 
     private Statement ParseTypeOf()
@@ -1131,7 +1267,7 @@ internal class ExpressionParser : AbstractParserBase
 
         if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
         {
-            if (FirstToken.IsArray || (FirstToken.TypeArguments.Length > 0))
+            if (FirstToken.IsArray || (FirstToken.TypeArguments.Length > 0) || (FirstToken.Qualifier != null))
             {
                 return false;
             }
@@ -1171,7 +1307,7 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         Lambda.IsExpressionBodied = true;
-        Lambda.Body.AddStatement(ParseAssignment());
+        Lambda.Body.AddStatement(ParseAssignmentOrThrow());
         return Lambda;
     }
 
@@ -1312,15 +1448,11 @@ internal class ExpressionParser : AbstractParserBase
         Sequence.Append(Indicator);
         Parser.IncrementDataIndex();
 
-        if ((Indicator == KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR)
-            || (Indicator == KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR))
+        int MaxDigitCount = Parser.GetMaxEscapeDigitCount(Indicator);
+        while ((Sequence.Length <= MaxDigitCount) && char.IsAsciiHexDigit(Parser.GetCharAtDataIndex()))
         {
-            const int MAX_DIGIT_COUNT = 4;
-            while ((Sequence.Length <= MAX_DIGIT_COUNT) && char.IsAsciiHexDigit(Parser.GetCharAtDataIndex()))
-            {
-                Sequence.Append(Parser.GetCharAtDataIndex());
-                Parser.IncrementDataIndex();
-            }
+            Sequence.Append(Parser.GetCharAtDataIndex());
+            Parser.IncrementDataIndex();
         }
 
         /* An invalid sequence spoils only its own character, and the rest of the string is still
@@ -1328,7 +1460,7 @@ internal class ExpressionParser : AbstractParserBase
          * inside the string, where the closing quote looks like the opening of another. */
         try
         {
-            return Parser.EscapeSequenceToChar(Sequence.ToString()).ToString();
+            return Parser.EscapeSequenceToText(Sequence.ToString());
         }
         catch (SourceFileReadException e)
         {

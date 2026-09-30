@@ -1,7 +1,8 @@
 /* A namespace inside what the standard library declares as a type, KGVL.Int32. As in C#, where the two
  * would be in different assemblies, a type and a namespace of one name only clash on the same side of
- * the standard library's boundary, so this is not an error. Part of tests-resolution, so it has to
- * compile with zero errors. */
+ * the standard library's boundary, so this is not an error. Also as in C#, the namespace is found before
+ * the type wherever a name could mean either, so "KGVL.Int32" means the namespace from anywhere, and the
+ * type is named "int". Part of tests-resolution, so it has to compile with zero errors. */
 
 namespace KGVL.Int32.Extra;
 

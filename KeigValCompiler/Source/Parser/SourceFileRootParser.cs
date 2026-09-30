@@ -56,7 +56,7 @@ internal class SourceFileRootParser : AbstractParserBase
     {
         int PreWordIndex = Parser.DataIndex;
         TypeTargetIdentifier Word = Parser.ReadTypeTargetIdentifier(GetRootKeywordError());
-        string ExtractedKeyword = Word.MainTarget.SourceCodeName;
+        string ExtractedKeyword = (Word.Qualifier == null) ? Word.MainTarget.SourceCodeName : Word.ToString();
 
         /* Every file records for itself which namespaces it declares, so a namespace some other file already
          * brought into the pack still has to be recorded on this one, just never twice. */

@@ -33,6 +33,7 @@ internal class FullPackResolver : IPackResolver
         new ImportChecker().ResolvePack(context);
         new MemberPlacementChecker().ResolvePack(context);
         new MemberBodyChecker().ResolvePack(context);
+        new ParameterChecker().ResolvePack(context);
         new OperatorDeclarationChecker().ResolvePack(context);
         new InheritanceChecker().ResolvePack(context);
         new DeclarationNameChecker().ResolvePack(context);

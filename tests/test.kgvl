@@ -144,6 +144,14 @@ public record TestRecord5<T>(int a, string b, decimal c, T d) : IInterface1, IIn
 
 public record TestRecord5<T>(int a, string b, decimal c, T d) : IInterface1, IInterface2, IInterface3 where T : class { }
 
+/* A positional record's parameters may have default values, as in C#. */
+public record TestRecord8(int a, string b = "b", decimal c = 1.5m);
+
+/* A positional record passes its base record's constructor arguments after it, as in C#. */
+public record TestRecord6(int a, string b, decimal c, int e) : TestRecord3(a + e, b, c), IInterface1;
+
+public record TestRecord7<T>(T d) : TestRecord5<T>(1, "b", 2.5m, d) where T : class { }
+
 
 /* Enum tests. */
 public enum TestEnum1
@@ -189,6 +197,7 @@ public delegate void TestDelegate1();
 private delegate int TestDelegate2(string abc, out int a123);
 protected delegate int TestDelegate3<T>(string abc, out int a123) where T : class;
 delegate T2 TestDelegate4<T1, T2, T3>(string abc, out int a123, T1 amogus, T2 sus);
+public delegate void TestDelegate5(int count = 1, string text = "none");
 
 
 /* Array type tests. A type of array depth N has N + 1 independently nullable positions, listed
@@ -254,6 +263,9 @@ public class MemberTests
 
     public int this[int index] { get; set; }
     public string this[string key, int offset] { get => key; }
+    public int this[long index] => _plainField;
+    public int this[int index, int offset = 0] => index + offset;
+    public int this[short index] { get => index; init { } }
 }
 
 
@@ -272,6 +284,8 @@ public class FunctionTests
     public abstract void NoBodyAtAll();
     public T GenericFunction<T>(T value) where T : class => value;
     public void Modifiers(ref int a, out int b, in int c, params int[] rest) { }
+    public void Defaults(int a, int b = 5, string c = "text", in int d = -1, params int[] rest) { }
+    public FunctionTests(string name, int count = 2 * 3) { }
 
     public static FunctionTests operator +(FunctionTests a, FunctionTests b) => a;
     public static FunctionTests operator -(FunctionTests a, FunctionTests b) => a;
@@ -352,6 +366,15 @@ public class StatementTests
         bool l = j is StatementTests;
         bool m = (j) is StatementTests;
         bool n = (a) != b;
+        string o = j as string ?? "none";
+        StatementTests p = j as StatementTests;
+        int? q = j as int? ?? 0;
+        bool r = (j) as string == null;
+
+        /* After "is" and "as", a '?' is the type's only when no value follows it, as in C#. */
+        int s = j is string ? 1 : 2;
+        int t = j is string? ? 1 : 2;
+        int u = j is int ? -1 : +1;
     }
 
     /* A bracketed name which can only be a type is a cast whatever follows, as in C#. A bare name
@@ -402,6 +425,10 @@ public class StatementTests
         char nullChar = '\0';
         string codes = "\x41é\0end";
         string lineEnd = "carriage\r\n";
+        string escapeCharacter = "\e[0m";
+        string longCodes = "\U0001F600 and \U00000041";
+        char longCodeChar = '\U00000041';
+        char escapeChar = '\e';
         bool yes = true;
         bool no = false;
     }
@@ -417,6 +444,9 @@ public class StatementTests
         this.Access();
         int d = other?._count ?? 0;
         string e = nameof(_count);
+        string qualifiedName = nameof(other._count);
+        string ownName = nameof(this.Access);
+        string genericName = nameof(List<int>.Count);
         int f = default(int);
         int g = default;
     }
@@ -467,6 +497,14 @@ public class StatementTests
         Func<int, int> block = x => { return x * 2; };
     }
 
+    /* A throw expression stands where no value is needed from it, as in C#. */
+    public object ThrowIfNull(object value) => value ?? throw new SomeException("null");
+    public int ThrowInBranch(bool isBad) => isBad ? throw new SomeException("bad") : _count;
+    public int ThrowInArm(int n) => n switch { 1 => 10, _ => throw new SomeException("arm") };
+    public int ThrowAsBody() => throw new SomeException("body");
+    public int ThrowingProperty => throw new SomeException("property");
+    public Func<int> ThrowFromLambda() => () => throw new SomeException("lambda");
+
     public int Iterator()
     {
         yield return 1;
@@ -495,5 +533,57 @@ public class StatementTests
         int nested = Cache<int>.Inner.Deep;
         int paired = Map<string, int>.Empty;
         Result<int>.Ok(_count);
+    }
+}
+
+
+/*** QUALIFIED TYPE NAME TESTS ***/
+/* A type may be named with the namespaces or types holding it, wherever a type is written, as in C#. A
+ * type before a '.' may have type arguments of its own, as in "Outer<int>.Inner", and whitespace may stand
+ * around each '.'. */
+public class QualifiedTests<T> : KGVL.Collections.Generic.IEnumerable<T>, KGVL.IEquatable<QualifiedTests<T>>
+    where T : KGVL.IComparable<T>
+{
+    public KGVL.Int32 Field;
+    public Outer<int>.Inner<string>.Deepest Nested;
+    public KGVL . Collections . Generic . IEnumerator<T> Spaced;
+    public KGVL.Int32?[] Marked;
+
+    public KGVL.String Convert(KGVL.Int32 value, Outer<int>.Inner<T> inner) => "";
+    public delegate KGVL.Boolean Checker(KGVL.Char letter);
+    public event KGVL.Action Changed;
+
+    bool KGVL.IEquatable<QualifiedTests<T>>.Equals(QualifiedTests<T> other) => true;
+    KGVL.Collections.Generic.IEnumerator<T> KGVL.Collections.Generic.IEnumerable<T>.GetEnumerator() => null;
+    int KGVL.Collections.Generic.IList<int>.this[int index] => index;
+    static QualifiedTests<T> Maths.IAdd<QualifiedTests<T>>.operator +(QualifiedTests<T> a, QualifiedTests<T> b) => a;
+
+    public void Uses(object value)
+    {
+        KGVL.Int32 declared = 1;
+        Outer<int>.Inner<string> nested = new Outer<int>.Inner<string>();
+        KGVL.Exception thrown = new KGVL.Exception("message");
+        KGVL.Int32[] array = new KGVL.Int32[2];
+        long cast = (KGVL.Int64)declared;
+        bool test = value is KGVL.String;
+        KGVL.String asText = value as KGVL.String;
+        object type = typeof(KGVL.Collections.Generic.IEnumerable<int>);
+        KGVL.Int32 zero = default(KGVL.Int32);
+        Convert<KGVL.Int32>(declared);
+        Func<KGVL.Int32, KGVL.Int32> lambda = (KGVL.Int32 a) => a;
+        foreach (KGVL.Int32 item in array) { }
+        try { }
+        catch (KGVL.Exception error) { }
+
+        /* A bracketed dotted name could be a value, as a bare name could, so this is a subtraction. */
+        int difference = (this.Field) - 1;
+        this.Field = 2;
+        Uses(this.Field);
+
+        /* No type is named through "this", "base" or a type keyword, so these are calls and comparisons. */
+        (this.Uses)(value);
+        string joined = (string.Concat)("a", "b");
+        int parsed = (int.Parse)("1");
+        bool both = Check(declared < this.Field, this.Field > (declared));
     }
 }

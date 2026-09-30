@@ -476,6 +476,40 @@ public class SourceDataParser
 
     internal TypeTargetIdentifier ReadTypeTargetIdentifier(ErrorCreateOptions? error)
     {
+        return ReadTypeTargetIdentifier(error, null);
+    }
+
+    /* A type which may end an expression, as after "is" and "as", where a '?' after it could as well begin
+     * a conditional value, as in "x is T ? a : b". As in C#, the '?' is then the type's only when what
+     * follows it could not begin a value, which canFollowNullableMarker decides with the cursor past the '?'
+     * and any whitespace after it, and never when it begins "??". */
+    internal TypeTargetIdentifier ReadTypeTargetIdentifier(ErrorCreateOptions? error,
+        Func<bool>? canFollowNullableMarker)
+    {
+        TypeTargetIdentifier TypeTarget = ReadTypeName(error);
+        ReadTypeLevels(TypeTarget, canFollowNullableMarker);
+        return TypeTarget;
+    }
+
+    /* A type's name, without array levels or '?': one or more names separated by '.', each with the type
+     * arguments written for it, as in "KGVL.Collections.Dictionary<int, string>.KeyCollection". As in C#,
+     * whitespace may stand around each '.'. Each name has the ones before it as its qualifier. A keyword
+     * which no type is named through, as the "this" of "this.Count" or the "int" of "int.Parse", ends the
+     * name, as in C#, so that a value read speculatively as a type is never taken for a qualified one. */
+    internal TypeTargetIdentifier ReadTypeName(ErrorCreateOptions? error)
+    {
+        TypeTargetIdentifier Name = ReadTypeNameSegment(null, error);
+        while (!KGVL.NON_QUALIFIER_KEYWORDS.Contains(Name.MainTarget.SourceCodeName)
+            && TrySkipQualifiedNameSeparator())
+        {
+            Name = ReadTypeNameSegment(Name, error);
+        }
+        return Name;
+    }
+
+    /* One name of a type's name, with its type arguments, qualified by the names written before it. */
+    internal TypeTargetIdentifier ReadTypeNameSegment(TypeTargetIdentifier? qualifier, ErrorCreateOptions? error)
+    {
         string BaseName = ReadIdentifier(error);
 
         TypeTargetIdentifier[]? TypeArguments = null;
@@ -483,19 +517,40 @@ public class SourceDataParser
         {
             TypeArguments = ReadGenericTypeArguments(error);
         }
+        return new(new(BaseName), TypeArguments) { Qualifier = qualifier };
+    }
 
-        /* Each "[]" wraps everything read so far in one more array, and a '?' always annotates
-         * whatever stands immediately to its left. So "int?[]?[]" is an array of nullable arrays
-         * of nullable ints, and the levels come out innermost first. */
-        List<bool> NullabilityByLevel = new() { GetIsNullable() };
+    /* Consumes a '.' continuing a qualified name, and the whitespace around it, when another name follows it,
+     * and says whether it did. Anything else, such as the ".5" of a number, is left where it is. */
+    internal bool TrySkipQualifiedNameSeparator()
+    {
+        int StartIndex = DataIndex;
+        SkipUntilNonWhitespace(null);
+        if (GetCharAtDataIndex() == KGVL.NAMESPACE_SEPARATOR)
+        {
+            IncrementDataIndex();
+            SkipUntilNonWhitespace(null);
+            if (IsIdentifierFirstChar(GetCharAtDataIndex()))
+            {
+                return true;
+            }
+        }
+        DataIndex = StartIndex;
+        return false;
+    }
+
+    /* The array levels and '?' markers after a type's name, which are set on the type. Each "[]" wraps
+     * everything read so far in one more array, and a '?' always annotates whatever stands immediately to
+     * its left. So "int?[]?[]" is an array of nullable arrays of nullable ints, and the levels come out
+     * innermost first. */
+    internal void ReadTypeLevels(TypeTargetIdentifier type, Func<bool>? canFollowNullableMarker)
+    {
+        List<bool> NullabilityByLevel = new() { GetIsNullable(canFollowNullableMarker) };
         while (ReadOneArrayLevel())
         {
-            NullabilityByLevel.Add(GetIsNullable());
+            NullabilityByLevel.Add(GetIsNullable(canFollowNullableMarker));
         }
-
-        TypeTargetIdentifier TypeTarget = new(new(BaseName), TypeArguments);
-        TypeTarget.SetNullabilityByLevel(NullabilityByLevel);
-        return TypeTarget;
+        type.SetNullabilityByLevel(NullabilityByLevel);
     }
 
     private TypeTargetIdentifier[] ReadGenericTypeArguments(ErrorCreateOptions? error)
@@ -575,20 +630,31 @@ public class SourceDataParser
     }
 
     /* The sequence is everything after the backslash. As in C#, "\x" takes one to four hexadecimal
-     * digits and "\u" exactly four. */
+     * digits, "\u" exactly four, and "\U" exactly eight naming a code point. A char holds one UTF-16 code
+     * unit, so a code point above U+FFFF, which takes two, cannot be one. */
     internal char EscapeSequenceToChar(string sequence)
     {
-        const int MAX_CODE_DIGIT_COUNT = 4;
-
         if (sequence.StartsWith(KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR))
         {
-            return CodeDigitsToChar(sequence, 1, MAX_CODE_DIGIT_COUNT,
+            return (char)CodeDigitsToValue(sequence, 1, KGVL.ESCAPE_SEQUENCE_HEX_MAX_DIGITS,
                 _errorRepository.InvalidHexEscapeSequence.CreateOptions(sequence));
         }
         if (sequence.StartsWith(KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR))
         {
-            return CodeDigitsToChar(sequence, MAX_CODE_DIGIT_COUNT, MAX_CODE_DIGIT_COUNT,
+            return (char)CodeDigitsToValue(sequence, KGVL.ESCAPE_SEQUENCE_CODEPOINT_DIGITS,
+                KGVL.ESCAPE_SEQUENCE_CODEPOINT_DIGITS,
                 _errorRepository.InvalidUnicodeEscapeSequence.CreateOptions(sequence));
+        }
+        if (sequence.StartsWith(KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_INDICATOR))
+        {
+            int CodePoint = LongCodePointToValue(sequence);
+            if (CodePoint > char.MaxValue)
+            {
+                throw new SourceFileReadException(this,
+                    _errorRepository.CharacterNeedsSurrogatePair.CreateOptions(sequence,
+                        CodePoint.ToString("X")));
+            }
+            return (char)CodePoint;
         }
 
         return sequence switch
@@ -596,6 +662,7 @@ public class SourceDataParser
             "0" => '\0',
             "a" => '\a',
             "b" => '\b',
+            "e" => '\e',
             "f" => '\f',
             "n" => '\n',
             "r" => '\r',
@@ -609,11 +676,36 @@ public class SourceDataParser
         };
     }
 
+    /* As EscapeSequenceToChar, for a string, where a "\U" code point above U+FFFF is the two chars of a
+     * surrogate pair, as in C#. */
+    internal string EscapeSequenceToText(string sequence)
+    {
+        if (sequence.StartsWith(KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_INDICATOR))
+        {
+            int CodePoint = LongCodePointToValue(sequence);
+            return (CodePoint > char.MaxValue) ? char.ConvertFromUtf32(CodePoint) : ((char)CodePoint).ToString();
+        }
+        return EscapeSequenceToChar(sequence).ToString();
+    }
+
+    /* How many hexadecimal digits at most can follow an escape sequence's indicator letter, or zero for a
+     * sequence which takes none. */
+    internal int GetMaxEscapeDigitCount(char indicator)
+    {
+        return indicator switch
+        {
+            KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR => KGVL.ESCAPE_SEQUENCE_HEX_MAX_DIGITS,
+            KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR => KGVL.ESCAPE_SEQUENCE_CODEPOINT_DIGITS,
+            KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_INDICATOR => KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_DIGITS,
+            _ => 0
+        };
+    }
+
 
     // Private methods.
-    /* The hexadecimal digits after an escape sequence's indicator letter. Four of them always fit in
-     * a char, so a count within the limits is the only thing which can be wrong besides the digits. */
-    private char CodeDigitsToChar(string sequence,
+    /* The hexadecimal digits after an escape sequence's indicator letter, of which there are at most eight,
+     * so their value always fits an int. */
+    private int CodeDigitsToValue(string sequence,
         int minDigitCount,
         int maxDigitCount,
         ErrorCreateOptions error)
@@ -623,7 +715,22 @@ public class SourceDataParser
         {
             throw new SourceFileReadException(this, error);
         }
-        return (char)Convert.ToUInt16(Digits, 16);
+        return (int)Convert.ToUInt32(Digits, 16);
+    }
+
+    /* The code point a "\U" sequence names, which as in C# can be no higher than U+10FFFF. */
+    private int LongCodePointToValue(string sequence)
+    {
+        const int MAX_CODE_POINT = 0x10FFFF;
+
+        ErrorCreateOptions Error = _errorRepository.InvalidLongUnicodeEscapeSequence.CreateOptions(sequence);
+        int CodePoint = CodeDigitsToValue(sequence, KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_DIGITS,
+            KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_DIGITS, Error);
+        if ((CodePoint < 0) || (CodePoint > MAX_CODE_POINT))
+        {
+            throw new SourceFileReadException(this, Error);
+        }
+        return CodePoint;
     }
 
     private bool IsOpeningBracket(char character)
@@ -960,16 +1067,27 @@ public class SourceDataParser
         return true;
     }
 
-    private bool GetIsNullable()
+    private bool GetIsNullable(Func<bool>? canFollowNullableMarker)
     {
         int EndIndex = DataIndex;
         SkipUntilNonWhitespace(null);
-        if (GetCharAtDataIndex() == KGVL.TYPE_NULLABLE_INDICATOR)
+        if ((GetCharAtDataIndex() != KGVL.TYPE_NULLABLE_INDICATOR)
+            || ((canFollowNullableMarker != null) && HasStringAtIndex(DataIndex, KGVL.OPERATOR_NULL_COALESCE)))
         {
-            IncrementDataIndex();
+            DataIndex = EndIndex;
+            return false;
+        }
+
+        IncrementDataIndex();
+        if (canFollowNullableMarker == null)
+        {
             return true;
         }
-        DataIndex = EndIndex;
-        return false;
+
+        int MarkerEndIndex = DataIndex;
+        SkipUntilNonWhitespace(null);
+        bool IsMarker = canFollowNullableMarker();
+        DataIndex = IsMarker ? MarkerEndIndex : EndIndex;
+        return IsMarker;
     }
 }

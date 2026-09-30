@@ -559,8 +559,8 @@ internal class ModifierChecker : IPackResolver
         }
 
         PackFunction[] Accessors = Holder.SubMembers.Cast<PackFunction>().ToArray();
-        PackFunction? Setter = (Holder as PackProperty)?.SetFunction ?? (Holder as PackIndexer)?.SetFunction;
-        bool IsInit = (Holder is PackProperty Property) && ReferenceEquals(Property.InitFunction, member);
+        PackFunction? Setter = ((IPackAccessorHolder)Holder).SetFunction;
+        bool IsInit = ReferenceEquals(((IPackAccessorHolder)Holder).InitFunction, member);
         bool IsStoringSetter = ReferenceEquals(Setter, member) && (Setter!.Statements == null);
 
         /* Of two readonly accessors, the later one is reported, as the one which makes them two. */

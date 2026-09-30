@@ -1,0 +1,128 @@
+/* Declaration check test source file, for qualified type names. Every error in here is deliberate. The
+ * directory parses cleanly, so that resolution runs at all, and the point is that each mistake is
+ * reported once, where it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * file, 23 errors:
+ *
+ *   line 51 RS error 55     a namespace where a type is expected
+ *   line 52 RS error 55     a namespace inside another where a type is expected
+ *   line 53 RS error 56     a namespace holding no such type
+ *   line 54 RS error 57     a type declaring no such nested type
+ *   line 55 RS error 57     a nested type declaring no such nested type
+ *   line 56 RS error 61     a qualifier which names nothing
+ *   line 57 RS error 4      a generic qualifier written without type arguments
+ *   line 58 RS error 4      a qualifier with too many type arguments
+ *   line 59 RS error 59     a private nested type named from outside its holder
+ *   line 60 RS error 59     a protected nested type named from a class not deriving from its holder
+ *   line 61 RS error 59     an unusable nested type in a qualifier's type argument
+ *   line 62 RS error 58     a generic parameter as a qualifier
+ *   line 65 RS error 59     a protected nested type as the base of a class not deriving from its holder
+ *   line 69 RS error 48     a protected nested type usable from a derived class, but less accessible than the field
+ *   line 74 RS error 59     a protected nested type in the base list of a class deriving from its holder, whose own base does not count
+ *   line 81 RS error 59     an unusable nested type as a base, reported only as unusable
+ *   line 83 RS error 62     a class deriving from a class declared inside it
+ *   line 88 RS error 62     an interface deriving from an interface declared inside it
+ *   line 102 GE error 19    a qualifier's type argument not satisfying its constraint
+ *   line 103 GE error 25    a static class as a qualifier's type argument
+ *   line 104 RS error 60    a namespace written with type arguments
+ *   line 107 RS error 17    a class named like a namespace beside it, and nothing more at its uses
+ *   line 127 GE error 19    a constraint naming the holder's generic parameter, not satisfied through the qualifier
+ */
+
+namespace Game.QualifiedErrors;
+
+public class Holder<T>
+{
+    public class Inner { }
+}
+
+public class Outer
+{
+    public class Inner { }
+    private class Hidden { }
+    protected class Guarded { }
+}
+
+public class Qualified
+{
+    public KGVL NamespaceAsType;
+    public KGVL.Collections OtherNamespaceAsType;
+    public KGVL.Missing MissingFromNamespace;
+    public Outer.Missing MissingFromType;
+    public Outer.Inner.Deeper MissingFromNested;
+    public Missing.Inner MissingQualifier;
+    public Holder.Inner QualifierWithoutArguments;
+    public Holder<int, int>.Inner QualifierWithTooMany;
+    public Outer.Hidden PrivateNested;
+    public Outer.Guarded ProtectedNested;
+    public Holder<Outer.Hidden>.Inner InQualifierArgument;
+    public void Through<T>(T.Inner value) { }
+}
+
+public class GuardedBase : Outer.Guarded { }
+
+public class Derived : Outer
+{
+    public Outer.Guarded Exposed;
+}
+
+public interface IMarked<T> { }
+
+public class OwnBaseGuard : Outer, IMarked<Outer.Guarded> { }
+
+public class Sealer
+{
+    private sealed class Hidden { }
+}
+
+public class ThroughSealed : Sealer.Hidden { }
+
+public class NestedLoop : NestedLoop.Inner
+{
+    public class Inner { }
+}
+
+public interface INestedLoop : INestedLoop.IInner
+{
+    public interface IInner { }
+}
+
+public class Valued<T> where T : struct
+{
+    public class Inner { }
+}
+
+public static class Tools { }
+
+public class QualifierArguments
+{
+    public Valued<string>.Inner Unsatisfied;
+    public Holder<Tools>.Inner StaticArgument;
+    public Game<int>.QualifiedErrors.Outer NamespaceArguments;
+}
+
+public class Clash { }
+
+namespace Game.QualifiedErrors.Clash;
+
+public class Inside { }
+
+namespace Game.QualifiedErrors;
+
+public class ThroughClash
+{
+    public Clash.Inside Found;
+}
+
+public class Generic<T>
+{
+    public class Bounded<U> where U : T { }
+}
+
+public class ThroughGenericHolder
+{
+    public Generic<string>.Bounded<object> Unsatisfied;
+}

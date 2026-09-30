@@ -1,0 +1,95 @@
+/* What qualified type names have to accept, as C# does: a type named with its namespace, through a namespace
+ * which holds no types but contains one which does, and with part of its namespace's name from inside a
+ * namespace containing it; a nested type named after the type holding it, which may be generic, as in
+ * "Generic<int>.Deep", from outside it and from inside it; a private nested type named from inside its
+ * holder, and a protected one from a class deriving from its holder; explicit implementations naming their
+ * interface in full; overloads told apart only by the type arguments of a nested type's holder; a type
+ * implementing an interface declared inside it; a type's private nested type named in its own base list;
+ * a protected nested type named in the base list of a type inside one deriving from its holder, whose own
+ * base does not count there, as in C#; and a nested type's constraint naming its holder's generic parameter,
+ * given by a qualifier. Part of tests-resolution, so it has to compile with zero errors
+ * and no warnings. */
+
+namespace Game.Qualified;
+
+public class Outer
+{
+    public class Inner { }
+    public class Generic<T>
+    {
+        public class Deep { }
+        public Generic<T>.Deep Own;
+    }
+    protected class Guarded { }
+    private class Hidden { }
+    private Outer.Hidden OwnHidden;
+    public class Nested
+    {
+        private Outer.Hidden FromNested;
+    }
+}
+
+public class Holder<T>
+{
+    public class Inner { }
+    public void Take(Holder<int>.Inner value) { }
+    public void Take(Holder<string>.Inner value) { }
+}
+
+public class Users : KGVL.IEquatable<Users>
+{
+    public KGVL.Int64 Number;
+    public KGVL.Collections.Generic.IEnumerable<int> Items;
+    public KGVL . Collections . Generic . IEnumerator<int> Spaced;
+    public Outer.Inner First;
+    public Outer.Generic<int>.Deep Second;
+    public Game.Qualified.Outer Third;
+    public Qualified.Outer Fourth;
+    public KGVL.Exception Failure;
+    public bool Equals(Users other) => true;
+    public T Pick<T>(T value) where T : KGVL.IEquatable<T> => value;
+}
+
+public class Derived : Outer
+{
+    protected Outer.Guarded Kept;
+    protected class Again : Outer.Guarded { }
+}
+
+public struct Explicit : KGVL.IEquatable<Explicit>
+{
+    bool KGVL.IEquatable<Explicit>.Equals(Explicit other) => true;
+}
+
+public interface IMarked<T> { }
+
+public class OwnNested : OwnNested.IOwn
+{
+    public interface IOwn { }
+}
+
+public struct OwnStruct : OwnStruct.IOwn
+{
+    public interface IOwn { }
+}
+
+public class PrivateInOwnBase : IMarked<PrivateInOwnBase.Kept>
+{
+    private class Kept { }
+}
+
+public class ThroughHolder : Outer
+{
+    private class NestedUser : Outer, IMarked<Outer.Guarded> { }
+}
+
+public class Generic<T>
+{
+    public class Bounded<U> where U : T { }
+}
+
+public class ThroughGenericHolder<X>
+{
+    public Generic<object>.Bounded<string> Satisfied;
+    public Generic<X>.Bounded<X> Same;
+}

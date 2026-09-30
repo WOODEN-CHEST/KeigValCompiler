@@ -77,7 +77,8 @@ internal class MemberParser : AbstractParserBase
         int StartParserIndex = Parser.DataIndex;
         TypeTargetIdentifier TypeTarget = Parser.ReadTypeTargetIdentifier(ExpectedMemberError);
 
-        string FirstSegment = TypeTarget.MainTarget.SourceCodeName;
+        string FirstSegment = (TypeTarget.Qualifier == null)
+            ? TypeTarget.MainTarget.SourceCodeName : string.Empty;
 
         bool IsRecord = (Modifiers & PackMemberModifiers.Record) != PackMemberModifiers.None;
         if (FirstSegment == KGVL.KEYWORD_CLASS)
@@ -184,7 +185,7 @@ internal class MemberParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(ErrorOptions);
         TypeTargetIdentifier Name = Parser.ReadTypeTargetIdentifier(ErrorOptions);
 
-        if (Name.MainTarget.SourceCodeName == KGVL.KEYWORD_VOID)
+        if ((Name.Qualifier == null) && (Name.MainTarget.SourceCodeName == KGVL.KEYWORD_VOID))
         {
             if (Name.TypeArguments.Length > 0)
             {
@@ -213,7 +214,8 @@ internal class MemberParser : AbstractParserBase
         return ErrorCreator.ExpectedBodyOrExtension.CreateOptions(typeName, Name);
     }
 
-    private void ParseRecordPrimaryConstructor(PackClass recordClass)
+    /* Null when the record has no parameter list, and so no primary constructor. */
+    private PackConstructor? ParseRecordPrimaryConstructor(PackClass recordClass)
     {
         string RecordName = recordClass.SelfIdentifier.SourceCodeName;
         bool IsGenericsHolder = recordClass.GenericParameters.Count > 0;
@@ -222,7 +224,7 @@ internal class MemberParser : AbstractParserBase
 
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
         {
-            return;
+            return null;
         }
 
         Parser.IncrementDataIndex();
@@ -249,6 +251,7 @@ internal class MemberParser : AbstractParserBase
 
         recordClass.AddFunction(Constructor);
         Parser.IncrementDataIndex();
+        return Constructor;
     }
     
     private ErrorCreateOptions GetRecordPrimaryConstructorErrorMessage(string recordName, bool isGenericsHolder)
@@ -343,13 +346,15 @@ internal class MemberParser : AbstractParserBase
         bool HasGenerics = (GenericsHolder != null) && (GenericsHolder.GenericParameters.Count > 0);
         Parser.SkipUntilNonWhitespace(GetExtendableTypeWrongStartExceptionMessage(
             CreatedType, IsRecord, HasGenerics, typeName));
+        PackConstructor? PrimaryConstructor = null;
         if ((CreatedType is PackClass ClassType) && IsRecord)
         {
-            ParseRecordPrimaryConstructor(ClassType);
+            PrimaryConstructor = ParseRecordPrimaryConstructor(ClassType);
         }
 
         Parser.SkipUntilNonWhitespace(GetExtendableTypeEOFErrorMessage(Name.SourceCodeName, typeName, HasGenerics));
-        ParseMemberExtensions((IPackMemberExtender)CreatedType, typeName, CreatedType.SelfIdentifier.SourceCodeName);
+        ParseMemberExtensions((IPackMemberExtender)CreatedType, IsRecord ? KGVL.NAME_RECORD_CLASS : typeName,
+            CreatedType.SelfIdentifier.SourceCodeName, PrimaryConstructor);
         if (GenericsHolder != null)
         {
             ParseGenericConstraints(Name.SourceCodeName, typeName, GenericsHolder.GenericParameters);
@@ -712,29 +717,42 @@ internal class MemberParser : AbstractParserBase
     }
 
     /* "IFoo<int>." before a member's name, which makes the member implement that interface's member
-     * explicitly. It is read speculatively: with no '.' after it, what was read is the member's own
-     * name, or a keyword such as "operator", and the cursor is put back. */
+     * explicitly, the interface's name being every name before the last '.', as in "KGVL.IFoo.". The name
+     * after it is the member's own, or a keyword such as "operator" or "this". It is read speculatively,
+     * a name at a time: one with no '.' after it is the member's, and the cursor is put back to it. */
     private TypeTargetIdentifier? TryReadExplicitInterface()
     {
         int StartIndex = Parser.DataIndex;
         Parser.SkipUntilNonWhitespace(null);
 
-        if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
+        TypeTargetIdentifier? Interface = null;
+        while (Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
         {
-            Parser.DataIndex = StartIndex;
-            return null;
+            int SegmentIndex = Parser.DataIndex;
+            TypeTargetIdentifier Segment = Parser.ReadTypeNameSegment(Interface, null);
+            if (Parser.TrySkipQualifiedNameSeparator())
+            {
+                Interface = Segment;
+                continue;
+            }
+
+            /* An interface written as an array or with '?' is still taken for one, for the resolver to
+             * report. */
+            Parser.ReadTypeLevels(Segment, null);
+            if (Segment.IsArrayOrNullable && Parser.TrySkipQualifiedNameSeparator())
+            {
+                Interface = Segment;
+                break;
+            }
+            Parser.DataIndex = SegmentIndex;
+            break;
         }
 
-        TypeTargetIdentifier InterfaceType = Parser.ReadTypeTargetIdentifier(null);
-        Parser.SkipUntilNonWhitespace(null);
-
-        if (Parser.GetCharAtDataIndex() != KGVL.MEMBER_ACCESS)
+        if (Interface == null)
         {
             Parser.DataIndex = StartIndex;
-            return null;
         }
-        Parser.IncrementDataIndex();
-        return InterfaceType;
+        return Interface;
     }
 
     /* A constructor is a name with no return type which matches the type holding it. */
@@ -803,6 +821,12 @@ internal class MemberParser : AbstractParserBase
         }
 
         Parser.SkipUntilNonWhitespace(null);
+        ParseChainArguments(constructor.ChainArguments);
+    }
+
+    /* The bracketed arguments passed on to another constructor, from '(' through ')'. */
+    private void ParseChainArguments(StatementCollection arguments)
+    {
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
         {
             throw new SourceFileReadException(Parser, ErrorCreator.ExpectedOpenParenthesis.CreateOptions());
@@ -812,7 +836,7 @@ internal class MemberParser : AbstractParserBase
 
         while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_PARENTHESIS))
         {
-            constructor.ChainArguments.AddStatement(_statementParser.ParseExpressionValue());
+            arguments.AddStatement(_statementParser.ParseExpressionValue());
             Parser.SkipUntilNonWhitespace(null);
 
             if (Parser.GetCharAtDataIndex() != KGVL.COMMA)
@@ -1010,10 +1034,16 @@ internal class MemberParser : AbstractParserBase
             KGVL.CLOSE_SQUARE_BRACKET));
         ConsumeParameterListEnd(KGVL.CLOSE_SQUARE_BRACKET);
 
-        ParseAccessorBlock(KGVL.NAME_INDEXER,
-            accessor => Indexer.GetFunction = accessor,
-            accessor => Indexer.SetFunction = accessor,
-            null);
+        /* "SomeType this[...] => value;" is an indexer with nothing but a getter, as a property can be. */
+        Parser.SkipUntilNonWhitespace(null);
+        if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
+        {
+            Indexer.GetFunction = ParseExpressionBodiedGetter(modifiers);
+        }
+        else
+        {
+            ParseAccessorBlock(KGVL.NAME_INDEXER, Indexer);
+        }
 
         FunctionHolder.AddIndexer(Indexer);
         return true;
@@ -1076,12 +1106,12 @@ internal class MemberParser : AbstractParserBase
             Parser.SkipUntilNonWhitespace(null);
 
             /* The single value of a "=>" body is what the function returns, so it is stored the
-             * same way an explicit return would be. */
+             * same way an explicit return would be. A throw expression returns nothing, and is stored
+             * as the throw statement it amounts to. */
+            Statement Body = _statementParser.ParseExpressionBody();
             function.Statements = new();
-            function.Statements.AddStatement(new ReturnStatement()
-            {
-                ReturnValue = _statementParser.ParseExpressionValue()
-            });
+            function.Statements.AddStatement((Body is ThrowStatement) ? Body
+                : new ReturnStatement() { ReturnValue = Body });
 
             Parser.SkipUntilNonWhitespace(null);
             if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)
@@ -1165,20 +1195,12 @@ internal class MemberParser : AbstractParserBase
         /* "SomeType Name => value;" is a property with nothing but a getter. */
         if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
         {
-            PackFunction Getter = new(new Identifier(KGVL.KEYWORD_GET), SourceFile)
-            {
-                SourceFileOrigin = new(Parser.Line)
-            };
-            ParseFunctionBody(Getter, modifiers);
-            Property.GetFunction = Getter;
+            Property.GetFunction = ParseExpressionBodiedGetter(modifiers);
             FunctionHolder.AddProperty(Property);
             return;
         }
 
-        ParseAccessorBlock(KGVL.NAME_PROPERTY,
-            accessor => Property.GetFunction = accessor,
-            accessor => Property.SetFunction = accessor,
-            accessor => Property.InitFunction = accessor);
+        ParseAccessorBlock(KGVL.NAME_PROPERTY, Property);
 
         /* A property may be given a starting value, as in "public int Count { get; set; } = 3;". */
         Parser.SkipUntilNonWhitespace(null);
@@ -1200,14 +1222,22 @@ internal class MemberParser : AbstractParserBase
         FunctionHolder.AddProperty(Property);
     }
 
+    /* The "=> value" of a property or indexer written with no accessor block, which is its getter's
+     * body. */
+    private PackFunction ParseExpressionBodiedGetter(PackMemberModifiers modifiers)
+    {
+        PackFunction Getter = new(new Identifier(KGVL.KEYWORD_GET), SourceFile)
+        {
+            SourceFileOrigin = new(Parser.Line)
+        };
+        ParseFunctionBody(Getter, modifiers);
+        return Getter;
+    }
+
     /* The braced "{ get; set; }" of a property or indexer. Each accessor is stored as a function
-     * so that a body written for it has somewhere to live. An indexer passes null for init. An
-     * accessor repeating one already read is reported and dropped, and "set" and "init" count as the
-     * same one, since both set the member. */
-    private void ParseAccessorBlock(string memberTypeName,
-        Action<PackFunction> setGetter,
-        Action<PackFunction> setSetter,
-        Action<PackFunction>? setInit)
+     * so that a body written for it has somewhere to live. An accessor repeating one already read is
+     * reported and dropped, and "set" and "init" count as the same one, since both set the member. */
+    private void ParseAccessorBlock(string memberTypeName, IPackAccessorHolder holder)
     {
         Parser.SkipUntilNonWhitespace(null);
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_CURLY_BRACKET)
@@ -1236,8 +1266,7 @@ internal class MemberParser : AbstractParserBase
             ParseFunctionBody(Accessor, AccessorModifiers);
 
             bool IsGetter = Keyword == KGVL.KEYWORD_GET;
-            bool IsSetter = (Keyword == KGVL.KEYWORD_SET)
-                || ((Keyword == KGVL.KEYWORD_INIT) && (setInit != null));
+            bool IsSetter = (Keyword == KGVL.KEYWORD_SET) || (Keyword == KGVL.KEYWORD_INIT);
             if (!IsGetter && !IsSetter)
             {
                 throw new SourceFileReadException(Parser,
@@ -1250,17 +1279,17 @@ internal class MemberParser : AbstractParserBase
             }
             else if (IsGetter)
             {
-                setGetter(Accessor);
+                holder.GetFunction = Accessor;
                 HasGetter = true;
             }
             else if (Keyword == KGVL.KEYWORD_SET)
             {
-                setSetter(Accessor);
+                holder.SetFunction = Accessor;
                 HasSetter = true;
             }
             else
             {
-                setInit!(Accessor);
+                holder.InitFunction = Accessor;
                 HasSetter = true;
             }
 
@@ -1319,9 +1348,13 @@ internal class MemberParser : AbstractParserBase
             ? Parser.ReadIdentifier(null) : string.Empty;
     }
 
+    /* The base list after a type's name. As in C#, a record with a parameter list passes its base record's
+     * constructor arguments after the first entry, as in "record B(int X) : A(X)", which its primary
+     * constructor keeps as a "base" chain, the way a written constructor keeps ": base(...)". */
     internal void ParseMemberExtensions(IPackMemberExtender extender,
         string extenderTypeName,
-        string extenderName)
+        string extenderName,
+        PackConstructor? primaryConstructor)
     {
         ErrorCreateOptions IdentifierError = ErrorCreator.ExpectedExtendedMemberIdentifier
             .CreateOptions(extenderTypeName, extenderName);
@@ -1341,10 +1374,52 @@ internal class MemberParser : AbstractParserBase
                 throw new SourceFileReadException(Parser, ExtendEndError);
             }
 
-            extender.AddExtendedMember(Parser.ReadTypeTargetIdentifier(IdentifierError));
+            TypeTargetIdentifier Extended = Parser.ReadTypeTargetIdentifier(IdentifierError);
+            extender.AddExtendedMember(Extended);
 
             Parser.SkipUntilNonWhitespace(null);
+            if (Parser.GetCharAtDataIndex() == KGVL.OPEN_PARENTHESIS)
+            {
+                ParseBaseArguments(Extended, extenderTypeName, extenderName, extender is PackClass,
+                    primaryConstructor, extender.ExtendedMemberCount == 1);
+                Parser.SkipUntilNonWhitespace(null);
+            }
             IsAnExtensionExpected = Parser.GetCharAtDataIndex() == KGVL.COMMA;
+        }
+    }
+
+    /* Arguments which cannot be passed where they are written are still read, so that only this is
+     * reported about them. */
+    private void ParseBaseArguments(TypeTargetIdentifier baseType,
+        string extenderTypeName,
+        string extenderName,
+        bool isClass,
+        PackConstructor? primaryConstructor,
+        bool isFirstBase)
+    {
+        CompilerMessageLocation Location = GetCurrentLocation();
+        if ((primaryConstructor != null) && isFirstBase)
+        {
+            primaryConstructor.ChainKind = ConstructorChainKind.Base;
+            ParseChainArguments(primaryConstructor.ChainArguments);
+            return;
+        }
+
+        ParseChainArguments(new StatementCollection());
+        if (!isClass)
+        {
+            AddError(ErrorCreator.BaseArgumentsWithoutBaseClass.CreateOptions(extenderTypeName, extenderName,
+                baseType.ToString()), Location);
+        }
+        else if (primaryConstructor == null)
+        {
+            AddError(ErrorCreator.BaseArgumentsWithoutParameterList.CreateOptions(extenderTypeName, extenderName,
+                baseType.ToString()), Location);
+        }
+        else
+        {
+            AddError(ErrorCreator.BaseArgumentsNotFirst.CreateOptions(extenderName, baseType.ToString()),
+                Location);
         }
     }
 
@@ -1402,7 +1477,17 @@ internal class MemberParser : AbstractParserBase
             Parser.SkipUntilNonWhitespace(ExpectedIdentifierError);
             string ParamName = Parser.ReadIdentifier(ExpectedIdentifierError);
             Parser.SkipUntilNonWhitespace(ExpectedParamOrEndError);
-            Params.AddItem(new(ParamType, new(ParamName), Modifier));
+
+            /* "= value" gives the parameter a default, which makes it optional. */
+            Statement? DefaultValue = null;
+            if ((Parser.GetCharAtDataIndex() == KGVL.ASSIGNMENT_OPERATOR)
+                && !Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_EQUALS))
+            {
+                Parser.IncrementDataIndex();
+                DefaultValue = _statementParser.ParseExpressionValue();
+                Parser.SkipUntilNonWhitespace(ExpectedParamOrEndError);
+            }
+            Params.AddItem(new(ParamType, new(ParamName), Modifier) { DefaultValue = DefaultValue });
 
             char NextChar = Parser.GetCharAtDataIndex();
             IsParameterExpected = NextChar == KGVL.COMMA;
@@ -1477,8 +1562,8 @@ internal class MemberParser : AbstractParserBase
             }
 
             TypeTargetIdentifier ConstraintType = Parser.ReadTypeTargetIdentifier(ExpectedConstraintError);
-            SpecialGenericConstraint? SpecialConstraint = TryGetSpecialConstraint(
-                ConstraintType.MainTarget.SourceCodeName);
+            SpecialGenericConstraint? SpecialConstraint = (ConstraintType.Qualifier == null)
+                ? TryGetSpecialConstraint(ConstraintType.MainTarget.SourceCodeName) : null;
             GenericConstraint Constraint = SpecialConstraint != null ? new(SpecialConstraint.Value) : new(ConstraintType);
             Constraints.Add(Constraint);
 

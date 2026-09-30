@@ -266,7 +266,8 @@ internal class ErrorRepository
     internal virtual ErrorDefinition ReadonlyInitAccessor { get; } = new(25,
         CompilerMessageCategory.MemberModifier,
         $"The accessor \"{{0}}\" cannot be \"{KGVL.KEYWORD_READONLY}\". An \"{KGVL.KEYWORD_INIT}\" accessor " +
-        "sets a property while its structure is being created, which is what readonly means not to do");
+        "sets its property or indexer while its structure is being created, which is what readonly means not " +
+        "to do");
 
     internal virtual ErrorDefinition ReadonlyAccessorMisplaced { get; } = new(26,
         CompilerMessageCategory.MemberModifier,
@@ -477,6 +478,29 @@ internal class ErrorRepository
         "The positional parameter \"{0}\" of the record \"{1}\" cannot be passed by \"{2}\". A record keeps its " +
         "positional parameters' values in its properties, so they are passed as values");
 
+    internal virtual ErrorDefinition BaseArgumentsWithoutParameterList { get; } = new(11,
+        CompilerMessageCategory.Record,
+        "The {0} \"{1}\" passes arguments to \"{2}\" in its base list, which only a record with a parameter " +
+        "list can do: the primary constructor that list declares passes them on to the base record's " +
+        $"constructor. A constructor written in the type passes its base's arguments with \"{KGVL.COLON} " +
+        $"{KGVL.KEYWORD_BASE}{KGVL.OPEN_PARENTHESIS}...{KGVL.CLOSE_PARENTHESIS}\" instead");
+
+    internal virtual ErrorDefinition BaseArgumentsNotFirst { get; } = new(12,
+        CompilerMessageCategory.Record,
+        "The record \"{0}\" passes arguments to \"{1}\", which is not first in its base list. Only a " +
+        "record's base record takes arguments, and it is written first, before any interface");
+
+    internal virtual ErrorDefinition BaseArgumentsToInterface { get; } = new(13,
+        CompilerMessageCategory.Record,
+        "The record \"{0}\" passes arguments to the interface \"{1}\". Only a base record's constructor " +
+        "can be given arguments, and an interface has no constructor");
+
+    internal virtual ErrorDefinition BaseArgumentsWithoutBaseClass { get; } = new(14,
+        CompilerMessageCategory.Record,
+        "The {0} \"{1}\" passes arguments to \"{2}\" in its base list, but it derives from no class, so " +
+        "it has no base constructor to give them to. Only a record with a parameter list passes arguments in " +
+        "its base list, to its base record's constructor");
+
 
     /* Generics. */
     internal virtual ErrorDefinition ExpectedGenericParameterEnd { get; } = new(1,
@@ -662,6 +686,28 @@ internal class ErrorRepository
         CompilerMessageCategory.Function,
         "The parameter \"{0}\" of the {1} \"{2}\" has the same name as one of its generic parameters");
 
+    internal virtual ErrorDefinition ParamsNotLast { get; } = new(9,
+        CompilerMessageCategory.Function,
+        $"The \"{KGVL.KEYWORD_PARAMS}\" parameter \"{{0}}\" of the {{1}} \"{{2}}\" is not its last parameter. " +
+        $"A \"{KGVL.KEYWORD_PARAMS}\" parameter takes every argument left over at the end of a call, so " +
+        "nothing can come after it");
+
+    internal virtual ErrorDefinition RequiredAfterOptional { get; } = new(10,
+        CompilerMessageCategory.Function,
+        "The parameter \"{0}\" of the {1} \"{2}\" has no default value, but comes after \"{3}\", which has " +
+        "one. An argument can only be left out at the end of a call, so a parameter with a default value is " +
+        $"followed only by others with one, and by a \"{KGVL.KEYWORD_PARAMS}\" parameter");
+
+    internal virtual ErrorDefinition DefaultValueByReference { get; } = new(11,
+        CompilerMessageCategory.Function,
+        "The parameter \"{0}\" of the {1} \"{2}\" cannot have a default value, since it is passed by " +
+        "\"{3}\". It has to name a variable, which a value written in the declaration is not");
+
+    internal virtual ErrorDefinition DefaultValueOnParams { get; } = new(12,
+        CompilerMessageCategory.Function,
+        $"The \"{KGVL.KEYWORD_PARAMS}\" parameter \"{{0}}\" of the {{1}} \"{{2}}\" cannot have a default " +
+        $"value. A call giving it no arguments already passes it an empty array");
+
 
     /* Literals. */
     internal virtual ErrorDefinition InvalidHexEscapeSequence { get; } = new(1,
@@ -673,9 +719,10 @@ internal class ErrorRepository
     internal virtual ErrorDefinition UnknownEscapeSequence { get; } = new(2,
         CompilerMessageCategory.Literal,
         $"Unknown escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\". An escape sequence is the character " +
-        $"'{KGVL.ESCAPE_CHAR}' followed by one of 0, a, b, f, n, r, t, v, ', \" or {KGVL.ESCAPE_CHAR}, by " +
-        $"the prefix '{KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR}' and one to four hexadecimal digits, or by the " +
-        $"prefix '{KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR}' and exactly four");
+        $"'{KGVL.ESCAPE_CHAR}' followed by one of 0, a, b, e, f, n, r, t, v, ', \" or {KGVL.ESCAPE_CHAR}, by " +
+        $"the prefix '{KGVL.ESCAPE_SEQUENCE_HEX_INDICATOR}' and one to four hexadecimal digits, by the " +
+        $"prefix '{KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR}' and exactly four, or by the prefix " +
+        $"'{KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_INDICATOR}' and exactly eight");
 
     internal virtual ErrorDefinition DecimalMissingDigits { get; } = new(3,
         CompilerMessageCategory.Literal,
@@ -751,6 +798,18 @@ internal class ErrorRepository
         $"escape sequence is the prefix '{KGVL.ESCAPE_SEQUENCE_CODEPOINT_INDICATOR}' followed by exactly four " +
         "hexadecimal digits (0-9 and a-f)");
 
+    internal virtual ErrorDefinition InvalidLongUnicodeEscapeSequence { get; } = new(16,
+        CompilerMessageCategory.Literal,
+        $"The escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\" is not a valid Unicode code point. A long Unicode " +
+        $"escape sequence is the prefix '{KGVL.ESCAPE_SEQUENCE_LONG_CODEPOINT_INDICATOR}' followed by exactly " +
+        "eight hexadecimal digits (0-9 and a-f), naming a code point no higher than 10FFFF");
+
+    internal virtual ErrorDefinition CharacterNeedsSurrogatePair { get; } = new(17,
+        CompilerMessageCategory.Literal,
+        $"The escape sequence \"{KGVL.ESCAPE_CHAR}{{0}}\" names the code point U+{{1}}, which is above FFFF, " +
+        $"so it takes two UTF-16 code units, a surrogate pair. A {KGVL.KEYWORD_CHAR} holds only one, so the " +
+        "code point can only be written in a string");
+
 
     /* Source files. */
     internal virtual ErrorDefinition SourceFileInvalidContent { get; } = new(1,
@@ -785,10 +844,9 @@ internal class ErrorRepository
         $"false. A conditional value is written \"condition {KGVL.TYPE_NULLABLE_INDICATOR} whenTrue " +
         $"{KGVL.TERNARY_BRANCH_SEPARATOR} whenFalse\" and must always supply both branches");
 
-    internal virtual ErrorDefinition ExpectedIsCheckType { get; } = new(3,
+    internal virtual ErrorDefinition ExpectedTypeTestType { get; } = new(3,
         CompilerMessageCategory.Expression,
-        $"Expected a type name after the \"{KGVL.KEYWORD_IS}\" keyword, as in \"value " +
-        $"{KGVL.KEYWORD_IS} SomeType\"");
+        "Expected a type name after the \"{0}\" keyword, as in \"value {0} SomeType\"");
 
     internal virtual ErrorDefinition ExpectedMemberAccessName { get; } = new(4,
         CompilerMessageCategory.Expression,
@@ -885,6 +943,20 @@ internal class ErrorRepository
     internal virtual ErrorDefinition ExpectedStringEnd { get; } = new(25,
         CompilerMessageCategory.Expression,
         $"Expected quote '{KGVL.DOUBLE_QUOTE}' to end a string");
+
+    internal virtual ErrorDefinition MisplacedThrowExpression { get; } = new(26,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_THROW}\" cannot be used as a value here. As in C#, a throw expression can only stand " +
+        $"where its value would never be needed: as the right operand of \"{KGVL.OPERATOR_NULL_COALESCE}\", as " +
+        $"either branch of a conditional value, or as the \"{KGVL.QUICK_METHOD_BODY}\" value of a member, a " +
+        "lambda or a switch expression's arm. Anywhere else, throw with a statement of its own");
+
+    internal virtual ErrorDefinition NameOfWithoutName { get; } = new(27,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_NAMEOF}\" gives the name of what it names, and \"{{0}}\" on its own names nothing " +
+        "it could give. It takes a name, or a chain of member accesses ending in one, as in " +
+        $"\"{KGVL.KEYWORD_NAMEOF}{KGVL.OPEN_PARENTHESIS}value{KGVL.MEMBER_ACCESS}Member" +
+        $"{KGVL.CLOSE_PARENTHESIS}\"");
 
 
     /* Return typed members: fields, properties, indexers, functions, constructors and operators. */
@@ -1498,7 +1570,7 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition InterfaceImplementationAccessor { get; } = new(33,
         CompilerMessageCategory.Resolution,
-        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": the interface's has a \"{5}\" " +
+        "The {0} \"{1}\" does not implement the {2} \"{3}\" of \"{4}\": the interface's has the \"{5}\" " +
         "accessor, and its own has no public one");
 
     internal virtual ErrorDefinition ExplicitInterfaceNotImplemented { get; } = new(34,
@@ -1557,11 +1629,12 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition ExplicitImplementationMissingAccessor { get; } = new(44,
         CompilerMessageCategory.Resolution,
-        "\"{0}\" implements a {1} of \"{2}\" explicitly, but has no \"{3}\" accessor, which the interface's has");
+        "\"{0}\" implements the {1} of \"{2}\" explicitly, but has no \"{3}\" accessor, which the interface's " +
+        "has");
 
     internal virtual ErrorDefinition ExplicitImplementationExtraAccessor { get; } = new(45,
         CompilerMessageCategory.Resolution,
-        "\"{0}\" implements a {1} of \"{2}\" explicitly, but has a \"{3}\" accessor, which the interface's " +
+        "\"{0}\" implements the {1} of \"{2}\" explicitly, but has the \"{3}\" accessor, which the interface's " +
         "does not");
 
     internal virtual ErrorDefinition UnifyingInterfaces { get; } = new(46,
@@ -1617,6 +1690,55 @@ internal class ErrorRepository
         $"The type \"{{0}}\" was found as \"{{1}}\", which is \"{KGVL.KEYWORD_INTERNAL}\" to the other side of " +
         "the standard library's boundary, so it cannot be used here");
 
+    internal virtual ErrorDefinition NameSpaceUsedAsType { get; } = new(55,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" names the namespace \"{1}\", but a type is expected here. A namespace is only written before " +
+        $"a type or namespace it holds, as in \"{{1}}{KGVL.NAMESPACE_SEPARATOR}SomeType\"");
+
+    internal virtual ErrorDefinition TypeNotInNameSpace { get; } = new(56,
+        CompilerMessageCategory.Resolution,
+        "The namespace \"{0}\" holds no type or namespace named \"{1}\"");
+
+    internal virtual ErrorDefinition NestedTypeNotFound { get; } = new(57,
+        CompilerMessageCategory.Resolution,
+        $"The type \"{{0}}\" declares no type named \"{{1}}\". A name written after a type and a " +
+        $"'{KGVL.NAMESPACE_SEPARATOR}' is looked for among the types declared inside it");
+
+    internal virtual ErrorDefinition GenericParameterQualifier { get; } = new(58,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is a generic parameter, so no type can be named through it: it stands for whatever type it " +
+        "is given, and which types that one declares is not known where the parameter is used");
+
+    internal virtual ErrorDefinition NestedTypeInaccessible { get; } = new(59,
+        CompilerMessageCategory.Resolution,
+        "The type \"{0}\" cannot be used by the {1} \"{2}\", since it is \"{3}\" inside \"{4}\", which does " +
+        "not let it be used where it is named here");
+
+    internal virtual ErrorDefinition NameSpaceWithTypeArguments { get; } = new(60,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is written with type arguments, but without them it names the namespace \"{1}\", which cannot " +
+        "take any, and no type of its name takes them either");
+
+    internal virtual ErrorDefinition TypeOrNameSpaceNotFound { get; } = new(61,
+        CompilerMessageCategory.Resolution,
+        $"No type or namespace named \"{{0}}\" was found. A name before a '{KGVL.NAMESPACE_SEPARATOR}' is " +
+        "looked for as a type is, among the generic parameters and nested types around where it is used, the " +
+        "types of the namespace being declared and each one containing it, and those of the namespaces " +
+        $"imported with \"{KGVL.KEYWORD_USING}\", and also as a namespace, inside the namespace being declared " +
+        "and each one containing it, and at the root");
+
+    internal virtual ErrorDefinition CircularBaseThroughNesting { get; } = new(62,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" depends on itself, as in \"{1}\", where each type derives from the next or is declared " +
+        "inside it. As in C#, a type depends on its bases and on the type it is declared in, so it cannot " +
+        "derive from a type which depends on it");
+
+    internal virtual ErrorDefinition ExplicitImplementationSetterKind { get; } = new(63,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" implements the {1} of \"{2}\" explicitly with its \"{3}\" accessor, where the interface's has " +
+        $"\"{{4}}\". Both set the member, but an implementation's setter is \"{KGVL.KEYWORD_INIT}\" exactly " +
+        "when the interface's is");
+
 
     /* Warnings. */
     internal virtual WarningDefinition DuplicateUsingDirective { get; } = new(1,
@@ -1655,6 +1777,34 @@ internal class ErrorRepository
         $"The {{0}} \"{{1}}\" lists \"{{2}}\", which it lists already as \"{{3}}\". The two differ only in " +
         $"their '{KGVL.TYPE_NULLABLE_INDICATOR}' annotations, so they are one interface",
         CompilerMessageCategory.Resolution);
+
+    internal virtual WarningDefinition SwitchAfterTypeTest { get; } = new(1,
+        WarningSeverity.Normal,
+        $"This \"{KGVL.KEYWORD_SWITCH}\" switches on the whole of the \"{KGVL.KEYWORD_IS}\" or " +
+        $"\"{KGVL.KEYWORD_AS}\" test before it, as in C#, though it reads as though it belonged to the type. " +
+        $"Bracket the test, as in \"{KGVL.OPEN_PARENTHESIS}value {KGVL.KEYWORD_AS} SomeType" +
+        $"{KGVL.CLOSE_PARENTHESIS} {KGVL.KEYWORD_SWITCH} ...\", to say so",
+        CompilerMessageCategory.Expression);
+
+    internal virtual WarningDefinition UnusableDefaultOnExplicitImplementation { get; } = new(1,
+        WarningSeverity.Normal,
+        "The default value of the parameter \"{0}\" of the {1} \"{2}\" can never be used. The {1} implements " +
+        "an interface's member explicitly, so it is only ever called through the interface, and only the " +
+        "interface's member's default values apply",
+        CompilerMessageCategory.Function);
+
+    internal virtual WarningDefinition UnusableDefaultOnOperator { get; } = new(2,
+        WarningSeverity.Normal,
+        "The default value of the parameter \"{0}\" of the {1} \"{2}\" can never be used. An operator is used " +
+        "through the symbol it overloads, which always gives it every operand",
+        CompilerMessageCategory.Function);
+
+    internal virtual WarningDefinition UnusableDefaultOnSingleIndex { get; } = new(3,
+        WarningSeverity.Normal,
+        "The default value of the parameter \"{0}\" of the {1} \"{2}\" can never be used. The indexer has " +
+        $"only this parameter, and indexing it needs a value between '{KGVL.OPEN_SQUARE_BRACKET}' and " +
+        $"'{KGVL.CLOSE_SQUARE_BRACKET}'",
+        CompilerMessageCategory.Function);
 
     internal virtual WarningDefinition StaticClassReturnedInInterface { get; } = new(1,
         WarningSeverity.Normal,

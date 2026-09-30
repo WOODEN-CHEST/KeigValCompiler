@@ -12,7 +12,9 @@ Familiar from C#: namespaces and `using`; `class`, `struct`, `interface`,
 properties and indexers; access modifiers and `static` / `abstract` / `virtual`
 / `override` / `sealed` / `readonly` / `required` / `const` / `new`; `if` / `for` / `foreach` /
 `while` / `do` / `switch` / `try` / `catch` / `finally` / `throw` / `return`;
-`ref` / `out` / `in` / `params`; string interpolation; `nameof` / `typeof`.
+throw expressions such as `x ?? throw new E()`, where C# allows them; `is` and
+`as` with a type; `ref` / `out` / `in` / `params`, and default parameter values;
+string interpolation; `nameof` / `typeof`.
 
 Divergences from C# worth knowing:
 
@@ -81,6 +83,17 @@ this file can do
   nested in `A`, so after `using A;`, `B.C` does not find `A.B.C`: reaching it
   takes `using A.B;` and then `C`, or the full name `A.B.C`. There is no
   `global::` (decided 2026-09-29).
+- A type can be named in full, with the namespaces and types holding it, as in
+  `KGVL.Collections.Generic.IEnumerable<int>`, anywhere a type is written, and
+  a type before a `.` can have type arguments of its own, as in C#'s
+  `Outer<int>.Inner` (decided 2026-09-30). As in C#, the first name is looked
+  up from the innermost namespace outwards, and at each a namespace of that
+  name is found before a type. Where both are declared there, the user's code
+  finds its own, as Roslyn prefers what a compilation declares to what it
+  imports: a namespace of its own hides a library type, and a type of its own
+  a library namespace. The standard library, compiled as though on its own,
+  never sees the user's namespaces. As in C#, a keyword such as `this`, `int`
+  or `string` never stands before a `.` in a type's name.
 
 ## Member syntax
 
@@ -103,6 +116,9 @@ public int this[int index] { get => _items[index]; set => _items[index] = value;
 public static Vec operator +(Vec a, Vec b) { }
 public static implicit operator int(Vec v) => v._value;
 ```
+
+An indexer, like a property, may be written with only a `=>` getter, and may have
+`init` in place of `set`.
 
 The overloadable operators are C#'s, fixed by `OverloadableOperator`: unary
 `+ - ! ~ ++ --`, binary `+ - * / % & | ^ << >> >>>`, `== != > < >= <=`, and
@@ -140,7 +156,11 @@ rules, such as no access modifier on such a member, are the resolver's.
 
 **Records** get a property from each positional parameter, as in C# (decided
 2026-09-29): `record Point(int X, int Y)` has public `X` and `Y` properties with
-`get` and `init`, each starting with its parameter's value. A record declaring a
+`get` and `init`, each starting with its parameter's value. A positional record
+passes its base record's constructor arguments in its base list, as in
+`record Point3(int X, int Y, int Z) : Point(X, Y)`, which only the first entry
+can take and only a record with a parameter list can give; its primary
+constructor keeps them as a `base` chain. A record declaring a
 property or field of that name keeps the value there instead, and so does one
 inheriting a member of that name declaring no generic parameters, unless it is an
 abstract property, which the made property overrides. What keeps it has to be an
@@ -225,10 +245,12 @@ integer too large even for `ulong`. Whether an integer fits the type it is
 assigned to, as in `byte b = 300`, depends on that type, so that check belongs to
 the validation stage and does not exist yet.
 
-**Escape sequences** in char and string literals are C#'s: `\0 \a \b \f \n \r \t
-\v \' \" \\`, `\x` with one to four hexadecimal digits, and `\u` with exactly
-four. As in C#, `\x` takes as many hex digits as follow, up to four, so
-`"\x41BC"` is one char. C#'s `\e` and `\U` are not supported.
+**Escape sequences** in char and string literals are C#'s: `\0 \a \b \e \f \n \r
+\t \v \' \" \\`, `\x` with one to four hexadecimal digits, `\u` with exactly
+four, and `\U` with exactly eight, naming a code point up to U+10FFFF. As in C#,
+`\x` takes as many hex digits as follow, up to four, so `"\x41BC"` is one char,
+and a `\U` code point above U+FFFF is a surrogate pair, two chars, in a string,
+and an error in a char literal, which holds one.
 
 ## Built-in types and the standard library
 

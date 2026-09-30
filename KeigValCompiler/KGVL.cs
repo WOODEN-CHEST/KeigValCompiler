@@ -41,7 +41,13 @@ internal static class KGVL
     public const char TYPE_NULLABLE_INDICATOR = '?';
 
     public const char ESCAPE_SEQUENCE_CODEPOINT_INDICATOR = 'u';
+    public const char ESCAPE_SEQUENCE_LONG_CODEPOINT_INDICATOR = 'U';
     public const char ESCAPE_SEQUENCE_HEX_INDICATOR = 'x';
+
+    /* As in C#, "\x" takes one to four hexadecimal digits, "\u" exactly four and "\U" exactly eight. */
+    public const int ESCAPE_SEQUENCE_HEX_MAX_DIGITS = 4;
+    public const int ESCAPE_SEQUENCE_CODEPOINT_DIGITS = 4;
+    public const int ESCAPE_SEQUENCE_LONG_CODEPOINT_DIGITS = 8;
 
     public const char TERNARY_BRANCH_SEPARATOR = ':';
     public const char INTERPOLATION_SECTION_START = '{';
@@ -195,6 +201,16 @@ internal static class KGVL
      * other name, one of these can never be a value. */
     public static readonly string[] TYPE_KEYWORDS = new string[]
     {
+        KEYWORD_BYTE, KEYWORD_UBYTE, KEYWORD_SHORT, KEYWORD_USHORT, KEYWORD_INT, KEYWORD_UINT,
+        KEYWORD_LONG, KEYWORD_ULONG, KEYWORD_DECIMAL, KEYWORD_CHAR, KEYWORD_BOOL, KEYWORD_STRING,
+        KEYWORD_OBJECT
+    };
+
+    /* The keywords which can stand before a '.' in a value, as in "this.Count" or "int.Parse", but never in
+     * a type's name, since none names a namespace or a type which one can be named through. */
+    public static readonly string[] NON_QUALIFIER_KEYWORDS = new string[]
+    {
+        KEYWORD_THIS, KEYWORD_BASE, KEYWORD_NULL, KEYWORD_TRUE, KEYWORD_FALSE, KEYWORD_VOID,
         KEYWORD_BYTE, KEYWORD_UBYTE, KEYWORD_SHORT, KEYWORD_USHORT, KEYWORD_INT, KEYWORD_UINT,
         KEYWORD_LONG, KEYWORD_ULONG, KEYWORD_DECIMAL, KEYWORD_CHAR, KEYWORD_BOOL, KEYWORD_STRING,
         KEYWORD_OBJECT

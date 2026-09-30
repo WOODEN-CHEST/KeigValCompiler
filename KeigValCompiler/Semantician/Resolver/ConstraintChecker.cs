@@ -294,13 +294,17 @@ internal class ConstraintChecker : IPackResolver
         return false;
     }
 
-    /* The type arguments written inside other type arguments are checked first, then the ones given to the
-     * type itself. A type which did not resolve, or which is given the wrong number of arguments, has been
-     * reported. */
+    /* The type arguments written before a '.', as the "int" of "Outer<int>.Inner", and inside other type
+     * arguments are checked first, then the ones given to the type itself. A type which did not resolve, or
+     * which is given the wrong number of arguments, has been reported. */
     private void CheckTypeArguments(TypeTargetIdentifier written,
         PackMember member,
         PackResolutionContext context)
     {
+        if (written.Qualifier != null)
+        {
+            CheckTypeArguments(written.Qualifier, member, context);
+        }
         foreach (TypeTargetIdentifier Argument in written.TypeArguments)
         {
             CheckTypeArguments(Argument, member, context);
@@ -325,9 +329,13 @@ internal class ConstraintChecker : IPackResolver
             Arguments.Add(ArgumentType);
         }
 
+        /* A nested type's constraints may name the generic parameters of the types holding it, which a qualifier
+         * gives, as the "object" of "Outer<object>.Inner<string>". */
         (GenericTypeParameter Parameter, SemanticType Argument)[] Given = GenericsHolder.GenericParameters
             .Zip(Arguments).ToArray();
-        TypeSubstitution Substitution = new();
+        TypeSubstitution Substitution = ((written.Qualifier != null)
+            && (context.TypeReader.Read(written.Qualifier) is DeclaredType Holder))
+            ? TypeSubstitution.Of(Holder) : new();
         foreach ((GenericTypeParameter Parameter, SemanticType Argument) in Given)
         {
             Substitution.Add(Parameter, Argument);

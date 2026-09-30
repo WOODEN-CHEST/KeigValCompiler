@@ -29,7 +29,13 @@ internal abstract class AbstractParserBase
     // Protected methods.
     protected CompilerMessageLocation GetCurrentLocation()
     {
-        return new(Parser.FilePath, Parser.Line, Parser.GetColumn(Parser.DataIndex));
+        return GetLocationOnLine(Parser.DataIndex);
+    }
+
+    /* The location of a place earlier on the line the parser is on, such as the start of a word just read. */
+    protected CompilerMessageLocation GetLocationOnLine(int index)
+    {
+        return new(Parser.FilePath, Parser.Line, Parser.GetColumn(index));
     }
 
     /* For errors where the parser still knows exactly where it is and what it is looking at - the

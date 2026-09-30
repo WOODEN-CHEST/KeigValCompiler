@@ -1,3 +1,4 @@
+using KeigValCompiler.Error;
 using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Types;
@@ -7,9 +8,10 @@ namespace KeigValCompiler.Semantician.Resolver;
 /* Checks what each type derives from, against C#'s rules. A class derives from at most one class, which
  * is written first, is neither sealed nor static, and is a record exactly when the class is; the rest of
  * what it derives from are interfaces. A static class derives from nothing but object. A structure or an
- * interface derives only from interfaces. No type is among its own base types. A base type which did not
- * resolve has been reported already, and is skipped. No interface is listed twice. It relies on
- * ModifierChecker having taken off the modifiers types cannot have. */
+ * interface derives only from interfaces. No type depends on itself, as C# defines depending: a class on
+ * its base class, an interface on its base interfaces, and either on the type it is declared in. A base
+ * type which did not resolve has been reported already, and is skipped. No interface is listed twice. It
+ * relies on ModifierChecker having taken off the modifiers types cannot have. */
 internal class InheritanceChecker : IPackResolver
 {
     // Private methods.
@@ -97,14 +99,18 @@ internal class InheritanceChecker : IPackResolver
         }
 
         /* Only a base written after one known to be an interface is out of place. One which did not resolve
-         * could have been meant as the base class itself. */
+         * could have been meant as the base class itself, and so could one which is no class: as in Roslyn,
+         * either takes the base class's place, which TypeHierarchy leaves empty, and a class after it is not
+         * taken for the base class, nor reported as a second one, since that follows from the first. */
         TypeTargetIdentifier? FirstClassBase = null;
         bool IsAfterInterface = false;
+        bool IsPlaceTakenByError = false;
         foreach (TypeTargetIdentifier Base in GetPlainBases(type))
         {
             switch (Base.MainTarget.Target)
             {
                 case null:
+                    IsPlaceTakenByError |= FirstClassBase == null;
                     break;
 
                 case PackInterface:
@@ -114,6 +120,9 @@ internal class InheritanceChecker : IPackResolver
                 case PackClass when FirstClassBase != null:
                     context.AddError(context.ErrorCreator.MultipleBaseClasses.CreateOptions(Name,
                         FirstClassBase.ToString(), Base.ToString()), type);
+                    break;
+
+                case PackClass when IsPlaceTakenByError:
                     break;
 
                 case PackClass BaseClass:
@@ -129,8 +138,28 @@ internal class InheritanceChecker : IPackResolver
                 default:
                     context.AddError(context.ErrorCreator.BaseTypeNotClassOrInterface.CreateOptions(Name,
                         Base.ToString()), type);
+                    IsPlaceTakenByError |= FirstClassBase == null;
                     break;
             }
+        }
+    }
+
+    /* A record passes its primary constructor's base arguments to the first entry of its base list, which
+     * the parser has made sure of, so they are misplaced when that entry is an interface, as in C#. */
+    private void CheckRecordBaseArguments(PackClass type, PackResolutionContext context)
+    {
+        PackConstructor? Primary = type.Functions.OfType<PackConstructor>()
+            .FirstOrDefault(constructor => constructor.IsPrimary);
+        if ((Primary == null) || (Primary.ChainKind != ConstructorChainKind.Base))
+        {
+            return;
+        }
+
+        TypeTargetIdentifier FirstBase = type.ExtendedMembers.First();
+        if (FirstBase.MainTarget.Target is PackInterface)
+        {
+            context.AddError(context.ErrorCreator.BaseArgumentsToInterface.CreateOptions(
+                type.SelfIdentifier.SourceCodeName, FirstBase.ToString()), type);
         }
     }
 
@@ -166,63 +195,72 @@ internal class InheritanceChecker : IPackResolver
         }
     }
 
-    /* Follows each class's first base class until the chain either ends or comes back to where it
-     * started. A chain running into a loop which does not pass through its start is left to the classes
-     * in that loop to report. */
-    private void CheckClassCycle(PackClass type, PackResolutionContext context)
-    {
-        List<PackMember> Chain = new() { type };
-        HashSet<PackMember> Visited = new(ReferenceEqualityComparer.Instance) { type };
-        for (PackClass? Base = GetFirstBaseClass(type); Base != null; Base = GetFirstBaseClass(Base))
-        {
-            Chain.Add(Base);
-            if (ReferenceEquals(Base, type))
-            {
-                ReportCycle(type, Chain, context);
-                return;
-            }
-            if (!Visited.Add(Base))
-            {
-                return;
-            }
-        }
-    }
-
-    private PackClass? GetFirstBaseClass(PackClass type)
-    {
-        return GetPlainBases(type).Select(written => written.MainTarget.Target).OfType<PackClass>()
-            .FirstOrDefault();
-    }
-
-    /* Searches the interfaces an interface derives from, breadth first, for a way back to it, so that the
-     * chain reported is the shortest one. */
-    private void CheckInterfaceCycle(PackInterface type, PackResolutionContext context)
+    /* Searches, breadth first, what a class's or an interface's own bases depend on for a way back to it, so
+     * that the chain reported is the shortest one. So each type whose base list is part of a loop reports it,
+     * and a type which is only in it by being declared inside another is left out, as Roslyn leaves it. */
+    private void CheckCycle(PackMember type, PackResolutionContext context)
     {
         Dictionary<PackMember, PackMember> ReachedFrom = new(ReferenceEqualityComparer.Instance);
-        Queue<PackInterface> ToSearch = new();
-        ToSearch.Enqueue(type);
+        Queue<PackMember> ToSearch = new();
+        foreach (PackMember Base in GetBaseDependencies(type))
+        {
+            if (ReferenceEquals(Base, type))
+            {
+                ReportCycle(type, new() { type, type }, context);
+                return;
+            }
+            if (ReachedFrom.TryAdd(Base, type))
+            {
+                ToSearch.Enqueue(Base);
+            }
+        }
 
         while (ToSearch.Count > 0)
         {
-            PackInterface Current = ToSearch.Dequeue();
-            foreach (PackInterface Base in GetBaseInterfaces(Current))
+            PackMember Current = ToSearch.Dequeue();
+            foreach (PackMember Next in GetDependencies(Current))
             {
-                if (ReferenceEquals(Base, type))
+                if (ReferenceEquals(Next, type))
                 {
                     ReportCycle(type, BuildChain(type, Current, ReachedFrom), context);
                     return;
                 }
-                if (ReachedFrom.TryAdd(Base, Current))
+                if (ReachedFrom.TryAdd(Next, Current))
                 {
-                    ToSearch.Enqueue(Base);
+                    ToSearch.Enqueue(Next);
                 }
             }
         }
     }
 
-    private IEnumerable<PackInterface> GetBaseInterfaces(PackInterface type)
+    /* What a type depends on through its base list: a class its base class, which is the first of its bases
+     * which is not an interface, and an interface its base interfaces. The interfaces a class or a structure
+     * implements are no part of it, and nor are a sealed or static base class, nor a static class's base,
+     * which are reported and which Roslyn then drops. */
+    private IEnumerable<PackMember> GetBaseDependencies(PackMember type)
     {
-        return GetPlainBases(type).Select(written => written.MainTarget.Target).OfType<PackInterface>();
+        if (type is PackInterface)
+        {
+            return GetPlainBases(type).Select(written => written.MainTarget.Target).OfType<PackInterface>();
+        }
+        if ((type is not PackClass) || MemberRelations.IsStaticClass(type))
+        {
+            return Enumerable.Empty<PackMember>();
+        }
+
+        IIdentifiable? Place = GetPlainBases(type).Select(written => written.MainTarget.Target)
+            .FirstOrDefault(target => target is not PackInterface);
+        bool IsKept = (Place is PackClass BaseClass) && !BaseClass.HasModifier(PackMemberModifiers.Sealed)
+            && !MemberRelations.IsStaticClass(BaseClass);
+        return IsKept ? new PackMember[] { (PackClass)Place! } : Enumerable.Empty<PackMember>();
+    }
+
+    /* Everything a type depends on: its bases, and the type it is declared in. */
+    private IEnumerable<PackMember> GetDependencies(PackMember type)
+    {
+        PackMember? Holder = MemberRelations.GetHoldingMember(type);
+        return ((Holder != null) && MemberRelations.IsType(Holder))
+            ? GetBaseDependencies(type).Append(Holder) : GetBaseDependencies(type);
     }
 
     /* The chain from a type to the last interface found before coming back to it, and back to the type. */
@@ -239,12 +277,31 @@ internal class InheritanceChecker : IPackResolver
         return Chain;
     }
 
+    /* A loop through a type declared inside another is told apart, since the type holding it is not one of
+     * its bases, and nested types are named with the types around them to show it. */
     private void ReportCycle(PackMember type, List<PackMember> chain, PackResolutionContext context)
     {
-        string ChainText = MemberRelations.FormatChain(
-            chain.Select(member => member.SelfIdentifier.SourceCodeName));
-        context.AddError(context.ErrorCreator.CircularBase.CreateOptions(type.SelfIdentifier.SourceCodeName,
-            ChainText), type);
+        bool IsThroughNesting = false;
+        for (int Index = 1; Index < chain.Count; Index++)
+        {
+            IsThroughNesting |= !GetBaseDependencies(chain[Index - 1]).Contains(chain[Index],
+                ReferenceEqualityComparer.Instance);
+        }
+
+        string TypeName = GetNestedName(type);
+        string ChainText = MemberRelations.FormatChain(chain.Select(GetNestedName));
+        ErrorDefinition Error = IsThroughNesting ? context.ErrorCreator.CircularBaseThroughNesting
+            : context.ErrorCreator.CircularBase;
+        context.AddError(Error.CreateOptions(TypeName, ChainText), type);
+    }
+
+    /* A type's name after the names of the types it is declared in, as "Outer.Inner". */
+    private string GetNestedName(PackMember type)
+    {
+        PackMember? Holder = MemberRelations.GetHoldingMember(type);
+        return ((Holder != null) && MemberRelations.IsType(Holder))
+            ? GetNestedName(Holder) + KGVL.NAMESPACE_SEPARATOR + type.SelfIdentifier.SourceCodeName
+            : type.SelfIdentifier.SourceCodeName;
     }
 
 
@@ -265,12 +322,13 @@ internal class InheritanceChecker : IPackResolver
             {
                 case PackClass Class:
                     CheckClassBases(Class, ObjectType, context);
-                    CheckClassCycle(Class, context);
+                    CheckRecordBaseArguments(Class, context);
+                    CheckCycle(Class, context);
                     break;
 
                 case PackInterface Interface:
                     CheckInterfaceOnlyBases(Interface, context);
-                    CheckInterfaceCycle(Interface, context);
+                    CheckCycle(Interface, context);
                     break;
 
                 case PackStruct:

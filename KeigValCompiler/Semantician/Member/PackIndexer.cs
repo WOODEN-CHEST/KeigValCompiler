@@ -1,15 +1,16 @@
 ﻿namespace KeigValCompiler.Semantician.Member;
 
-internal class PackIndexer : PackMember, IExplicitInterfaceMember
+internal class PackIndexer : PackMember, IExplicitInterfaceMember, IPackAccessorHolder
 {
     // Fields.
     public TypeTargetIdentifier? ExplicitInterface { get; set; } = null;
+    public PackFunction? GetFunction { get; set; }
+    public PackFunction? SetFunction { get; set; }
+    public PackFunction? InitFunction { get; set; }
 
 
     // Internal fields.
     internal TypeTargetIdentifier Type { get; set; }
-    internal PackFunction? GetFunction { get; set; }
-    internal PackFunction? SetFunction { get; set; }
     internal FunctionParameterCollection Parameters { get; } = new();
     internal override IEnumerable<PackMember> SubMembers
     {
@@ -24,6 +25,10 @@ internal class PackIndexer : PackMember, IExplicitInterfaceMember
             if (SetFunction != null)
             {
                 SubMembers.Add(SetFunction);
+            }
+            if (InitFunction != null)
+            {
+                SubMembers.Add(InitFunction);
             }
 
             return SubMembers.ToArray();

@@ -20,13 +20,14 @@ and are made by the repository owner, not by agents.
 
 ## Project status: early and incomplete
 
-Be honest with yourself about how little exists. As of 2026-09-29:
+Be honest with yourself about how little exists. As of 2026-09-30:
 
 - The **parser is complete** for the language's syntax, including function
   bodies, expressions and operator precedence, apart from the gaps listed in
   [`agents/parser-gaps.md`](agents/parser-gaps.md). It checks little about what
   it reads beyond what only it can see: repeated modifiers, accessors and
-  `where` clauses, and `builtin` outside the standard library.
+  `where` clauses, `builtin` outside the standard library, a throw expression
+  where C# allows none, and a record's base arguments where none can be passed.
 - The **resolver** resolves the types named in declarations, binds the
   standard library, and checks declarations against C#'s rules apart from
   the few gaps listed in `agents/architecture.md`, but does not look inside

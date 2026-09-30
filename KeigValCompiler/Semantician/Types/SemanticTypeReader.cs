@@ -122,7 +122,17 @@ internal class SemanticTypeReader
                     }
                     TypeArguments.Add(ReadArgument);
                 }
-                return new DeclaredType(Declaration, TypeArguments, GetContainingType(Declaration),
+
+                DeclaredType? ContainingType = GetContainingType(Declaration);
+                if (IsQualifiedByHolder(type, Declaration))
+                {
+                    ContainingType = Read(type.Qualifier!) as DeclaredType;
+                    if (ContainingType == null)
+                    {
+                        return null;
+                    }
+                }
+                return new DeclaredType(Declaration, TypeArguments, ContainingType,
                     _registry.GetLibraryType(Declaration), false);
 
             default:
@@ -130,11 +140,19 @@ internal class SemanticTypeReader
         }
     }
 
-    /* A nested type can only be named from inside the types around it, so what holds it is always the
+    /* A nested type named on its own is named from inside the types around it, so what holds it is the
      * holding type as its own declaration sees it. */
     private DeclaredType? GetContainingType(PackMember declaration)
     {
         return (declaration.ParentItem?.Target is PackMember Holder) ? GetInstanceType(Holder) : null;
+    }
+
+    /* Whether a nested type is written after the type holding it, as "Inner" is in "Outer<int>.Inner", which
+     * then gives the holding type with its type arguments. */
+    private bool IsQualifiedByHolder(TypeTargetIdentifier type, PackMember declaration)
+    {
+        return (type.Qualifier != null) && (declaration.ParentItem?.Target is PackMember Holder)
+            && ReferenceEquals(type.Qualifier.MainTarget.Target, Holder);
     }
 
     private DeclaredType? ReadKnownType(LibraryType knownType, SemanticType typeArgument)

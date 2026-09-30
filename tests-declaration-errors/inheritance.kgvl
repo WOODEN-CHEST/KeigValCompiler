@@ -5,29 +5,31 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 333 errors and 15 warnings. Expected from this
- * file, 19 errors and 1 warnings:
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * file, 21 errors and 1 warnings:
  *
- *   line 44 RS error 8      two base classes
- *   line 45 RS error 9      the base class after an interface
- *   line 46 RS error 10     a structure deriving from a class
- *   line 47 RS error 10     an interface deriving from a class
- *   line 48 RS error 11     a class deriving from a structure
- *   line 49 RS error 11     a class deriving from an enum
- *   line 50 RS error 11     a class deriving from its generic parameter
- *   line 51 RS error 12     a class deriving from a sealed class
- *   line 52 RS error 13     a class deriving from a static class
- *   line 53 RS error 14     a static class implementing an interface
- *   line 54 RS error 15     two classes deriving from each other, reported on the first
- *   line 55 RS error 15     and on the second
- *   line 56 RS error 15     an interface deriving from itself
- *   line 57 RE error 6      a record deriving from a class
- *   line 58 RE error 7      a class deriving from a record
- *   line 59 RS error 2      an unknown base, with nothing reported about the class base after it
- *   line 60 RS error 18     a class deriving from an array
- *   line 61 RS error 18     a class deriving from a nullable interface
- *   line 64 RS error 19     an explicit implementation naming an array of an interface
- *   line 69 RS warning 4    an interface listed twice, differing only in '?'
+ *   line 46 RS error 8      two base classes
+ *   line 47 RS error 9      the base class after an interface
+ *   line 48 RS error 10     a structure deriving from a class
+ *   line 49 RS error 10     an interface deriving from a class
+ *   line 50 RS error 11     a class deriving from a structure
+ *   line 51 RS error 11     a class deriving from an enum
+ *   line 52 RS error 11     a class deriving from its generic parameter
+ *   line 53 RS error 12     a class deriving from a sealed class
+ *   line 54 RS error 13     a class deriving from a static class
+ *   line 55 RS error 14     a static class implementing an interface
+ *   line 56 RS error 15     two classes deriving from each other, reported on the first
+ *   line 57 RS error 15     and on the second
+ *   line 58 RS error 15     an interface deriving from itself
+ *   line 59 RE error 6      a record deriving from a class
+ *   line 60 RE error 7      a class deriving from a record
+ *   line 61 RS error 2      an unknown base, with nothing reported about the class base after it
+ *   line 62 RS error 18     a class deriving from an array
+ *   line 63 RS error 18     a class deriving from a nullable interface
+ *   line 66 RS error 19     an explicit implementation naming an array of an interface
+ *   line 71 RS warning 4    an interface listed twice, differing only in '?'
+ *   line 78 RS error 59     an unusable first base, which keeps the base class's place, so no loop through the class after it
+ *   line 84 RS error 12     a class deriving from a sealed one, which is dropped, so no loop
  */
 
 namespace Test.Inheritance;
@@ -67,3 +69,16 @@ public class ExplicitArray : IThing
 public interface IListed<T> { }
 
 public class ListedTwice : IListed<string>, IListed<string?> { }
+
+public class Keeper
+{
+    private class Kept { }
+}
+
+public class PlaceTaken : Keeper.Kept, TakesPlace { }
+
+public class TakesPlace : PlaceTaken { }
+
+public sealed class SealedLoop : LoopsBack { }
+
+public class LoopsBack : SealedLoop { }

@@ -49,7 +49,12 @@ internal class TypeHierarchy
         {
             return null;
         }
-        if (type.Declaration is PackClass)
+        /* A class's base class is the first of its bases which is not an interface. One which did not resolve,
+         * or is no class, has been reported, and leaves the class with none but object, as Roslyn leaves it,
+         * rather than letting a class written after it take its place. */
+        if ((type.Declaration is PackClass Class) && (Class.ExtendedMembers.FirstOrDefault(written =>
+            !written.IsArrayOrNullable && (written.MainTarget.Target is not PackInterface))?.MainTarget.Target
+            is PackClass))
         {
             DeclaredType? WrittenBase = _reader.GetWrittenBaseTypes(type)
                 .FirstOrDefault(written => written.Declaration is PackClass);

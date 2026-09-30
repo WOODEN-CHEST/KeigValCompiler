@@ -5,32 +5,33 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 333 errors and 15 warnings. Expected from this
- * file, 22 errors and 1 warnings:
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * file, 23 errors and 1 warnings:
  *
- *   line 38 RE error 8      a declared property of another type
- *   line 43 RE error 8      a declared static property
- *   line 48 RE error 8      a declared property without get
- *   line 55 RS error 7      a declared function sharing the made property's name
- *   line 58 RS error 6      a positional parameter named like its record
- *   line 65 RE error 8      an inherited property of another type
- *   line 72 RE error 8      an inherited function
- *   line 79 RE error 8      an inherited constant
- *   line 86 RS error 27     overriding an abstract property without a setter
- *   line 93 RS error 47     overriding an abstract set with init
- *   line 97 RTMC error 43   a static class as a positional parameter's type, reported once
- *   line 106 RS error 47    a written override of set with init
- *   line 120 RE error 8     a declared override with init but no get of its own
- *   line 125 RE error 8     an inherited override with init but no get of its own
- *   line 133 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
- *   line 133 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
- *   line 135 RS warning 1   the record's function hiding the inherited property, also warned
- *   line 139 RE error 10    ref and out positional parameters, each reported
- *   line 139 RE error 10    ref and out positional parameters, each reported
- *   line 143 MM error 10    a static abstract property in a class, and no error for the class deriving from it
- *   line 155 RS error 47    an init overriding a set, and no error for the interface wanting set
- *   line 158 RS error 2     an inherited function, with the parameter's type named as written
- *   line 158 RE error 8     an inherited function, with the parameter's type named as written
+ *   line 39 RE error 8      a declared property of another type
+ *   line 44 RE error 8      a declared static property
+ *   line 49 RE error 8      a declared property without get
+ *   line 56 RS error 7      a declared function sharing the made property's name
+ *   line 59 RS error 6      a positional parameter named like its record
+ *   line 66 RE error 8      an inherited property of another type
+ *   line 73 RE error 8      an inherited function
+ *   line 80 RE error 8      an inherited constant
+ *   line 87 RS error 27     overriding an abstract property without a setter
+ *   line 94 RS error 47     overriding an abstract set with init
+ *   line 98 RTMC error 43   a static class as a positional parameter's type, reported once
+ *   line 107 RS error 47    a written override of set with init
+ *   line 121 RE error 8     a declared override with init but no get of its own
+ *   line 126 RE error 8     an inherited override with init but no get of its own
+ *   line 134 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
+ *   line 134 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
+ *   line 136 RS warning 1   the record's function hiding the inherited property, also warned
+ *   line 140 RE error 10    ref and out positional parameters, each reported
+ *   line 140 RE error 10    ref and out positional parameters, each reported
+ *   line 144 MM error 10    a static abstract property in a class, and no error for the class deriving from it
+ *   line 156 RS error 47    an init overriding a set, and no error for the interface wanting set
+ *   line 159 RS error 2     an inherited function, with the parameter's type named as written
+ *   line 159 RE error 8     an inherited function, with the parameter's type named as written
+ *   line 163 RE error 13    base arguments passed to an interface
  */
 
 namespace Test.Records;
@@ -156,3 +157,7 @@ public class SettableAgain : Settable, ISettable
 }
 
 public record UnknownFunction(Missing Value) : FunctionBase;
+
+public interface IPositioned { }
+
+public record PositionArguments(int X) : IPositioned(X);

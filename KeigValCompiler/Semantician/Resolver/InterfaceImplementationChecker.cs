@@ -373,19 +373,27 @@ internal class InterfaceImplementationChecker : IPackResolver
                 implemented.Type?.ToString() ?? KGVL.KEYWORD_VOID), Member);
         }
 
-        foreach (string Keyword in _accessorKeywords)
+        /* "set" and "init" share the setter's place, so one written for the other is one mistake, as in C#. */
+        foreach (string Keyword in new string[] { KGVL.KEYWORD_GET, KGVL.KEYWORD_SET })
         {
-            bool IsOwn = InheritedMembers.GetAccessor(Member, Keyword) != null;
-            bool IsInterfaces = InheritedMembers.GetAccessor(implemented.Member, Keyword) != null;
-            if (IsInterfaces && !IsOwn)
+            PackFunction? Own = InheritedMembers.GetAccessorInPlace(Member, Keyword);
+            PackFunction? Interfaces = InheritedMembers.GetAccessorInPlace(implemented.Member, Keyword);
+            if ((Own != null) && (Interfaces != null)
+                && (Own.SelfIdentifier.SourceCodeName != Interfaces.SelfIdentifier.SourceCodeName))
+            {
+                context.AddError(context.ErrorCreator.ExplicitImplementationSetterKind.CreateOptions(Name, Kind,
+                    interfaceName, Own.SelfIdentifier.SourceCodeName, Interfaces.SelfIdentifier.SourceCodeName),
+                    Member);
+            }
+            else if ((Interfaces != null) && (Own == null))
             {
                 context.AddError(context.ErrorCreator.ExplicitImplementationMissingAccessor.CreateOptions(Name,
-                    Kind, interfaceName, Keyword), Member);
+                    Kind, interfaceName, Interfaces.SelfIdentifier.SourceCodeName), Member);
             }
-            else if (IsOwn && !IsInterfaces)
+            else if ((Own != null) && (Interfaces == null))
             {
                 context.AddError(context.ErrorCreator.ExplicitImplementationExtraAccessor.CreateOptions(Name,
-                    Kind, interfaceName, Keyword), Member);
+                    Kind, interfaceName, Own.SelfIdentifier.SourceCodeName), Member);
             }
         }
     }

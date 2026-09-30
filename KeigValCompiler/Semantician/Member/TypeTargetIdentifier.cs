@@ -12,6 +12,12 @@ internal class TypeTargetIdentifier
     internal Identifier MainTarget { get; set; }
     internal TypeTargetIdentifier[] TypeArguments { get; set; }
 
+    /* What is written before the name and a '.', a namespace or a type, as the "KGVL.Collections" of
+     * "KGVL.Collections.List<int>" or the "Outer<int>" of "Outer<int>.Inner". It is itself a name which may
+     * have type arguments and a qualifier of its own, but never array levels or '?'. Null for a name written
+     * on its own. */
+    internal TypeTargetIdentifier? Qualifier { get; init; }
+
     /* Nullability of every level of the type, innermost first: index 0 is the element type and
      * index ArrayRank the outermost array. Always holds exactly ArrayRank + 1 entries, because a
      * type of array depth N has N + 1 independently nullable positions. */
@@ -85,17 +91,35 @@ internal class TypeTargetIdentifier
         _nullabilityByLevel = Levels;
     }
 
-    /* The type written with each name as the given function gives it, and its type arguments, array
-     * levels and nullable markers in the order source code has them. */
-    internal string Format(Func<Identifier, string> nameOf)
+    /* The type as its resolved names spell it, or as source code does where one is not resolved. A resolved
+     * name holds its namespace already, so a qualifier naming a namespace is left out, and the type reads the
+     * same however it was written; one naming a type is kept, since its type arguments are part of which
+     * type is meant, as in "Outer<int>.Inner" and "Outer<string>.Inner". */
+    internal string FormatResolved()
     {
-        ArgumentNullException.ThrowIfNull(nameOf, nameof(nameOf));
+        return Format(true);
+    }
 
-        StringBuilder Builder = new(nameOf(MainTarget));
+
+    // Private methods.
+    /* The type with its qualifier, type arguments, array levels and nullable markers in the order source
+     * code has them. */
+    private string Format(bool isResolved)
+    {
+        string? ResolvedName = isResolved ? MainTarget.ResolvedName : null;
+        bool IsQualifierWritten = (Qualifier != null)
+            && ((ResolvedName == null) || (Qualifier.MainTarget.Target is PackMember));
+
+        StringBuilder Builder = new();
+        if (IsQualifierWritten)
+        {
+            Builder.Append(Qualifier!.Format(isResolved)).Append(KGVL.NAMESPACE_SEPARATOR);
+        }
+        Builder.Append(((ResolvedName == null) || IsQualifierWritten) ? MainTarget.SourceCodeName : ResolvedName);
         if (TypeArguments.Length > 0)
         {
             Builder.Append(KGVL.GENERIC_TYPE_START)
-                .Append(string.Join(", ", TypeArguments.Select(argument => argument.Format(nameOf))))
+                .Append(string.Join(", ", TypeArguments.Select(argument => argument.Format(isResolved))))
                 .Append(KGVL.GENERIC_TYPE_END);
         }
 
@@ -115,9 +139,9 @@ internal class TypeTargetIdentifier
 
 
     // Inherited methods.
-    /* The type as source code writes it, as in "List<int?>[]". */
+    /* The type as source code writes it, as in "KGVL.Collections.List<int?>[]". */
     public override string ToString()
     {
-        return Format(identifier => identifier.SourceCodeName);
+        return Format(false);
     }
 }

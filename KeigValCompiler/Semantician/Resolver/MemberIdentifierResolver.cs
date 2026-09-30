@@ -16,15 +16,7 @@ internal class MemberIdentifierResolver : IPackResolver
         ArgumentNullException.ThrowIfNull(context, nameof(context));
 
         SetIdentifier(property, context.IdentifierGenerator.GetFullResolvedIdentifier(property));
-        foreach (PackFunction? Accessor in new PackFunction?[]
-            { property.GetFunction, property.SetFunction, property.InitFunction })
-        {
-            if (Accessor != null)
-            {
-                SetFunctionIdentifier(Accessor,
-                    context.IdentifierGenerator.GetPropertyFunctionIdentifier(property, Accessor));
-            }
-        }
+        ResolveAccessors(property, context);
     }
 
 
@@ -83,13 +75,19 @@ internal class MemberIdentifierResolver : IPackResolver
         {
             SetIdentifier(Indexer, context.IdentifierGenerator.GetFullyResolvedIndexerIdentifier(Indexer));
             SetParameterIdentifiers(Indexer.Parameters);
-            foreach (PackFunction? Accessor in new PackFunction?[] { Indexer.GetFunction, Indexer.SetFunction })
+            ResolveAccessors(Indexer, context);
+        }
+    }
+
+    private void ResolveAccessors(IPackAccessorHolder holder, PackResolutionContext context)
+    {
+        foreach (PackFunction? Accessor in new PackFunction?[]
+            { holder.GetFunction, holder.SetFunction, holder.InitFunction })
+        {
+            if (Accessor != null)
             {
-                if (Accessor != null)
-                {
-                    SetFunctionIdentifier(Accessor,
-                        context.IdentifierGenerator.GetIndexerFunctionIdentifier(Indexer, Accessor));
-                }
+                SetFunctionIdentifier(Accessor,
+                    context.IdentifierGenerator.GetAccessorIdentifier(holder, Accessor));
             }
         }
     }

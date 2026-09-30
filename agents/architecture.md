@@ -59,11 +59,31 @@ each relying on what the ones before it set:
    types, constraints, member types, parameters, explicit interfaces) by pointing
    its `Identifier.Target` at the type or `GenericTypeParameter` it means.
    `TypeSearcher` looks names up as C# does: generic parameters and nested types
-   around the use, innermost first; then the namespace and each containing it;
-   then `using` imports, where two matches are ambiguous. A type matches by name
-   and generic parameter count. A namespace's type the use cannot see, in
-   practice the library's `internal` types from user code, is passed over,
-   and reported as inaccessible when nothing else matched.
+   around the use, innermost first; then, at the namespace and each containing
+   it, a namespace of the name inside it and then a type it holds, and a root
+   namespace of the name; then `using` imports, where two matches are
+   ambiguous. A type matches by name and generic parameter count. A namespace's
+   type the use cannot see, in practice the library's `internal` types from
+   user code, is passed over, and reported as inaccessible when nothing else
+   matched. Where one namespace holds both a namespace and a type of a name,
+   the user's code finds its own over the library's, as Roslyn prefers what a
+   compilation declares to what it imports, and a clash on one side, which
+   `DeclarationNameChecker` reports, finds the type, and then the namespace for
+   what follows it, so that only the clash is reported. The standard library
+   is looked at as its own assembly, and sees only its own namespaces and
+   types. A
+   qualified name, such as `KGVL.Collections.List<int>` or `Outer<int>.Inner`,
+   is a chain of `TypeTargetIdentifier.Qualifier`s, each with its own type
+   arguments, resolved from the first: each names a namespace, whose
+   identifier then carries its full name, or a type, in which the next name
+   is looked for, a namespace inside a namespace before a type.
+   `SemanticTypeReader` takes a nested type's containing type from its
+   qualifier, so `Outer<int>.Inner` and `Outer<string>.Inner` differ. Whether
+   a declaration can use a nested type named through a qualifier depends on
+   what derives from what, so it is decided once every signature is resolved,
+   as `AccessDomains.IsAccessibleFrom` decides it; one it cannot use is
+   reported (C#'s CS0122) and left unresolved, so that the checks after it
+   skip it, as Roslyn skips a type in error.
 6. `MemberIdentifierResolver`: names every other member. A function's name
    carries its parameter types, so overloads stay apart.
 7. `LibraryBindingResolver`: binds the library, as described below.
@@ -104,12 +124,27 @@ it.
 - `MemberBodyChecker`: which functions and accessors need a body and which
   cannot have one, properties storing their own value, and what constructors
   can run first.
+- `ParameterChecker`: what may follow what in a parameter list, as in C#: a
+  `params` parameter comes last, and after a parameter with a default value
+  only others with one and a `params` one. A `ref`, `out` or `params`
+  parameter cannot have a default, and a default a member can never use (on
+  an explicit implementation, an operator, or an indexer of one parameter) is
+  warned about. A default which cannot be had does not also make the
+  parameters after it misplaced, unlike in Roslyn, so that it is reported
+  once.
 - `OperatorDeclarationChecker`: an operator's parameter count and parameter
   modifiers, its return type, and an interface's equality and conversion
   operators, which have to be abstract or virtual.
-- `InheritanceChecker`: what each kind of type derives from, cycles, and an
+- `InheritanceChecker`: what each kind of type derives from, cycles, an
   interface listed twice (only a warning when the two differ only in `?`, as
-  in C#).
+  in C#), and a record's base arguments given to an interface. A cycle is as
+  C# defines it: a class depends on its base class, an interface on its base
+  interfaces, and either on the type it is declared in, so `class O : O.N`
+  with `N` declared in `O` is one; a sealed or static base, which is reported,
+  is dropped, as Roslyn drops it. As in Roslyn, a class's base class is the
+  first of its bases which is not an interface: one which did not resolve, or
+  is no class, keeps that place, leaving the class with none but `object` in
+  `TypeHierarchy`, and a class after it is not taken for the base class.
 - `DeclarationNameChecker`: names that cannot coincide, from two enum constants
   of one name to a field named like a function beside it, a type's generic
   parameter, or a namespace.
@@ -167,9 +202,13 @@ inherits, and what an explicit implementation implements.
   members' accessibility domains as Roslyn's `IsAsRestrictive` does.
 
 What remains unchecked in declarations: nested types of base classes (lookup
-does not see them yet), whether `notnull` is satisfied, which is
-nullability checking, and everything inside function bodies. See "Suggested
-order of work".
+does not see them yet, unqualified or through a qualifier), whether `notnull`
+is satisfied, which is nullability checking, what type a `params` parameter
+may have (an array, or
+since C# 13 also collections, which is for the owner to decide), that a
+record with a parameter list chains each constructor it declares to another
+with `this(...)` (C#'s CS8862), and everything inside function bodies. See
+"Suggested order of work".
 
 Errors are queued, like the parser's, so one missing type does not hide the rest.
 A type which cannot be resolved is left with no `Target`, and later passes skip
@@ -182,14 +221,16 @@ The object model lives in `KeigValCompiler/Semantician/Member/` (`PackClass`,
 `Identifier` carries both its `SourceCodeName` and, after resolution, a
 `ResolvedName` and a `Target`.
 
-Two checks the parser cannot make are left to this stage, and are not done yet,
+Three checks the parser cannot make are left to this stage, and are not done yet,
 because they need function bodies' expressions resolved. **Enum constant values**
 are stored as the expressions written for them
 (`PackEnumerationConstant.ValueExpression`), since they may name other constants;
 they are to be computed in declaration order, a constant without one being the
-previous value plus one, and each checked to fit `int`. And **integer literals**
-carry their value and C# type, but whether that value fits the type it is
-assigned to is to be checked here.
+previous value plus one, and each checked to fit `int`. **Default parameter
+values** are stored the same way (`FunctionParameter.DefaultValue`), and each is
+to be checked to be a constant which converts to its parameter's type. And
+**integer literals** carry their value and C# type, but whether that value fits
+the type it is assigned to is to be checked here.
 
 ### The standard library
 
@@ -300,7 +341,7 @@ error in a file is useful or noise depends on the input. After a recovered error
 the object model holds a partially built, possibly nonsensical tree, which is
 the other reason the next stage must not run.
 
-## Current state (as of 2026-09-29)
+## Current state (as of 2026-09-30)
 
 The build is **green**. **The parser is syntactically complete** apart from the
 gaps in [`parser-gaps.md`](parser-gaps.md): it reads every construct, down to
@@ -324,20 +365,22 @@ compiles. Five fixtures cover what exists, all run by hand:
 The grammar, apart from the parser gaps listed under the smaller known gaps
 below. Types (classes, structs, interfaces, records, enums, delegates, events)
 with base types which may have type arguments, their members (fields, properties
-with `get`/`set`/`init`, indexers, functions, constructors with `this`/`base`
-chaining, operator overloads including conversions, in interfaces too, and
-explicit interface implementations), `const` fields and locals, generics with
-constraints, and the statement and expression forms: precedence-correct operators, assignment,
-ternary, lambdas, `switch` expressions, `new` with object/collection/array
-initializers, indexing, member and conditional access, `yield`, `catch ... when`,
-interpolated strings and all literal forms. The standard library is read from
-`library-stubs/` before the user's code, and only it may use `builtin`. Every
-type named in a declaration resolves, every builtin member of the library is
-bound to what the compiler implements for it, and declarations are checked for
-modifiers, what may hold what, bodies, the shape and types of operators,
-inheritance, names, signatures, overriding and hiding, interface
-implementation, generic constraints, field types, static classes used as
-types, and accessibility.
+and indexers with `get`/`set`/`init` or a `=>` getter, functions, constructors
+with `this`/`base` chaining, a record's arguments to its base record, operator
+overloads including conversions, in interfaces too, and explicit interface
+implementations), parameters with default values, `const` fields and locals,
+generics with constraints, and the statement and expression forms:
+precedence-correct operators, assignment, ternary, `is` and `as`, throw
+expressions, lambdas, `switch` expressions, `new` with object/collection/array
+initializers, indexing, member and conditional access, `nameof` of a member
+chain, `yield`, `catch ... when`, interpolated strings and all literal forms.
+The standard library is read from `library-stubs/` before the user's code, and
+only it may use `builtin`. Every type named in a declaration resolves, every
+builtin member of the library is bound to what the compiler implements for it,
+and declarations are checked for modifiers, what may hold what, bodies, the
+shape and types of operators, inheritance, names, parameters, signatures,
+overriding and hiding, interface implementation, generic constraints, field
+types, static classes used as types, and accessibility.
 
 ### The two blocking gaps
 
@@ -357,15 +400,18 @@ types, and accessibility.
   through. All three are noted in `language.md`.
 - No pattern matching beyond a bare `is SomeType`, by design.
 - `raw` and `constalloc` remain reserved with no meaning.
-- Parser gaps, each detailed in [`parser-gaps.md`](parser-gaps.md): qualified
-  type names such as `KGVL.Int32` do not parse, nor does the `as` operator, nor
-  throw expressions, nor the `\e` and `\U` escapes, nor a record's arguments to
-  its base record, as in `record B(int X) : A(X)`, nor a parameter's default
-  value, nor an expression-bodied indexer, nor an indexer's `init`, nor an
-  event's `add` and `remove` accessors.
+- Parser gaps, each detailed in [`parser-gaps.md`](parser-gaps.md): an event's
+  `add` and `remove` accessors do not parse, nor does a lambda parameter's
+  default value, nor named and `ref` arguments passed on by `: base(...)`,
+  `: this(...)` or a record's base list, nor an unbound generic type such as
+  `typeof(List<>)`.
+- Roslyn's warnings for a namespace and a type of one name on the two sides of
+  the standard library's boundary (CS0435 to CS0437) are not given, though
+  the name finds what Roslyn finds: the user's own namespace or type.
 - Declarations are checked against C#'s rules apart from nested types of base
-  classes, whose step is under "Suggested order of work", and `notnull`
-  constraints, which wait for nullability checking.
+  classes, whose step is under "Suggested order of work", `notnull`
+  constraints, which wait for nullability checking, a `params` parameter's
+  type, and a record's constructors chaining to its primary one.
 
 ## Suggested order of work
 
@@ -430,12 +476,18 @@ Roughly dependency-ordered; the owner decides priorities.
       4. ~~Accessibility: lookup skipping what cannot be seen, accessors' own
          access, a member exposing a type less accessible than itself, and
          required members.~~ Done: see stage 2.
-      5. The parser gaps in [`parser-gaps.md`](parser-gaps.md), all nine,
-         before step 6, which needs qualified type names. Two are oversights
-         and three are missing features needing model and resolver work too.
+      5. ~~The parser gaps in [`parser-gaps.md`](parser-gaps.md).~~ Done on
+         2026-09-30, qualified type names included, but for those recorded
+         there for later: an event's accessors, lambda defaults and named
+         chain arguments.
       6. Nested types of base classes in lookup, which needs base lists
-         resolved first, on demand. `TypeSearcher` is also where qualified type
-         names will land, so this waits for that parser gap to close.
+         resolved first, on demand, with C#'s rule that a type's own base is
+         taken as object while its base list is resolved. Lookup through a
+         qualifier then also finds a base class's nested types, as in
+         `Derived.BaseNested`, whose containing type `SemanticTypeReader` has
+         to take from the base as the qualifier sees it; and a type's own
+         nested types have to stop being found in its own base list, as in
+         `class O : N { class N { } }`, which C# rejects.
    3. Resolve function bodies: expression types, names inside bodies, overloads,
       conversions and operators, with the operators the library declares on its
       built in types standing in for C#'s predefined ones. Then the enum values

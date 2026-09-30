@@ -1,6 +1,7 @@
 namespace KeigValCompiler.Semantician.Member.Code;
 
-/* An operator with two operands, such as "a + b" or "left is Right". */
+/* An operator with two operands, such as "a + b", or "left is Right" and "left as Right", whose right
+ * operand is a type. */
 internal class BinaryOperatorStatement : Statement
 {
     // Fields.

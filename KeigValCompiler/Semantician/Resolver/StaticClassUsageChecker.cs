@@ -83,9 +83,15 @@ internal class StaticClassUsageChecker : IPackResolver
         }
     }
 
-    /* An array of a static class anywhere in a type, and a static class given as a type argument. */
+    /* An array of a static class anywhere in a type, and a static class given as a type argument, the types
+     * written before a '.' included. A static class itself may stand before one, as in "Tools.Nested". */
     private void CheckWrittenType(TypeTargetIdentifier written, PackMember member, PackResolutionContext context)
     {
+        if (written.Qualifier != null)
+        {
+            CheckWrittenType(written.Qualifier, member, context);
+        }
+
         string Kind = MemberRelations.GetKindName(member);
         string Name = MemberRelations.GetDisplayName(member);
         if (IsStaticClass(written) && (written.ArrayRank > 0))

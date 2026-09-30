@@ -114,7 +114,7 @@ internal static class MemberRelations
     /* A property's or an indexer's "get", "set" or "init". */
     internal static bool IsAccessor(PackMember member)
     {
-        return (member is PackFunction) && (GetHoldingMember(member) is PackProperty or PackIndexer);
+        return (member is PackFunction) && (GetHoldingMember(member) is IPackAccessorHolder);
     }
 
     /* The overload a function is the body of, or null for a function which is not an operator. */

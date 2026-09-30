@@ -5,72 +5,73 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 333 errors and 15 warnings. Expected from this
- * file, 63 errors:
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * file, 64 errors:
  *
- *   line 81 MM error 3      virtual on a field
- *   line 82 MM error 3      static on an indexer
- *   line 83 MM error 3      const on a property
- *   line 84 MM error 3      readonly on a class's function
- *   line 85 MM error 3      required on a function
- *   line 86 MM error 3      static on an accessor
- *   line 91 MM error 3      protected in a structure
- *   line 92 MM error 3      virtual in a structure
- *   line 97 MM error 3      override in an interface
- *   line 98 MM error 3      required in an interface
- *   line 101 MM error 3     protected on a type a namespace holds
- *   line 102 MM error 3     private on a field a namespace holds
- *   line 103 MM error 3     new on a type a namespace holds
- *   line 104 MM error 3     abstract on a structure
- *   line 105 MM error 3     static on a record
- *   line 109 MM error 4     public and private together
- *   line 112 MM error 6     abstract and virtual
- *   line 113 MM error 7     override and virtual
- *   line 114 MM error 7     override and new
- *   line 115 MM error 8     sealed without override
- *   line 116 MM error 9     abstract and sealed
- *   line 117 MM error 10    static and virtual in a class
- *   line 118 MM error 11    const and static
- *   line 119 MM error 12    private and virtual
- *   line 120 MM error 13    required and static
- *   line 121 MM error 20    required on a readonly field
- *   line 122 MM error 20    required on a property without a setter
- *   line 123 MM error 15    an access modifier on a static constructor
- *   line 128 MM error 16    static and readonly on a function
- *   line 131 MM error 5     an abstract sealed class
- *   line 135 MM error 18    an abstract member of a class which is not abstract
- *   line 140 MM error 19    a virtual member of a sealed class
- *   line 150 MM error 17    public on an explicit implementation
- *   line 151 MM error 21    static on an explicit indexer, which can have no modifiers
- *   line 156 MM error 12    abstract with no access modifier, so private
- *   line 157 MM error 12    virtual with no access modifier
- *   line 158 MM error 12    override with no access modifier, in a class
- *   line 163 MM error 12    override with no access modifier, in a structure
- *   line 173 MM error 17    readonly on an explicit implementation in a class
- *   line 178 MM error 22    sealed and virtual in an interface
- *   line 179 MM error 22    private and sealed in an interface
- *   line 180 EV error 4     a virtual instance event in an interface
- *   line 181 EV error 4     a sealed instance event in an interface
- *   line 182 EV error 4     a private instance event in an interface
- *   line 190 MM error 16    a readonly accessor of a static property
- *   line 195 RTMC error 21  an operator not written public
- *   line 196 RTMC error 21  an operator not written static
- *   line 201 MM error 3     a protected operator, reported once
- *   line 211 RTMC error 28  an explicit operator implementation not written static
- *   line 216 RTMC error 29  == in an interface, neither abstract nor virtual
- *   line 217 RTMC error 29  != in an interface, likewise
- *   line 222 MM error 3     static on a record, reported once, with nothing following from it
- *   line 230 MM error 3     protected in a structure, reported once, not as private too
- *   line 235 MM error 3     a protected accessor in a structure
- *   line 241 MM error 23    a private accessor of an interface's abstract property
- *   line 246 MM error 3     an access modifier on an explicit implementation's accessor
- *   line 248 MM error 23    a private accessor of an abstract property
- *   line 253 MM error 24    a readonly property whose set has no body
- *   line 254 MM error 24    a readonly set without a body
- *   line 255 MM error 25    a readonly init
- *   line 256 MM error 26    readonly on both a property and its accessor
- *   line 257 MM error 26    readonly on both accessors
- *   line 258 MM error 26    readonly on a property's only accessor
+ *   line 82 MM error 3      virtual on a field
+ *   line 83 MM error 3      static on an indexer
+ *   line 84 MM error 3      const on a property
+ *   line 85 MM error 3      readonly on a class's function
+ *   line 86 MM error 3      required on a function
+ *   line 87 MM error 3      static on an accessor
+ *   line 92 MM error 3      protected in a structure
+ *   line 93 MM error 3      virtual in a structure
+ *   line 98 MM error 3      override in an interface
+ *   line 99 MM error 3      required in an interface
+ *   line 102 MM error 3     protected on a type a namespace holds
+ *   line 103 MM error 3     private on a field a namespace holds
+ *   line 104 MM error 3     new on a type a namespace holds
+ *   line 105 MM error 3     abstract on a structure
+ *   line 106 MM error 3     static on a record
+ *   line 110 MM error 4     public and private together
+ *   line 113 MM error 6     abstract and virtual
+ *   line 114 MM error 7     override and virtual
+ *   line 115 MM error 7     override and new
+ *   line 116 MM error 8     sealed without override
+ *   line 117 MM error 9     abstract and sealed
+ *   line 118 MM error 10    static and virtual in a class
+ *   line 119 MM error 11    const and static
+ *   line 120 MM error 12    private and virtual
+ *   line 121 MM error 13    required and static
+ *   line 122 MM error 20    required on a readonly field
+ *   line 123 MM error 20    required on a property without a setter
+ *   line 124 MM error 15    an access modifier on a static constructor
+ *   line 129 MM error 16    static and readonly on a function
+ *   line 132 MM error 5     an abstract sealed class
+ *   line 136 MM error 18    an abstract member of a class which is not abstract
+ *   line 141 MM error 19    a virtual member of a sealed class
+ *   line 151 MM error 17    public on an explicit implementation
+ *   line 152 MM error 21    static on an explicit indexer, which can have no modifiers
+ *   line 157 MM error 12    abstract with no access modifier, so private
+ *   line 158 MM error 12    virtual with no access modifier
+ *   line 159 MM error 12    override with no access modifier, in a class
+ *   line 164 MM error 12    override with no access modifier, in a structure
+ *   line 174 MM error 17    readonly on an explicit implementation in a class
+ *   line 179 MM error 22    sealed and virtual in an interface
+ *   line 180 MM error 22    private and sealed in an interface
+ *   line 181 EV error 4     a virtual instance event in an interface
+ *   line 182 EV error 4     a sealed instance event in an interface
+ *   line 183 EV error 4     a private instance event in an interface
+ *   line 191 MM error 16    a readonly accessor of a static property
+ *   line 196 RTMC error 21  an operator not written public
+ *   line 197 RTMC error 21  an operator not written static
+ *   line 202 MM error 3     a protected operator, reported once
+ *   line 212 RTMC error 28  an explicit operator implementation not written static
+ *   line 217 RTMC error 29  == in an interface, neither abstract nor virtual
+ *   line 218 RTMC error 29  != in an interface, likewise
+ *   line 223 MM error 3     static on a record, reported once, with nothing following from it
+ *   line 231 MM error 3     protected in a structure, reported once, not as private too
+ *   line 236 MM error 3     a protected accessor in a structure
+ *   line 242 MM error 23    a private accessor of an interface's abstract property
+ *   line 247 MM error 3     an access modifier on an explicit implementation's accessor
+ *   line 249 MM error 23    a private accessor of an abstract property
+ *   line 254 MM error 24    a readonly property whose set has no body
+ *   line 255 MM error 24    a readonly set without a body
+ *   line 256 MM error 25    a readonly init
+ *   line 257 MM error 26    readonly on both a property and its accessor
+ *   line 258 MM error 26    readonly on both accessors
+ *   line 259 MM error 26    readonly on a property's only accessor
+ *   line 264 MM error 25    a readonly init on an indexer
  */
 
 using KGVL;
@@ -256,4 +257,9 @@ public struct ReadonlyRules
     public readonly int Twice { readonly get => 0; set { } }
     public int Both { readonly get => 0; readonly set { } }
     public int Alone { readonly get => 0; }
+}
+
+public struct ReadonlyIndexerInit
+{
+    public int this[int index] { get => 0; readonly init { } }
 }

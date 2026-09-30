@@ -9,7 +9,8 @@ namespace KeigValCompiler.Semantician.Resolver;
  * whatever can use the member needs those too; so is a class's base class and an interface's base
  * interfaces, though not a class's interfaces. AccessDomains compares the two. A required member, which
  * everything creating its type has to set, is as accessible as its type, and so is its setter. A record's
- * property made for a positional parameter has the parameter's type, checked with the parameter. */
+ * property made for a positional parameter has the parameter's type, checked with the parameter. Whether a
+ * declaration can use the types it names at all is decided as they are resolved, by SignatureResolver. */
 internal class AccessibilityChecker : IPackResolver
 {
     // Private methods.
@@ -131,7 +132,8 @@ internal class AccessibilityChecker : IPackResolver
             return;
         }
 
-        PackFunction? Setter = (member as PackProperty)?.SetFunction ?? (member as PackProperty)?.InitFunction;
+        PackFunction? Setter = (member as IPackAccessorHolder)?.SetFunction
+            ?? (member as IPackAccessorHolder)?.InitFunction;
         bool IsVisible = AccessDomains.IsAtLeastAsAccessible(member, Holder, context)
             && ((Setter == null) || AccessDomains.IsAtLeastAsAccessible(Setter, Holder, context));
         if (!IsVisible)

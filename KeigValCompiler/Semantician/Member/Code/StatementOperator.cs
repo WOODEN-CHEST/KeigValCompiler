@@ -46,5 +46,6 @@ public enum StatementOperator
     EventSubscribe,
     EventUnsubscribe,
 
-    IsCheck
+    IsCheck,
+    AsCast
 }

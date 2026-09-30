@@ -1,0 +1,52 @@
+/* Declaration check test source file, for default values and "params" parameters. Every error in here
+ * is deliberate. The directory parses cleanly, so that resolution runs at all, and the point is that
+ * each mistake is reported once, where it is, without errors which only follow from others. Run the
+ * directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * file, 11 errors and 3 warnings:
+ *
+ *   line 36 FN error 10     required parameters after an optional one, each reported
+ *   line 36 FN error 10     required parameters after an optional one, each reported
+ *   line 37 FN error 9      a params parameter before another parameter
+ *   line 38 FN error 9      the first of two params parameters
+ *   line 39 FN error 12     a default value on a params parameter
+ *   line 40 FN error 11     a default value on a ref parameter, and no error for what follows it
+ *   line 41 FN error 11     a default value on an out parameter
+ *   line 42 FN warning 3    a default an indexer of one parameter cannot use
+ *   line 43 FN warning 2    a default an operator cannot use
+ *   line 44 FN warning 1    an explicit implementation's default, and a required parameter after it
+ *   line 44 FN error 10     an explicit implementation's default, and a required parameter after it
+ *   line 47 FN error 10     a required parameter after an optional one in a delegate
+ *   line 51 FN error 9      a params parameter both not last and with a default, two mistakes
+ *   line 51 FN error 12     a params parameter both not last and with a default, two mistakes
+ */
+
+namespace Game.Parameters;
+
+public interface IMeasured
+{
+    int Measure(int scale, int offset);
+}
+
+public class Parameters : IMeasured
+{
+    public void RequiredAfterOptional(int first = 1, int second, int third) { }
+    public void ParamsFirst(params int[] values, int count) { }
+    public void ParamsTwice(params int[] first, params int[] second) { }
+    public void ParamsDefault(params int[] values = null) { }
+    public void ByReference(ref int value = 1, int after) { }
+    public void ByOut(out int value = 1) { value = 1; }
+    public int this[int index = 0] => index;
+    public static Parameters operator +(Parameters left, Parameters right = null) => left;
+    int IMeasured.Measure(int scale = 1, int offset) => scale;
+}
+
+public delegate void Handler(int first = 1, string second);
+
+public class MoreParameters
+{
+    public void ParamsFirstWithDefault(params int[] values = null, int count) { }
+}
