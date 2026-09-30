@@ -248,11 +248,10 @@ internal class InheritanceChecker : IPackResolver
             return Enumerable.Empty<PackMember>();
         }
 
-        IIdentifiable? Place = GetPlainBases(type).Select(written => written.MainTarget.Target)
-            .FirstOrDefault(target => target is not PackInterface);
-        bool IsKept = (Place is PackClass BaseClass) && !BaseClass.HasModifier(PackMemberModifiers.Sealed)
+        PackClass? BaseClass = MemberRelations.GetWrittenBaseClass(type);
+        bool IsKept = (BaseClass != null) && !BaseClass.HasModifier(PackMemberModifiers.Sealed)
             && !MemberRelations.IsStaticClass(BaseClass);
-        return IsKept ? new PackMember[] { (PackClass)Place! } : Enumerable.Empty<PackMember>();
+        return IsKept ? new PackMember[] { BaseClass! } : Enumerable.Empty<PackMember>();
     }
 
     /* Everything a type depends on: its bases, and the type it is declared in. */

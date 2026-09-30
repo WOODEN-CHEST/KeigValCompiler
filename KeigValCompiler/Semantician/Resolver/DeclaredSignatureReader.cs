@@ -31,12 +31,7 @@ internal class DeclaredSignatureReader
 
         OperatorOverload? Overload = MemberRelations.GetOperatorOverload(member);
         DeclaredSignatureKind Kind = GetKind(member, Overload);
-        FunctionParameterCollection? Parameters = member switch
-        {
-            PackFunction Function => Function.Parameters,
-            PackIndexer Indexer => Indexer.Parameters,
-            _ => null
-        };
+        FunctionParameterCollection? Parameters = MemberRelations.GetParameters(member);
         TypeTargetIdentifier? WrittenType = member switch
         {
             PackFunction Function => Function.ReturnType,

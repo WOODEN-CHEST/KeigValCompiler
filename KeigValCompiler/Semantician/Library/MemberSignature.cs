@@ -30,6 +30,10 @@ internal sealed class MemberSignature : IEquatable<MemberSignature>
     internal IReadOnlyList<SignatureParameter> Parameters { get; init; } = Array.Empty<SignatureParameter>();
     internal int GenericParameterCount { get; init; } = 0;
 
+    /* Whether a setter is written "init" rather than "set". Both store the value and are bound alike, so this
+     * only changes how the signature is shown, and plays no part in whether two signatures are the same. */
+    internal bool IsInit { get; init; } = false;
+
 
     // Inherited methods.
     public bool Equals(MemberSignature? other)

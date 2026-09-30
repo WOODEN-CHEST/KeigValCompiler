@@ -76,7 +76,8 @@ internal class BuiltInSignatureReader
             Kind = isGetter ? MemberSignatureKind.PropertyGetter : MemberSignatureKind.PropertySetter,
             Name = property.SelfIdentifier.SourceCodeName,
             IsStatic = property.HasModifier(PackMemberModifiers.Static),
-            Type = Type
+            Type = Type,
+            IsInit = !isGetter && (property.SetFunction == null) && (property.InitFunction != null)
         };
     }
 
@@ -95,7 +96,8 @@ internal class BuiltInSignatureReader
             DeclaringType = _declaringType,
             Kind = isGetter ? MemberSignatureKind.IndexerGetter : MemberSignatureKind.IndexerSetter,
             Type = Type,
-            Parameters = Parameters
+            Parameters = Parameters,
+            IsInit = !isGetter && (indexer.SetFunction == null) && (indexer.InitFunction != null)
         };
     }
 

@@ -4,7 +4,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 375 errors and 18 warnings. Expected from this
+ * The whole directory gives 406 errors and 18 warnings. Expected from this
  * file, 23 errors:
  *
  *   line 51 RS error 55     a namespace where a type is expected

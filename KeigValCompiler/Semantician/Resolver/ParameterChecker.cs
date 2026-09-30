@@ -1,13 +1,16 @@
 using KeigValCompiler.Error;
+using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Types;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
 /* Checks each parameter list against C#'s rules for what may follow what: a "params" parameter comes last,
  * and a parameter with a default value, which makes it optional, is followed only by other optional ones and
- * a "params" one. A parameter passed by "ref" or "out", or a "params" one, cannot have a default value, and a
- * default a member can never use, since every call to it gives each argument, is warned about. Whether a
- * default value is a constant of the parameter's type waits for expressions to be resolved. Each mistake is
+ * a "params" one. A "params" parameter's type is an array, which the arguments given for it are gathered
+ * into. A parameter passed by "ref" or "out", or a "params" one, cannot have a default value, and a default
+ * a member can never use, since every call to it gives each argument, is warned about. Whether a default
+ * value is a constant of the parameter's type waits for expressions to be resolved. Each mistake is
  * reported once: a default which cannot be had does not also make what follows it misplaced, unlike in
  * Roslyn, and an operator's "ref", "out" and "params" are OperatorDeclarationChecker's to report. */
 internal class ParameterChecker : IPackResolver
@@ -15,13 +18,7 @@ internal class ParameterChecker : IPackResolver
     // Private methods.
     private void CheckMember(PackMember member, PackResolutionContext context)
     {
-        FunctionParameterCollection? Parameters = member switch
-        {
-            PackFunction Function => Function.Parameters,
-            PackIndexer Indexer => Indexer.Parameters,
-            PackDelegate Delegate => Delegate.Parameters,
-            _ => null
-        };
+        FunctionParameterCollection? Parameters = MemberRelations.GetParameters(member);
         if ((Parameters == null) || (Parameters.Count == 0))
         {
             return;
@@ -40,6 +37,11 @@ internal class ParameterChecker : IPackResolver
             string ParameterName = Parameter.SelfIdentifier.SourceCodeName;
             bool IsParams = (Parameter.Modifiers & FunctionParameterModifier.Params)
                 != FunctionParameterModifier.None;
+            if (IsParams && !IsOperator && !IsArrayOrUnresolved(Parameter, context))
+            {
+                context.AddError(context.ErrorCreator.ParamsNotArray.CreateOptions(ParameterName, Kind, Name,
+                    Parameter.Type!.ToString()), member);
+            }
             if (IsParams && !IsOperator && !ReferenceEquals(Parameter, Last))
             {
                 context.AddError(context.ErrorCreator.ParamsNotLast.CreateOptions(ParameterName, Kind, Name),
@@ -71,6 +73,18 @@ internal class ParameterChecker : IPackResolver
                 context.AddWarning(UnusableDefault.CreateOptions(ParameterName, Kind, Name), member);
             }
         }
+    }
+
+    /* Whether a parameter's type is an array, written as "int[]" or as "Array<int>". One whose type did not
+     * resolve has been reported, and is taken to be one. */
+    private bool IsArrayOrUnresolved(FunctionParameter parameter, PackResolutionContext context)
+    {
+        if (parameter.Type == null)
+        {
+            return true;
+        }
+        SemanticType? Type = context.TypeReader.Read(parameter.Type);
+        return (Type == null) || ((Type is DeclaredType Declared) && (Declared.LibraryType == LibraryTypes.Array));
     }
 
     /* Reports a default value the parameter cannot have, and says whether it did. */

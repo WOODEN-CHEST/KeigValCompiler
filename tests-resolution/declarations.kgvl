@@ -3,14 +3,16 @@
  * and "internal"; static classes and constructors; abstract, sealed and overriding members; a readonly
  * structure; an interface's default, private, sealed, static, static abstract and static virtual
  * members, and one re-declaring an inherited member as abstract; records deriving from records, one
- * passing arguments to its base record's constructor; a
- * "using" of a namespace which holds no types but contains one which does; and members held directly
- * by a namespace. Also what C# allows and an early version of the checks did not: a protected type in a
- * static class, a delegate's parameter named like its generic parameter, an interface's instance member
- * named like the interface, a readonly structure's property whose "set" has a body, and an interface's
- * static event and sealed static operator. Also default values: after the parameters without one,
- * before a "params" parameter, on "in" parameters, and in constructors, indexers, delegates and records.
- * Part of tests-resolution, so it has to compile with zero errors. */
+ * passing arguments to its base record's constructor; a "using" of a namespace which holds no types but
+ * contains one which does; and members held directly by a namespace. Also what C# allows and an early
+ * version of the checks did not: a protected type in a static class, a delegate's parameter named like
+ * its generic parameter, an interface's instance member named like the interface, a readonly
+ * structure's property whose "set" has a body, and an interface's static event and sealed static
+ * operator. Also default values: after the parameters without one, before a "params" parameter, on "in"
+ * parameters, and in constructors, indexers, delegates and records; "params" arrays of arrays, with '?'
+ * and written "Array<int>"; and a positional record's constructors chaining to its primary one, directly
+ * or through another, beside its copy constructor, which need not, written with or without '?', and a
+ * static constructor. Part of tests-resolution, so it has to compile with zero errors. */
 
 using KGVL;
 using KGVL.Collections;
@@ -145,4 +147,24 @@ public class Optional
     public Optional(int start = 0) { }
     public void Take(int first, int second = 2, in int third = 3, params int[] rest) { }
     public int this[int index, int offset = 0] => index + offset;
+}
+
+public class ParamsForms
+{
+    public void Nested(params int[][] rows) { }
+    public void Annotated(params string[]? words) { }
+    public void Spelled(params Array<int> values) { }
+}
+
+public record Measured(int Value)
+{
+    public Measured(int first, int second) : this(first + second) { }
+    public Measured(string text) : this(text.Length, 0) { }
+    public Measured(Measured original) { }
+    static Measured() { }
+}
+
+public record MeasuredAgain(int Value)
+{
+    public MeasuredAgain(MeasuredAgain? original) { }
 }

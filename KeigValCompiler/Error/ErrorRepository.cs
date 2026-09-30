@@ -501,6 +501,13 @@ internal class ErrorRepository
         "it has no base constructor to give them to. Only a record with a parameter list passes arguments in " +
         "its base list, to its base record's constructor");
 
+    internal virtual ErrorDefinition RecordConstructorWithoutThis { get; } = new(15,
+        CompilerMessageCategory.Record,
+        "A constructor of the record \"{0}\" has to run another of the record's constructors first, with " +
+        $"\"{KGVL.COLON} {KGVL.KEYWORD_THIS}{KGVL.OPEN_PARENTHESIS}...{KGVL.CLOSE_PARENTHESIS}\". A record " +
+        "with a parameter list is created through its primary constructor, which every other constructor has " +
+        "to lead to. Only its copy constructor, which takes a \"{0}\", and a static constructor need not");
+
 
     /* Generics. */
     internal virtual ErrorDefinition ExpectedGenericParameterEnd { get; } = new(1,
@@ -707,6 +714,14 @@ internal class ErrorRepository
         CompilerMessageCategory.Function,
         $"The \"{KGVL.KEYWORD_PARAMS}\" parameter \"{{0}}\" of the {{1}} \"{{2}}\" cannot have a default " +
         $"value. A call giving it no arguments already passes it an empty array");
+
+    internal virtual ErrorDefinition ParamsNotArray { get; } = new(13,
+        CompilerMessageCategory.Function,
+        $"The \"{KGVL.KEYWORD_PARAMS}\" parameter \"{{0}}\" of the {{1}} \"{{2}}\" has the type \"{{3}}\", " +
+        $"which is not an array. A \"{KGVL.KEYWORD_PARAMS}\" parameter gathers the arguments left over at the " +
+        "end of a call into an array, so its type is written as one, as in " +
+        $"\"{KGVL.KEYWORD_PARAMS} {KGVL.KEYWORD_INT}" +
+        $"{KGVL.OPEN_SQUARE_BRACKET}{KGVL.CLOSE_SQUARE_BRACKET} values\"");
 
 
     /* Literals. */
@@ -1701,8 +1716,8 @@ internal class ErrorRepository
 
     internal virtual ErrorDefinition NestedTypeNotFound { get; } = new(57,
         CompilerMessageCategory.Resolution,
-        $"The type \"{{0}}\" declares no type named \"{{1}}\". A name written after a type and a " +
-        $"'{KGVL.NAMESPACE_SEPARATOR}' is looked for among the types declared inside it");
+        $"The type \"{{0}}\" declares or inherits no type named \"{{1}}\". A name written after a type and a " +
+        $"'{KGVL.NAMESPACE_SEPARATOR}' is looked for among the types declared inside it and those it inherits");
 
     internal virtual ErrorDefinition GenericParameterQualifier { get; } = new(58,
         CompilerMessageCategory.Resolution,
@@ -1738,6 +1753,17 @@ internal class ErrorRepository
         "\"{0}\" implements the {1} of \"{2}\" explicitly with its \"{3}\" accessor, where the interface's has " +
         $"\"{{4}}\". Both set the member, but an implementation's setter is \"{KGVL.KEYWORD_INIT}\" exactly " +
         "when the interface's is");
+
+    internal virtual ErrorDefinition AmbiguousInheritedType { get; } = new(64,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is declared in more than one of the interfaces \"{1}\" derives from, as {2}. None of those " +
+        "interfaces derives from another, so which one is meant is not clear");
+
+    internal virtual ErrorDefinition CircularBaseLookup { get; } = new(65,
+        CompilerMessageCategory.Resolution,
+        "\"{0}\" is not declared in the {1} \"{2}\", and what \"{2}\" inherits is not known yet, since resolving " +
+        "the base list of \"{2}\" is what led to this name. As in C#, what a type inherits cannot depend on " +
+        "itself, so the name is not looked for any further");
 
 
     /* Warnings. */

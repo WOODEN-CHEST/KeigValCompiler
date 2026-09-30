@@ -1,4 +1,5 @@
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Types;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
@@ -192,6 +193,40 @@ internal class MemberBodyChecker : IPackResolver
             context.AddError(context.ErrorCreator.StructConstructorBaseChain.CreateOptions(TypeName),
                 constructor);
         }
+        else if (IsUnchainedRecordConstructor(constructor, context))
+        {
+            context.AddError(context.ErrorCreator.RecordConstructorWithoutThis.CreateOptions(TypeName),
+                constructor);
+        }
+    }
+
+    /* As in C#, a record with a parameter list is created through its primary constructor, so each other
+     * constructor it declares runs another of its own first, with ": this(...)", which in the end leads there.
+     * Its copy constructor, taking the record itself by value, need not, nor a static constructor, checked
+     * apart. One whose only parameter's type did not resolve, which has been reported, is not checked, since
+     * it may have been meant as the copy constructor. */
+    private bool IsUnchainedRecordConstructor(PackConstructor constructor, PackResolutionContext context)
+    {
+        if (constructor.IsPrimary || (constructor.ChainKind == ConstructorChainKind.This)
+            || (MemberRelations.GetHoldingMember(constructor) is not PackClass Record)
+            || !Record.HasModifier(PackMemberModifiers.Record)
+            || !Record.Functions.OfType<PackConstructor>().Any(other => other.IsPrimary))
+        {
+            return false;
+        }
+
+        FunctionParameter? OnlyParameter = (constructor.Parameters.Count == 1)
+            ? constructor.Parameters.Single() : null;
+        if (OnlyParameter?.Type == null)
+        {
+            return true;
+        }
+
+        SemanticType? ParameterType = context.TypeReader.Read(OnlyParameter.Type);
+        bool IsByValue = (OnlyParameter.Modifiers & (FunctionParameterModifier.In
+            | FunctionParameterModifier.Out | FunctionParameterModifier.Ref)) == FunctionParameterModifier.None;
+        bool IsCopyConstructor = IsByValue && context.TypeReader.GetInstanceType(Record).Equals(ParameterType);
+        return (ParameterType != null) && !IsCopyConstructor;
     }
 
 

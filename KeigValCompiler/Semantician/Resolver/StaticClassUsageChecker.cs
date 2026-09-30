@@ -31,13 +31,7 @@ internal class StaticClassUsageChecker : IPackResolver
             PackFunction Function => Function.ReturnType,
             _ => null
         };
-        FunctionParameterCollection? Parameters = member switch
-        {
-            PackIndexer Indexer => Indexer.Parameters,
-            PackDelegate Delegate => Delegate.Parameters,
-            PackFunction Function => Function.Parameters,
-            _ => null
-        };
+        FunctionParameterCollection? Parameters = MemberRelations.GetParameters(member);
         bool IsInInterface = (MemberRelations.GetHoldingMember(member) is PackInterface)
             && (member is not PackField);
 

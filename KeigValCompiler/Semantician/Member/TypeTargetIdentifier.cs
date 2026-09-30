@@ -18,6 +18,18 @@ internal class TypeTargetIdentifier
      * on its own. */
     internal TypeTargetIdentifier? Qualifier { get; init; }
 
+    /* The type through whose bases the name was found, when the type it names is declared in one of them:
+     * the qualifier's type, for a name after one, as in "Derived.Inner", or else the type around where this
+     * is written, as "Inner" is inside a class deriving from Outer<int>. The type model reads the type
+     * holding it from there, since it is that base as seen from that type. Null otherwise. */
+    internal PackMember? InheritedThrough { get; set; }
+
+    /* The bases written on the way from InheritedThrough to the type declaring the one named, each written
+     * by the type before it, as the lookup went through them, which the type model reads the type holding
+     * it along. Null when the name was not found through bases, or the way could not be read, as through a
+     * base whose type arguments did not resolve. */
+    internal IReadOnlyList<TypeTargetIdentifier>? InheritedPath { get; set; }
+
     /* Nullability of every level of the type, innermost first: index 0 is the element type and
      * index ArrayRank the outermost array. Always holds exactly ArrayRank + 1 entries, because a
      * type of array depth N has N + 1 independently nullable positions. */

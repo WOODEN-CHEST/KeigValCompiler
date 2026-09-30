@@ -95,40 +95,38 @@ internal class LibraryBindingResolver : IPackResolver
     private void BindProperty(PackProperty property, object holder, PackResolutionContext context)
     {
         BuiltInSignatureReader? Reader = CreateReader(property, holder, context);
-        if (Reader == null)
+        if (Reader != null)
         {
-            return;
-        }
-
-        if (property.GetFunction != null)
-        {
-            property.GetFunction.Intrinsic = Match(Reader.ReadPropertyAccessor(property, true), Reader,
-                property.GetFunction, property, context);
-        }
-        if (property.SetFunction != null)
-        {
-            property.SetFunction.Intrinsic = Match(Reader.ReadPropertyAccessor(property, false), Reader,
-                property.SetFunction, property, context);
+            BindAccessors(property, isGetter => Reader.ReadPropertyAccessor(property, isGetter), Reader, context);
         }
     }
 
     private void BindIndexer(PackIndexer indexer, object holder, PackResolutionContext context)
     {
         BuiltInSignatureReader? Reader = CreateReader(indexer, holder, context);
-        if (Reader == null)
+        if (Reader != null)
         {
-            return;
+            BindAccessors(indexer, isGetter => Reader.ReadIndexerAccessor(indexer, isGetter), Reader, context);
+        }
+    }
+
+    /* The getter is bound to the getter's signature, and the setter to the setter's, whether it is written
+     * "set" or "init": both store the value, and "init" only limits where it can be used, which is for the
+     * checks of function bodies to enforce, not for how the value is stored. */
+    private void BindAccessors<T>(T member,
+        Func<bool, MemberSignature?> readAccessor,
+        BuiltInSignatureReader reader,
+        PackResolutionContext context) where T : PackMember, IPackAccessorHolder
+    {
+        if (member.GetFunction != null)
+        {
+            member.GetFunction.Intrinsic = Match(readAccessor(true), reader, member.GetFunction, member, context);
         }
 
-        if (indexer.GetFunction != null)
+        PackFunction? Setter = member.SetFunction ?? member.InitFunction;
+        if (Setter != null)
         {
-            indexer.GetFunction.Intrinsic = Match(Reader.ReadIndexerAccessor(indexer, true), Reader,
-                indexer.GetFunction, indexer, context);
-        }
-        if (indexer.SetFunction != null)
-        {
-            indexer.SetFunction.Intrinsic = Match(Reader.ReadIndexerAccessor(indexer, false), Reader,
-                indexer.SetFunction, indexer, context);
+            Setter.Intrinsic = Match(readAccessor(false), reader, Setter, member, context);
         }
     }
 

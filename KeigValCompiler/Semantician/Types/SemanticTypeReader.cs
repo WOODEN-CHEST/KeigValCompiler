@@ -6,11 +6,17 @@ namespace KeigValCompiler.Semantician.Types;
 /* Builds the SemanticType a resolved TypeTargetIdentifier names, and the types a declaration implies:
  * the type it is inside its own declaration, and the types it derives from. It is only usable once types
  * are resolved and the library's known types found. A type which did not resolve, or which needs a known
- * type the library does not declare, reads as null, since that has been reported already. */
+ * type the library does not declare, reads as null, since that has been reported already, and so does a
+ * nested type reached through a base which reads as null. */
 internal class SemanticTypeReader
 {
     // Private fields.
     private readonly BuiltInTypeRegistry _registry;
+
+    /* The type holding each nested type found through bases, once read along the way the lookup went, which
+     * does not change once the name is resolved, so that each way is read once. */
+    private readonly Dictionary<TypeTargetIdentifier, DeclaredType?> _inheritedHolders =
+        new(ReferenceEqualityComparer.Instance);
 
 
     // Constructors.
@@ -64,6 +70,14 @@ internal class SemanticTypeReader
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));
 
+        return GetWrittenBases(type).Select(written => written.Base);
+    }
+
+    /* The types GetWrittenBaseTypes gives, each with the base as the declaration writes it. */
+    internal IEnumerable<(TypeTargetIdentifier WrittenBase, DeclaredType Base)> GetWrittenBases(DeclaredType type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
         if (type.Declaration is not IPackMemberExtender Extender)
         {
             yield break;
@@ -76,7 +90,7 @@ internal class SemanticTypeReader
         {
             if (Read(WrittenBase)?.Substitute(Substitution) is DeclaredType BaseType)
             {
-                yield return BaseType;
+                yield return (WrittenBase, BaseType);
             }
         }
     }
@@ -123,14 +137,9 @@ internal class SemanticTypeReader
                     TypeArguments.Add(ReadArgument);
                 }
 
-                DeclaredType? ContainingType = GetContainingType(Declaration);
-                if (IsQualifiedByHolder(type, Declaration))
+                if (!TryReadContainingType(type, Declaration, out DeclaredType? ContainingType))
                 {
-                    ContainingType = Read(type.Qualifier!) as DeclaredType;
-                    if (ContainingType == null)
-                    {
-                        return null;
-                    }
+                    return null;
                 }
                 return new DeclaredType(Declaration, TypeArguments, ContainingType,
                     _registry.GetLibraryType(Declaration), false);
@@ -140,19 +149,79 @@ internal class SemanticTypeReader
         }
     }
 
-    /* A nested type named on its own is named from inside the types around it, so what holds it is the
-     * holding type as its own declaration sees it. */
+    /* What holds a nested type as its own declaration sees itself, in terms of its generic parameters. */
     private DeclaredType? GetContainingType(PackMember declaration)
     {
         return (declaration.ParentItem?.Target is PackMember Holder) ? GetInstanceType(Holder) : null;
     }
 
-    /* Whether a nested type is written after the type holding it, as "Inner" is in "Outer<int>.Inner", which
-     * then gives the holding type with its type arguments. */
-    private bool IsQualifiedByHolder(TypeTargetIdentifier type, PackMember declaration)
+    /* What holds a named nested type. One named after a type, as in "Outer<int>.Inner", is held by that type,
+     * and one found through the bases of the type named, or of a type around the use, by the base declaring
+     * it, as that type sees it: inside a class deriving from Outer<int>, "Inner" is Outer<int>.Inner. That
+     * base is read along the way the lookup went to it. One named on its own among the types around the use is
+     * held by its holder as that one sees itself, and so is any whose holder has no generic parameters, nor
+     * any type around it, being the same type however it is reached. False when the type before the '.', or
+     * a base on the way to the holder, cannot be read, which has been reported. */
+    private bool TryReadContainingType(TypeTargetIdentifier type,
+        PackMember declaration,
+        out DeclaredType? containingType)
     {
-        return (type.Qualifier != null) && (declaration.ParentItem?.Target is PackMember Holder)
-            && ReferenceEquals(type.Qualifier.MainTarget.Target, Holder);
+        containingType = null;
+        if (declaration.ParentItem?.Target is not PackMember Holder)
+        {
+            return true;
+        }
+
+        DeclaredType? Through = (type.InheritedThrough != null) ? GetInstanceType(type.InheritedThrough) : null;
+        if (type.Qualifier?.MainTarget.Target is PackMember)
+        {
+            Through = Read(type.Qualifier) as DeclaredType;
+            if (Through == null)
+            {
+                return false;
+            }
+        }
+
+        if ((Through == null) || ((type.InheritedThrough != null) && !IsGenericOrInsideGeneric(Holder)))
+        {
+            containingType = GetInstanceType(Holder);
+        }
+        else
+        {
+            containingType = (type.InheritedThrough == null) ? Through : ReadInheritedHolder(type, Through);
+        }
+        return containingType != null;
+    }
+
+    private bool IsGenericOrInsideGeneric(PackMember declaration)
+    {
+        for (PackMember? Type = declaration; Type != null; Type = Type.ParentItem?.Target as PackMember)
+        {
+            if ((Type is IGenericParameterHolder GenericsHolder) && (GenericsHolder.GenericParameters.Count > 0))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /* Each base on the way is read in terms of the type before it, starting from the type the name was found
+     * through. The way reads back only bases resolved before the name was, so it never comes back round. */
+    private DeclaredType? ReadInheritedHolder(TypeTargetIdentifier type, DeclaredType through)
+    {
+        if (_inheritedHolders.TryGetValue(type, out DeclaredType? Known))
+        {
+            return Known;
+        }
+
+        DeclaredType? Current = (type.InheritedPath == null) ? null : through;
+        foreach (TypeTargetIdentifier WrittenBase in type.InheritedPath ?? Array.Empty<TypeTargetIdentifier>())
+        {
+            Current = (Current == null) ? null
+                : Read(WrittenBase)?.Substitute(TypeSubstitution.Of(Current)) as DeclaredType;
+        }
+        _inheritedHolders[type] = Current;
+        return Current;
     }
 
     private DeclaredType? ReadKnownType(LibraryType knownType, SemanticType typeArgument)

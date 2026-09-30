@@ -41,14 +41,14 @@ internal static class SignatureFormatter
             case MemberSignatureKind.PropertyGetter:
             case MemberSignatureKind.PropertySetter:
                 Builder.Append(FormatType(signature.Type!, signature)).Append(SPACE).Append(signature.Name);
-                AppendAccessor(Builder, signature.Kind == MemberSignatureKind.PropertyGetter);
+                AppendAccessor(Builder, signature, signature.Kind == MemberSignatureKind.PropertyGetter);
                 break;
 
             case MemberSignatureKind.IndexerGetter:
             case MemberSignatureKind.IndexerSetter:
                 Builder.Append(FormatType(signature.Type!, signature)).Append(SPACE).Append(KGVL.KEYWORD_THIS);
                 AppendParameters(Builder, signature, KGVL.OPEN_SQUARE_BRACKET, KGVL.CLOSE_SQUARE_BRACKET);
-                AppendAccessor(Builder, signature.Kind == MemberSignatureKind.IndexerGetter);
+                AppendAccessor(Builder, signature, signature.Kind == MemberSignatureKind.IndexerGetter);
                 break;
 
             default:
@@ -175,10 +175,10 @@ internal static class SignatureFormatter
         builder.Append(close);
     }
 
-    private static void AppendAccessor(StringBuilder builder, bool isGetter)
+    private static void AppendAccessor(StringBuilder builder, MemberSignature signature, bool isGetter)
     {
-        builder.Append(SPACE).Append(KGVL.OPEN_CURLY_BRACKET).Append(SPACE)
-            .Append(isGetter ? KGVL.KEYWORD_GET : KGVL.KEYWORD_SET).Append(KGVL.SEMICOLON)
+        string Keyword = isGetter ? KGVL.KEYWORD_GET : (signature.IsInit ? KGVL.KEYWORD_INIT : KGVL.KEYWORD_SET);
+        builder.Append(SPACE).Append(KGVL.OPEN_CURLY_BRACKET).Append(SPACE).Append(Keyword).Append(KGVL.SEMICOLON)
             .Append(SPACE).Append(KGVL.CLOSE_CURLY_BRACKET);
     }
 

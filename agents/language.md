@@ -42,6 +42,9 @@ Divergences from C# worth knowing:
   events alike, can only be `public` or `internal`, as C#'s top-level types can.
   `protected internal` and `private protected` mean what they do in C#.
 - **`params`** marks a variadic final parameter, alongside `ref`, `out` and `in`.
+  As in C# before version 13, its type is an array, as in `params int[] values`
+  or, the same type spelled out, `params Array<int> values`, and a call giving
+  it no arguments passes an empty array, never null (decided 2026-09-30).
 - **`raw` and `constalloc`** keywords.
 `raw` currently does nothing, but the intended idea is to allow running "raw"
 minecraft commands in the code. As of now, this isn't implemented.
@@ -93,7 +96,10 @@ this file can do
   imports: a namespace of its own hides a library type, and a type of its own
   a library namespace. The standard library, compiled as though on its own,
   never sees the user's namespaces. As in C#, a keyword such as `this`, `int`
-  or `string` never stands before a `.` in a type's name.
+  or `string` never stands before a `.` in a type's name. A type's nested types
+  are inherited as in C#, by a class from its base classes and by an interface
+  from its base interfaces, and a type's own base list and constraints see
+  none of its members.
 
 ## Member syntax
 
@@ -160,15 +166,20 @@ rules, such as no access modifier on such a member, are the resolver's.
 passes its base record's constructor arguments in its base list, as in
 `record Point3(int X, int Y, int Z) : Point(X, Y)`, which only the first entry
 can take and only a record with a parameter list can give; its primary
-constructor keeps them as a `base` chain. A record declaring a
-property or field of that name keeps the value there instead, and so does one
-inheriting a member of that name declaring no generic parameters, unless it is an
-abstract property, which the made property overrides. What keeps it has to be an
+constructor keeps them as a `base` chain. A record declaring a property or
+field of that name keeps the value there instead, and so does one inheriting a
+member of that name declaring no generic parameters, unless it is an abstract
+property, which the made property overrides. What keeps it has to be an
 instance field, or an instance property declaring a `get` of any access, of the
 parameter's type, as C# checks it, and an inherited one cannot be hidden by a
 member of the record's own. Positional parameters cannot be `ref` or `out`.
-`RecordPropertyResolver` makes the properties. Nothing else of C#'s records
-exists yet: no `Equals`, `ToString`, `Deconstruct` or `with`.
+`RecordPropertyResolver` makes the properties. As in C#, every other constructor a
+positional record declares has to run another first with `: this(...)`, so that
+each leads to the primary one, except its copy constructor, `R(R original)`,
+which takes the record by value, and a static constructor (decided 2026-09-30).
+Only that `: this(...)` is written is checked yet, not where the chain ends.
+Nothing else of C#'s records exists yet: no `Equals`, `ToString`, `Deconstruct`
+or `with`.
 
 **Hiding** is C#'s, `new` modifier included (added 2026-09-29): a member with the
 name of an inherited one hides it, and is to be written `new` to say that is

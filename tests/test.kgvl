@@ -419,6 +419,8 @@ public class StatementTests
         string braces = $"literal {{ and }} braces";
         char letter = 'a';
         char escapedChar = '\n';
+        char quoteChar = '\'';
+        char slashChar = '\\';
         char hexChar = '\x41';
         char shortHexChar = '\x0';
         char unicodeChar = 'é';

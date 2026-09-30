@@ -602,9 +602,12 @@ public class SourceDataParser
         bool IsEscaped = GetCharAtDataIndex() == KGVL.ESCAPE_CHAR;
         if (IsEscaped)
         {
-            /* The backslash only marks the sequence, so it is stepped over rather than looked up. */
+            /* The backslash only marks the sequence, so it is stepped over rather than looked up. The letter
+             * after it belongs to the sequence whatever it is, so that the quote of "\'" does not end it. */
             IncrementDataIndex();
-            Written = ReadUntil(error, KGVL.SINGLE_QUOTE);
+            char Indicator = GetCharAtDataIndex();
+            IncrementDataIndex();
+            Written = Indicator + ReadUntil(error, KGVL.SINGLE_QUOTE);
         }
         else
         {

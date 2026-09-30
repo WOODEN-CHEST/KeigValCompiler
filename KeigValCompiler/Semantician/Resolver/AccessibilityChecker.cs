@@ -33,7 +33,6 @@ internal class AccessibilityChecker : IPackResolver
 
             case PackIndexer Indexer:
                 CheckType(Indexer.Type, context.ErrorCreator.InconsistentMemberType, null, member, context);
-                CheckParameters(Indexer.Parameters, member, context);
                 break;
 
             case PackEvent Event:
@@ -42,14 +41,13 @@ internal class AccessibilityChecker : IPackResolver
 
             case PackDelegate Delegate:
                 CheckType(Delegate.ReturnType, context.ErrorCreator.InconsistentReturnType, null, member, context);
-                CheckParameters(Delegate.Parameters, member, context);
                 break;
 
             case PackFunction Function:
                 CheckType(Function.ReturnType, context.ErrorCreator.InconsistentReturnType, null, member, context);
-                CheckParameters(Function.Parameters, member, context);
                 break;
         }
+        CheckParameters(MemberRelations.GetParameters(member), member, context);
 
         if (member is IGenericParameterHolder GenericsHolder)
         {
@@ -67,11 +65,11 @@ internal class AccessibilityChecker : IPackResolver
         CheckRequired(member, context);
     }
 
-    private void CheckParameters(FunctionParameterCollection parameters,
+    private void CheckParameters(FunctionParameterCollection? parameters,
         PackMember member,
         PackResolutionContext context)
     {
-        foreach (FunctionParameter Parameter in parameters)
+        foreach (FunctionParameter Parameter in parameters ?? Enumerable.Empty<FunctionParameter>())
         {
             CheckType(Parameter.Type, context.ErrorCreator.InconsistentParameterType,
                 Parameter.SelfIdentifier.SourceCodeName, member, context);

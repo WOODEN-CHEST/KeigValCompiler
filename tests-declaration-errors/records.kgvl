@@ -1,37 +1,42 @@
-/* Declaration check test source file, for the properties records get from their positional parameters.
- * Every error in here is deliberate. The directory parses cleanly, so that resolution runs at all, and
- * the point is that each mistake is reported once, where it is, without errors which only follow from
- * others. Run the directory with:
+/* Declaration check test source file, for records: the properties made from positional parameters, base
+ * arguments and constructor chaining. Every error in here is deliberate. The directory parses cleanly,
+ * so that resolution runs at all, and the point is that each mistake is reported once, where it is,
+ * without errors which only follow from others. Run the directory with:
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 375 errors and 18 warnings. Expected from this
- * file, 23 errors and 1 warnings:
+ * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * file, 28 errors and 1 warnings:
  *
- *   line 39 RE error 8      a declared property of another type
- *   line 44 RE error 8      a declared static property
- *   line 49 RE error 8      a declared property without get
- *   line 56 RS error 7      a declared function sharing the made property's name
- *   line 59 RS error 6      a positional parameter named like its record
- *   line 66 RE error 8      an inherited property of another type
- *   line 73 RE error 8      an inherited function
- *   line 80 RE error 8      an inherited constant
- *   line 87 RS error 27     overriding an abstract property without a setter
- *   line 94 RS error 47     overriding an abstract set with init
- *   line 98 RTMC error 43   a static class as a positional parameter's type, reported once
- *   line 107 RS error 47    a written override of set with init
- *   line 121 RE error 8     a declared override with init but no get of its own
- *   line 126 RE error 8     an inherited override with init but no get of its own
- *   line 134 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
- *   line 134 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
- *   line 136 RS warning 1   the record's function hiding the inherited property, also warned
- *   line 140 RE error 10    ref and out positional parameters, each reported
- *   line 140 RE error 10    ref and out positional parameters, each reported
- *   line 144 MM error 10    a static abstract property in a class, and no error for the class deriving from it
- *   line 156 RS error 47    an init overriding a set, and no error for the interface wanting set
- *   line 159 RS error 2     an inherited function, with the parameter's type named as written
- *   line 159 RE error 8     an inherited function, with the parameter's type named as written
- *   line 163 RE error 13    base arguments passed to an interface
+ *   line 44 RE error 8      a declared property of another type
+ *   line 49 RE error 8      a declared static property
+ *   line 54 RE error 8      a declared property without get
+ *   line 61 RS error 7      a declared function sharing the made property's name
+ *   line 64 RS error 6      a positional parameter named like its record
+ *   line 71 RE error 8      an inherited property of another type
+ *   line 78 RE error 8      an inherited function
+ *   line 85 RE error 8      an inherited constant
+ *   line 92 RS error 27     overriding an abstract property without a setter
+ *   line 99 RS error 47     overriding an abstract set with init
+ *   line 103 RTMC error 43  a static class as a positional parameter's type, reported once
+ *   line 112 RS error 47    a written override of set with init
+ *   line 126 RE error 8     a declared override with init but no get of its own
+ *   line 131 RE error 8     an inherited override with init but no get of its own
+ *   line 139 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
+ *   line 139 RE error 9     inherited members keeping the values, hidden by the record's own, each reported
+ *   line 141 RS warning 1   the record's function hiding the inherited property, also warned
+ *   line 145 RE error 10    ref and out positional parameters, each reported
+ *   line 145 RE error 10    ref and out positional parameters, each reported
+ *   line 149 MM error 10    a static abstract property in a class, and no error for the class deriving from it
+ *   line 161 RS error 47    an init overriding a set, and no error for the interface wanting set
+ *   line 164 RS error 2     an inherited function, with the parameter's type named as written
+ *   line 164 RE error 8     an inherited function, with the parameter's type named as written
+ *   line 168 RE error 13    base arguments passed to an interface
+ *   line 172 RE error 15    a positional record's constructor chaining to nothing
+ *   line 173 RE error 15    a positional record's constructor chaining to base
+ *   line 180 RE error 15    a constructor taking the record by "in", which is no copy constructor
+ *   line 185 RE error 15    a constructor taking the record by "ref", which is no copy constructor
+ *   line 190 RS error 2     a constructor's parameter of an unknown type, and no error for its missing chain
  */
 
 namespace Test.Records;
@@ -161,3 +166,26 @@ public record UnknownFunction(Missing Value) : FunctionBase;
 public interface IPositioned { }
 
 public record PositionArguments(int X) : IPositioned(X);
+
+public record Chained(int Value)
+{
+    public Chained() { }
+    public Chained(bool flag) : base() { }
+    public Chained(string text) : this(text.Length) { }
+    public Chained(Chained original) { }
+}
+
+public record ReadCopy(int Value)
+{
+    public ReadCopy(in ReadCopy original) { }
+}
+
+public record RefCopy(int Value)
+{
+    public RefCopy(ref RefCopy original) { }
+}
+
+public record UnknownCopy(int Value)
+{
+    public UnknownCopy(Missing original) { }
+}

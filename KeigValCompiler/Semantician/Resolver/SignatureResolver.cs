@@ -1,4 +1,5 @@
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Types;
 
 namespace KeigValCompiler.Semantician.Resolver;
 
@@ -9,20 +10,44 @@ namespace KeigValCompiler.Semantician.Resolver;
  * resolves to the library type it stands for. A qualified name, as "KGVL.Collections.List<int>" or
  * "Outer<int>.Inner", is resolved from its first name on, each naming a namespace or a type in which the
  * next is looked for; a name standing for a namespace resolves to its full name. A name which cannot be
- * resolved is reported and left unresolved, and resolution carries on with the next. So is a type declared
- * inside another and named after it which the declaration cannot use, as C# reports it, which is decided
- * once every base type is resolved, since a protected type can be used from what derives from its holder. */
-internal class SignatureResolver : IPackResolver
+ * resolved, or names a type the declaration cannot use, is reported and left unresolved, and resolution
+ * carries on with the next.
+ *
+ * Every base list is resolved first, and each when first needed: a name may be found among the types a
+ * type around it inherits, or a qualifier inherits, and whether a nested type can be used may depend on
+ * what derives from what, so a lookup asks for the bases it needs, through IBaseTypeSource, before the
+ * pass over every type has reached them. While a type's own base list is being resolved, it has no bases,
+ * as in C#, which also ends any loop; a lookup which then needs what a class or a structure inherits is an
+ * error, as TypeSearcher explains. Everything else is resolved once every base is known.
+ *
+ * A type found through bases keeps the way the lookup went to the base declaring it, which the type model
+ * reads that base along, as the lookup saw it: a base list being resolved counts as none, which reading
+ * afterwards could not tell. For an interface, that way comes from looking again among the interfaces it
+ * derives from as the type model reads them, since the lookup tells them apart by declaration only. */
+internal class SignatureResolver : IPackResolver, IBaseTypeSource
 {
+    // Private fields.
+    /* Whether each type's base list is resolved, false while it is being resolved. */
+    private readonly Dictionary<PackMember, bool> _isBaseListResolved = new(ReferenceEqualityComparer.Instance);
+    private PackResolutionContext? _context = null;
+
+
     // Private methods.
+    private void ResolveBaseList(PackMember type)
+    {
+        if ((type is not IPackMemberExtender Extender) || _isBaseListResolved.ContainsKey(type))
+        {
+            return;
+        }
+        _isBaseListResolved.Add(type, false);
+        ResolveTypes(Extender.ExtendedMembers, type, _context!);
+        _isBaseListResolved[type] = true;
+    }
+
     private void ResolveMember(PackMember member, PackResolutionContext context)
     {
         switch (member)
         {
-            case IPackMemberExtender Extender:
-                ResolveTypes(Extender.ExtendedMembers, member, context);
-                break;
-
             case PackField Field:
                 ResolveType(Field.Type, member, context);
                 break;
@@ -50,7 +75,7 @@ internal class SignatureResolver : IPackResolver
             case PackFunction Function:
                 ResolveFunctionGenericParameterNames(Function, context);
                 ResolveOptionalType(Function.ReturnType, member, context);
-                ResolveParameters(Function.Parameters, member, context);
+                ResolveParameters(Function.Parameters, GetParameterScope(Function), context);
                 ResolveExplicitInterface(Function.ExplicitInterface, member, context);
                 break;
         }
@@ -59,6 +84,14 @@ internal class SignatureResolver : IPackResolver
         {
             ResolveGenericConstraints(GenericsHolder, member, context);
         }
+    }
+
+    /* A record's parameter list is written after its name, outside the record, as its base list is, so it is
+     * looked up from the record itself, which sees only its generic parameters there, as in C#. */
+    private PackMember GetParameterScope(PackFunction function)
+    {
+        return ((function is PackConstructor Constructor) && Constructor.IsPrimary)
+            ? MemberRelations.GetHoldingMember(function)! : function;
     }
 
     /* A function's generic parameters are named here rather than with the types', since only types are
@@ -159,7 +192,7 @@ internal class SignatureResolver : IPackResolver
 
         if (Result.IsFound)
         {
-            SetTarget(type.MainTarget, Result.Target!);
+            SetFound(type, Result);
         }
         else if (Result.IsNameSpace)
         {
@@ -199,22 +232,40 @@ internal class SignatureResolver : IPackResolver
         }
         if (Result.IsFound)
         {
-            SetTarget(qualifier.MainTarget, Result.Target!);
+            SetFound(qualifier, Result);
             return Result;
         }
         ReportNotFound(qualifier, Result, true, scope, context);
         return null;
     }
 
-    /* Looks a name up where it is written, or when it has a qualifier, in what the qualifier names. Null
-     * when the qualifier names nothing, which has been reported. */
+    /* Looks a name up where it is written, or when it has a qualifier, in what the qualifier names, and for a
+     * type found through bases, works out the way to it. Null when the qualifier names nothing, or the name
+     * is ambiguous among inherited interfaces, which has been reported. */
     private TypeSearchResult? Search(TypeTargetIdentifier type, PackMember scope, PackResolutionContext context)
+    {
+        TypeSearchResult? Result = SearchWhereWritten(type, scope, context);
+        if ((Result == null) || !Result.IsFound || (Result.InheritedThrough == null))
+        {
+            return Result;
+        }
+        if (Result.InheritedThrough is PackInterface)
+        {
+            return FindInterfacePath(type, Result, scope, context);
+        }
+        return Result.WithInheritedPath(FindBaseClassPath(Result.InheritedThrough,
+            MemberRelations.GetHoldingMember((PackMember)Result.Target!)!));
+    }
+
+    private TypeSearchResult? SearchWhereWritten(TypeTargetIdentifier type,
+        PackMember scope,
+        PackResolutionContext context)
     {
         string Name = type.MainTarget.SourceCodeName;
         int TypeArgumentCount = type.TypeArguments.Length;
         if (type.Qualifier == null)
         {
-            return context.TypeSearcher.Search(Name, TypeArgumentCount, scope);
+            return context.TypeSearcher.Search(Name, TypeArgumentCount, scope, this);
         }
 
         TypeSearchResult? Qualifier = ResolveQualifier(type.Qualifier, scope, context);
@@ -228,7 +279,7 @@ internal class SignatureResolver : IPackResolver
         }
 
         TypeSearchResult Nested = context.TypeSearcher.SearchNested((PackMember)Qualifier.Target!, Name,
-            TypeArgumentCount);
+            TypeArgumentCount, scope, this);
         if (Nested.IsFound || (Qualifier.ClashingNameSpaceName == null))
         {
             return Nested;
@@ -239,6 +290,119 @@ internal class SignatureResolver : IPackResolver
         TypeSearchResult InNameSpace = context.TypeSearcher.SearchNameSpace(Qualifier.ClashingNameSpaceName, Name,
             TypeArgumentCount, scope);
         return (InNameSpace.IsFound || InNameSpace.IsNameSpace) ? InNameSpace : null;
+    }
+
+    /* The base classes written on the way from a class to one of its base classes, which is the one way. */
+    private IReadOnlyList<TypeTargetIdentifier>? FindBaseClassPath(PackMember type, PackMember baseClass)
+    {
+        List<TypeTargetIdentifier> Path = new();
+        HashSet<PackMember> Seen = new(ReferenceEqualityComparer.Instance);
+        for (PackMember Current = type; !ReferenceEquals(Current, baseClass);
+            Current = (PackMember)Path[^1].MainTarget.Target!)
+        {
+            TypeTargetIdentifier? WrittenBase = MemberRelations.GetWrittenBaseClassName(Current);
+            if ((WrittenBase == null) || !Seen.Add(Current))
+            {
+                return null;
+            }
+            Path.Add(WrittenBase);
+        }
+        return Path;
+    }
+
+    /* The lookup tells the interfaces an interface derives from apart by declaration, but one reached with two
+     * sets of type arguments is two interfaces, as IA<int> and IA<string> are, each with its own nested types,
+     * and one declared in an interface deriving from IA<int> hides only IA<int>'s. So a type found through an
+     * interface's bases is looked for again among them as the type model reads them, which also gives the
+     * way to the one declaring it, as the lookup went. When more than one declares a type of the name, and
+     * none hides the others, that is reported, and the result is null. The way is left unknown when a base on
+     * it cannot be read. */
+    private TypeSearchResult? FindInterfacePath(TypeTargetIdentifier type,
+        TypeSearchResult result,
+        PackMember scope,
+        PackResolutionContext context)
+    {
+        PackMember InheritedThrough = result.InheritedThrough!;
+        DeclaredType? Through = (type.Qualifier == null) ? context.TypeReader.GetInstanceType(InheritedThrough)
+            : context.TypeReader.Read(type.Qualifier) as DeclaredType;
+        if (Through == null)
+        {
+            return result;
+        }
+
+        string Name = type.MainTarget.SourceCodeName;
+        HashSet<PackMember> SelfDeriving = MemberRelations.FindSelfDerivingTypes(InheritedThrough, this);
+        Dictionary<SemanticType, (DeclaredType Derived, TypeTargetIdentifier WrittenBase)> ReachedBy = new();
+        List<(DeclaredType Holder, PackMember Nested)> Found = new();
+        foreach (DeclaredType Inherited in GetInheritedInterfaces(new DeclaredType[] { Through }, SelfDeriving,
+            ReachedBy, context))
+        {
+            PackMember? Nested = context.TypeSearcher.FindDeclaredType(Inherited.Declaration, Name,
+                type.TypeArguments.Length, scope, this);
+            if (Nested != null)
+            {
+                Found.Add((Inherited, Nested));
+            }
+        }
+
+        HashSet<SemanticType> Hidden = new(GetInheritedInterfaces(Found.Select(found => found.Holder),
+            SelfDeriving, null, context));
+        List<(DeclaredType Holder, PackMember Nested)> Unhidden = Found.Where(
+            found => !Hidden.Contains(found.Holder)).ToList();
+        if (Unhidden.Count > 1)
+        {
+            string Candidates = string.Join(", ", Unhidden.Select(found =>
+                $"\"{found.Holder}{KGVL.MEMBER_ACCESS}{found.Nested.SelfIdentifier.SourceCodeName}\""));
+            context.AddError(context.ErrorCreator.AmbiguousInheritedType.CreateOptions(Name,
+                InheritedThrough.SelfIdentifier.SourceCodeName, Candidates), scope);
+            return null;
+        }
+        if ((Unhidden.Count == 0) || !ReferenceEquals(Unhidden[0].Nested, result.Target))
+        {
+            return result;
+        }
+
+        List<TypeTargetIdentifier> Path = new();
+        for (DeclaredType Step = Unhidden[0].Holder; !Step.Equals(Through); Step = ReachedBy[Step].Derived)
+        {
+            Path.Add(ReachedBy[Step].WrittenBase);
+        }
+        Path.Reverse();
+        return result.WithInheritedPath(Path);
+    }
+
+    /* Every interface some interfaces derive from, however far back, as the type model reads them, each once,
+     * but not the interfaces themselves. As for the lookup, an interface deriving from itself derives from
+     * nothing, and one whose base list is being resolved has no bases yet. Where each was reached from is
+     * noted, when asked for. */
+    private List<DeclaredType> GetInheritedInterfaces(IEnumerable<DeclaredType> types,
+        HashSet<PackMember> selfDeriving,
+        Dictionary<SemanticType, (DeclaredType Derived, TypeTargetIdentifier WrittenBase)>? reachedBy,
+        PackResolutionContext context)
+    {
+        List<DeclaredType> Inherited = new();
+        HashSet<SemanticType> Seen = new();
+        Queue<DeclaredType> ToSearch = new(types);
+        while (ToSearch.Count > 0)
+        {
+            DeclaredType Current = ToSearch.Dequeue();
+            ResolveBaseList(Current.Declaration);
+            if (selfDeriving.Contains(Current.Declaration) || IsResolvingBases(Current.Declaration))
+            {
+                continue;
+            }
+            foreach ((TypeTargetIdentifier WrittenBase, DeclaredType Base) in context.TypeReader
+                .GetWrittenBases(Current))
+            {
+                if ((Base.Declaration is PackInterface) && Seen.Add(Base))
+                {
+                    reachedBy?.Add(Base, (Current, WrittenBase));
+                    Inherited.Add(Base);
+                    ToSearch.Enqueue(Base);
+                }
+            }
+        }
+        return Inherited;
     }
 
     /* Why a name found no type, as precisely as what was seen allows: where it was looked for, and whether a
@@ -252,11 +416,36 @@ internal class SignatureResolver : IPackResolver
         PackResolutionContext context)
     {
         string Name = type.MainTarget.SourceCodeName;
-        if (result.IsAmbiguous)
+        if (result.CircularType != null)
+        {
+            PackMember Circular = result.CircularType;
+            context.AddError(context.ErrorCreator.CircularBaseLookup.CreateOptions(Name,
+                MemberRelations.GetKindName(Circular), MemberRelations.GetDisplayName(Circular)), scope);
+        }
+        else if (result.IsAmbiguous && (result.InheritedThrough != null))
+        {
+            string Candidates = string.Join(", ", result.AmbiguousTypes.Select(candidate =>
+                $"\"{MemberRelations.GetHoldingMember(candidate)!.SelfIdentifier.SourceCodeName}" +
+                $"{KGVL.NAMESPACE_SEPARATOR}{candidate.SelfIdentifier.SourceCodeName}\""));
+            context.AddError(context.ErrorCreator.AmbiguousInheritedType.CreateOptions(Name,
+                result.InheritedThrough.SelfIdentifier.SourceCodeName, Candidates), scope);
+        }
+        else if (result.IsAmbiguous)
         {
             string Candidates = string.Join(", ", result.AmbiguousTypes.Select(
                 candidate => $"\"{candidate.SelfIdentifier.ResolvedName}\""));
             context.AddError(context.ErrorCreator.AmbiguousType.CreateOptions(Name, Candidates), scope);
+        }
+        else if ((result.InaccessibleType != null)
+            && (MemberRelations.GetHoldingMember(result.InaccessibleType) is PackMember Holder))
+        {
+            PackMember Nested = result.InaccessibleType;
+            string NestedName = Holder.SelfIdentifier.SourceCodeName + KGVL.NAMESPACE_SEPARATOR
+                + Nested.SelfIdentifier.SourceCodeName;
+            context.AddError(context.ErrorCreator.NestedTypeInaccessible.CreateOptions(NestedName,
+                MemberRelations.GetKindName(scope), MemberRelations.GetDisplayName(scope),
+                ModifierKeywords.FormatAccess(MemberRelations.GetEffectiveAccess(Nested)),
+                Holder.SelfIdentifier.SourceCodeName), scope);
         }
         else if (result.InaccessibleType != null)
         {
@@ -318,51 +507,13 @@ internal class SignatureResolver : IPackResolver
         }
     }
 
-    /* The types a declaration names through the types holding them, which it may not be able to use. The types
-     * around a use, and a namespace's types, are only ever found where the use can see them. */
-    private void CheckUsableTypes(PackMember member, PackResolutionContext context)
+    /* A type found through the bases of the type it was looked for in keeps that type, and the way to the base
+     * holding it, along which the type model reads that base. */
+    private void SetFound(TypeTargetIdentifier type, TypeSearchResult result)
     {
-        IEnumerable<TypeTargetIdentifier> OwnBases = (member as IPackMemberExtender)?.ExtendedMembers
-            ?? Enumerable.Empty<TypeTargetIdentifier>();
-        foreach (TypeTargetIdentifier Written in MemberRelations.GetWrittenTypes(member))
-        {
-            CheckUsable(Written, member, OwnBases.Contains(Written), context);
-        }
-    }
-
-    /* Whether a written type, or one before its '.', is a type the declaration cannot use, which leaves the
-     * written type unresolved. Only the first such name before a '.' is reported, as the names after it are
-     * looked for in it, but each type argument is a name of its own. */
-    private bool CheckUsable(TypeTargetIdentifier written,
-        PackMember member,
-        bool isInOwnBaseList,
-        PackResolutionContext context)
-    {
-        bool IsUnusable = (written.Qualifier != null)
-            && CheckUsable(written.Qualifier, member, isInOwnBaseList, context);
-        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
-        {
-            CheckUsable(Argument, member, isInOwnBaseList, context);
-        }
-
-        if (!IsUnusable && (written.Qualifier?.MainTarget.Target is PackMember Holder)
-            && (written.MainTarget.Target is PackMember Nested)
-            && !AccessDomains.IsAccessibleFrom(Nested, member, isInOwnBaseList, context))
-        {
-            string NestedName = Holder.SelfIdentifier.SourceCodeName + KGVL.NAMESPACE_SEPARATOR
-                + Nested.SelfIdentifier.SourceCodeName;
-            context.AddError(context.ErrorCreator.NestedTypeInaccessible.CreateOptions(NestedName,
-                MemberRelations.GetKindName(member), MemberRelations.GetDisplayName(member),
-                ModifierKeywords.FormatAccess(MemberRelations.GetEffectiveAccess(Nested)),
-                Holder.SelfIdentifier.SourceCodeName), member);
-            IsUnusable = true;
-        }
-        if (IsUnusable)
-        {
-            written.MainTarget.Target = null;
-            written.MainTarget.ResolvedName = null;
-        }
-        return IsUnusable;
+        SetTarget(type.MainTarget, result.Target!);
+        type.InheritedThrough = result.InheritedThrough;
+        type.InheritedPath = result.InheritedPath;
     }
 
     private void SetTarget(Identifier identifier, IIdentifiable target)
@@ -387,13 +538,39 @@ internal class SignatureResolver : IPackResolver
     {
         ArgumentNullException.ThrowIfNull(context, nameof(context));
 
+        _context = context;
+        foreach (PackMember Type in context.Pack.Types)
+        {
+            ResolveBaseList(Type);
+        }
         foreach (PackMember Member in context.Pack.Members)
         {
             ResolveMember(Member, context);
         }
-        foreach (PackMember Member in context.Pack.Members)
+    }
+
+    /* The bases a lookup asks for are resolved first when they are not yet, and taken as none while they are
+     * being resolved. A class's base class comes first, when it has one. */
+    public IEnumerable<PackMember> GetBaseTypes(PackMember type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        ResolveBaseList(type);
+        if ((type is not IPackMemberExtender Extender) || IsResolvingBases(type))
         {
-            CheckUsableTypes(Member, context);
+            return Enumerable.Empty<PackMember>();
         }
+
+        PackClass? BaseClass = MemberRelations.GetWrittenBaseClass(type);
+        IEnumerable<PackMember> Interfaces = Extender.ExtendedMembers.Where(written => !written.IsArrayOrNullable)
+            .Select(written => written.MainTarget.Target).OfType<PackInterface>();
+        return (BaseClass != null) ? Interfaces.Prepend(BaseClass) : Interfaces;
+    }
+
+    public bool IsResolvingBases(PackMember type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        return _isBaseListResolved.TryGetValue(type, out bool IsResolved) && !IsResolved;
     }
 }

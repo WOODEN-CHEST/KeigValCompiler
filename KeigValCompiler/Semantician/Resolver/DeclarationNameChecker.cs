@@ -31,13 +31,7 @@ internal class DeclarationNameChecker : IPackResolver
 
     private void CheckParameterNames(PackMember member, PackResolutionContext context)
     {
-        FunctionParameterCollection? Parameters = member switch
-        {
-            PackFunction Function => Function.Parameters,
-            PackIndexer Indexer => Indexer.Parameters,
-            PackDelegate Delegate => Delegate.Parameters,
-            _ => null
-        };
+        FunctionParameterCollection? Parameters = MemberRelations.GetParameters(member);
         if (Parameters == null)
         {
             return;

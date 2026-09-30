@@ -1,0 +1,206 @@
+/* What looking nested types up through base types has to accept, since C# accepts it: a base class's public
+ * and protected nested types, from the class, a type inside it and a class two levels down, with a base's
+ * private nested type passed over for a type of the same name further out; nested types of a generic base,
+ * as the base is given; a nested type of the type around a type, in that type's base list; a base
+ * interface's nested type, hidden by one in a more derived interface, or reached along two paths; a nested
+ * type named after a class deriving from its holder; a type's own nested type hiding a base's, when marked
+ * "new"; and a class nested in a class deriving from a protected type's holder deriving from that type. Also
+ * what an early version crashed on or got wrong: bases naming nested types reached through each other, an
+ * internal nested type named while base lists around it were still being resolved, a generic interface
+ * reached twice with the same type arguments, or hidden for those, an interface's base list naming what its
+ * own nested interface inherits, a nested type of a generic base given another type's parameter, and one
+ * named in a base list while another base list it passes through was still being resolved, which is read
+ * as the lookup found it. Part of tests-resolution, so it has to compile with zero errors and no
+ * warnings. */
+
+namespace Game.Nested;
+
+public class Item { }
+
+public class Holder
+{
+    private class Item { }
+    protected class Guarded { }
+    public class Open { }
+}
+
+public class Derived : Holder
+{
+    private Item Outer;
+    protected Guarded Kept;
+    public Open Shown;
+    public void Take<T>() where T : Open { }
+    protected class Again : Guarded { }
+    public class Inside : IMarked<Open> { }
+}
+
+public interface IMarked<T> { }
+
+public class Middle : Holder { }
+
+public class Lower : Middle
+{
+    public Open Reached;
+    protected Guarded AlsoKept;
+}
+
+public class Generic<T>
+{
+    public class Inner { }
+}
+
+public class FromGeneric : Generic<int>
+{
+    public Inner Kept;
+    public void Take(Inner value) { }
+    public void Take(Generic<string>.Inner value) { }
+    public class Deeper
+    {
+        public Inner Found;
+    }
+}
+
+public interface ITop
+{
+    public class Shared { }
+}
+
+public interface ILeft : ITop { }
+
+public interface IRight : ITop { }
+
+public interface IBoth : ILeft, IRight
+{
+    Shared Get();
+}
+
+public interface IOverride : ITop
+{
+    new public class Shared { }
+}
+
+public interface IHidden : IOverride, ITop
+{
+    Shared Get();
+}
+
+public class Qualified
+{
+    public Derived.Open ThroughDerived;
+}
+
+public class Hiding : Holder
+{
+    new public class Open { }
+    public Open Mine;
+}
+
+public interface IDeepHolder
+{
+    public interface INested { }
+}
+
+public interface ICrossing : IAround.INested { }
+
+public interface IAround : ICrossing, IDeepHolder { }
+
+public class Outermost
+{
+    public class Nested
+    {
+        public interface IQ { }
+    }
+}
+
+public class Between : Outermost { }
+
+public class Branch : Between, IBack { }
+
+public class Leaf : Branch.Nested { }
+
+public interface IBack : IMarked<Leaf.IQ> { }
+
+internal class EarlyUser : Late.Middle.First { }
+
+internal class Late : IMarked<Late.Middle.Second>
+{
+    internal class Middle : Keeper.Kept { }
+    internal class Keeper
+    {
+        internal class Kept
+        {
+            internal class First { }
+            internal class Second { }
+        }
+    }
+}
+
+public interface ISame<T>
+{
+    public interface Inner { }
+}
+
+public interface ISameOnce : ISame<int> { }
+
+public interface ISameTwice : ISame<int>, ISameOnce
+{
+    Inner Get();
+}
+
+public interface ISameHiding : ISame<int>
+{
+    new public interface Inner { }
+}
+
+public interface ISameHidden : ISameHiding, ISame<int>
+{
+    Inner Get();
+}
+
+public interface IPlain
+{
+    public interface Deep { }
+}
+
+public interface ISelfReaching : ISelfReaching.IInside.Deep
+{
+    public interface IInside : IPlain { }
+}
+
+public class Wrapper<T>
+{
+    public class Inner { }
+    public virtual void Take(Inner value) { }
+}
+
+public class Wrapping<U> : Wrapper<U[]> { }
+
+public class Wrapped : Wrapping<int>
+{
+    public override void Take(Inner value) { }
+}
+
+public class WrappedUser
+{
+    public void Use(Wrapping<string>.Inner value) { }
+    public void Use(Wrapper<string>.Inner value) { }
+}
+
+public interface IGen<T>
+{
+    public interface Inner
+    {
+        void Take(T value);
+    }
+}
+
+public interface IGenInt : IGen<int> { }
+
+public interface IGenLater : IGen<string>, IGenBoth.Inner { }
+
+public interface IGenBoth : IGenLater, IGenInt { }
+
+public class GenLaterUser : IGenLater
+{
+    public void Take(int value) { }
+}

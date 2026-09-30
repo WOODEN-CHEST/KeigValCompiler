@@ -58,32 +58,60 @@ each relying on what the ones before it set:
 5. `SignatureResolver`: resolves every type written in a declaration (base
    types, constraints, member types, parameters, explicit interfaces) by pointing
    its `Identifier.Target` at the type or `GenericTypeParameter` it means.
-   `TypeSearcher` looks names up as C# does: generic parameters and nested types
-   around the use, innermost first; then, at the namespace and each containing
-   it, a namespace of the name inside it and then a type it holds, and a root
-   namespace of the name; then `using` imports, where two matches are
-   ambiguous. A type matches by name and generic parameter count. A namespace's
-   type the use cannot see, in practice the library's `internal` types from
-   user code, is passed over, and reported as inaccessible when nothing else
-   matched. Where one namespace holds both a namespace and a type of a name,
-   the user's code finds its own over the library's, as Roslyn prefers what a
-   compilation declares to what it imports, and a clash on one side, which
-   `DeclarationNameChecker` reports, finds the type, and then the namespace for
-   what follows it, so that only the clash is reported. The standard library
-   is looked at as its own assembly, and sees only its own namespaces and
-   types. A
-   qualified name, such as `KGVL.Collections.List<int>` or `Outer<int>.Inner`,
-   is a chain of `TypeTargetIdentifier.Qualifier`s, each with its own type
-   arguments, resolved from the first: each names a namespace, whose
-   identifier then carries its full name, or a type, in which the next name
-   is looked for, a namespace inside a namespace before a type.
+   Every type's base list is resolved first, each when first needed, since a
+   lookup may need the bases of a type around the use or of a qualifier before
+   the pass reaches them; while a type's own base list is being resolved it
+   has no bases, as in C#, which also ends loops. A lookup which finds nothing
+   in a class or structure in that state ends there with RS 65, as C# ends it
+   with CS0146, since what the type inherits could have been the answer; for
+   an interface in that state the lookup goes on, as in C#. Everything else
+   follows.
+   `TypeSearcher` looks names up as C# does: generic parameters around the
+   use, and the nested types each type around it declares or inherits,
+   innermost first (a class inherits its base classes' nested types, the
+   nearest first, and an interface its base interfaces', where two which
+   neither hides are ambiguous, and one deriving from itself derives from
+   nothing; nothing is inherited from an implemented interface); a type's
+   own base list, constraints and a record's parameter
+   list are outside it, and see only its generic parameters there. Then, at
+   the namespace and each containing it, a namespace of the name inside it
+   and then a type it holds, and a root namespace of the name; then `using`
+   imports, where two matches are ambiguous. A type matches by name and
+   generic parameter count. A namespace's type the use cannot see, in
+   practice the library's `internal` types from user code, is passed over,
+   and reported as inaccessible when nothing else matched. Where one
+   namespace holds both a namespace and a type of a name, the user's code
+   finds its own over the library's, as Roslyn prefers what a compilation
+   declares to what it imports, and a clash on one side, which
+   `DeclarationNameChecker` reports, finds the type, and then the namespace
+   for what follows it, so that only the clash is reported. The standard
+   library is looked at as its own assembly, and sees only its own
+   namespaces and types. A qualified name, such as `KGVL.Collections.List<int>`
+   or `Outer<int>.Inner`, is a chain of `TypeTargetIdentifier.Qualifier`s,
+   each with its own type arguments, resolved from the first: each names a
+   namespace, whose identifier then carries its full name, or a type, in
+   which the next name is looked for, a namespace inside a namespace before a
+   type. The lookup tells base interfaces apart by declaration, so a type
+   found through an interface's bases is looked for again among them as the
+   type model reads them: `IA<int>` and `IA<string>` are two interfaces, and
+   a name both declare is ambiguous (RS 64, C#'s CS0104).
    `SemanticTypeReader` takes a nested type's containing type from its
-   qualifier, so `Outer<int>.Inner` and `Outer<string>.Inner` differ. Whether
-   a declaration can use a nested type named through a qualifier depends on
-   what derives from what, so it is decided once every signature is resolved,
-   as `AccessDomains.IsAccessibleFrom` decides it; one it cannot use is
-   reported (C#'s CS0122) and left unresolved, so that the checks after it
-   skip it, as Roslyn skips a type in error.
+   qualifier, or from the type around the use it was inherited through
+   (`TypeTargetIdentifier.InheritedThrough`), as that type sees the base
+   declaring it, so `Outer<int>.Inner` and `Outer<string>.Inner` differ, and
+   `Inner` inside a class deriving from `Outer<int>` is `Outer<int>.Inner`.
+   That base is read along the way the lookup went to it, which
+   `SignatureResolver` records (`TypeTargetIdentifier.InheritedPath`), since
+   reading afterwards could not tell which base lists were still being
+   resolved at the time, and each such name is read once; a holder with no
+   generic parameters, nor any type around it, is taken as it is. A base on
+   the way which cannot be read leaves the nested type unread too, since that
+   has been reported. A
+   nested type the use cannot access, as `AccessDomains.IsAccessibleFrom`
+   decides it with the bases the lookup asks `SignatureResolver` for, and
+   only when its access needs them, is passed over as C# passes over it, and
+   reported (C#'s CS0122) and left unresolved when nothing else matched, so
+   that the checks after it skip it, as Roslyn skips a type in error.
 6. `MemberIdentifierResolver`: names every other member. A function's name
    carries its parameter types, so overloads stay apart.
 7. `LibraryBindingResolver`: binds the library, as described below.
@@ -123,10 +151,14 @@ it.
   readonly structure cannot hold, and an event whose type is not a delegate.
 - `MemberBodyChecker`: which functions and accessors need a body and which
   cannot have one, properties storing their own value, and what constructors
-  can run first.
+  can run first: as in C#, each constructor a record with a parameter list
+  declares runs another first with `: this(...)`, but for its copy
+  constructor, taking the record by value, and a static one. Only that
+  `: this(...)` is written is checked, not where the chain ends.
 - `ParameterChecker`: what may follow what in a parameter list, as in C#: a
   `params` parameter comes last, and after a parameter with a default value
-  only others with one and a `params` one. A `ref`, `out` or `params`
+  only others with one and a `params` one. A `params` parameter's type is an
+  array, written `int[]` or `Array<int>` (FN 13). A `ref`, `out` or `params`
   parameter cannot have a default, and a default a member can never use (on
   an explicit implementation, an operator, or an indexer of one parameter) is
   warned about. A default which cannot be had does not also make the
@@ -201,14 +233,12 @@ inherits, and what an explicit implementation implements.
   setters, as accessible as their type. `AccessDomains` compares two
   members' accessibility domains as Roslyn's `IsAsRestrictive` does.
 
-What remains unchecked in declarations: nested types of base classes (lookup
-does not see them yet, unqualified or through a qualifier), whether `notnull`
-is satisfied, which is nullability checking, what type a `params` parameter
-may have (an array, or
-since C# 13 also collections, which is for the owner to decide), that a
-record with a parameter list chains each constructor it declares to another
-with `this(...)` (C#'s CS8862), and everything inside function bodies. See
-"Suggested order of work".
+What remains unchecked in declarations: whether `notnull` is satisfied, which
+is nullability checking; constructor chains which come back round to where
+they started (C#'s CS0516 and CS0768), which need overload resolution; what a
+record's copy constructor runs first (CS8868), and that it is public or
+protected (CS8878); and everything inside function bodies. See "Suggested
+order of work".
 
 Errors are queued, like the parser's, so one missing type does not hide the rest.
 A type which cannot be resolved is left with no `Target`, and later passes skip
@@ -289,7 +319,9 @@ when the table is built, since either is a mistake in the compiler.
 `LibraryBindingResolver`, the seventh resolution pass, does the matching.
 `BuiltInSignatureReader` turns each resolved builtin member into a
 `MemberSignature`, a property's or indexer's accessors each becoming one, and a
-matched function's `PackFunction.Intrinsic` records its operation. Each side's
+matched function's `PackFunction.Intrinsic` records its operation; a setter is
+matched by the setter's signature whether it is written `set` or `init`, since
+both store the value, though messages show it as written. Each side's
 leftovers are `StandardLibrary` errors: a builtin member nothing implements, and
 an implementation no member declares (left out when the library already has
 other errors, which would cause it). The pass also checks that a builtin member
@@ -408,10 +440,24 @@ types, static classes used as types, and accessibility.
 - Roslyn's warnings for a namespace and a type of one name on the two sides of
   the standard library's boundary (CS0435 to CS0437) are not given, though
   the name finds what Roslyn finds: the user's own namespace or type.
-- Declarations are checked against C#'s rules apart from nested types of base
-  classes, whose step is under "Suggested order of work", `notnull`
-  constraints, which wait for nullability checking, a `params` parameter's
-  type, and a record's constructors chaining to its primary one.
+- Declarations are checked against C#'s rules apart from `notnull`
+  constraints, which wait for nullability checking, constructor chains which
+  loop, which need overload resolution, and what a record's copy constructor
+  runs first and its access.
+- Where two base lists each need what the other's type inherits, the one
+  resolved first sees the other with no bases yet, as C# does, but the other
+  then sees the first complete, so fewer errors are given, and which ones
+  depends on the order of declarations. Roslyn fails both sides. The code is
+  rejected either way.
+- A base written with `?` is no base at all once `InheritanceChecker` has
+  reported it (C#'s CS1521), so names inherited through it are not found
+  either, where Roslyn keeps the base and finds them.
+- Base lists are resolved when first needed, recursively, so a chain of
+  thousands of types each naming a type the next one inherits, declared from
+  the far end, overflows the stack: 5000 compile, 6000 do not.
+- A chain of thousands of classes each deriving from the next, declared from
+  the far end, takes long (3000 take about 36 seconds); this was so before
+  nested types were looked up through bases.
 
 ## Suggested order of work
 
@@ -480,14 +526,8 @@ Roughly dependency-ordered; the owner decides priorities.
          2026-09-30, qualified type names included, but for those recorded
          there for later: an event's accessors, lambda defaults and named
          chain arguments.
-      6. Nested types of base classes in lookup, which needs base lists
-         resolved first, on demand, with C#'s rule that a type's own base is
-         taken as object while its base list is resolved. Lookup through a
-         qualifier then also finds a base class's nested types, as in
-         `Derived.BaseNested`, whose containing type `SemanticTypeReader` has
-         to take from the base as the qualifier sees it; and a type's own
-         nested types have to stop being found in its own base list, as in
-         `class O : N { class N { } }`, which C# rejects.
+      6. ~~Nested types of base classes in lookup.~~ Done on 2026-09-30: see
+         `SignatureResolver` and `TypeSearcher` under stage 2.
    3. Resolve function bodies: expression types, names inside bodies, overloads,
       conversions and operators, with the operators the library declares on its
       built in types standing in for C#'s predefined ones. Then the enum values

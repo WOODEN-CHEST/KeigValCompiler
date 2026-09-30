@@ -73,20 +73,20 @@ internal static class AccessDomains
     }
 
     /* Whether a type declared inside another can be used by a declaration, by its own access, as C#'s
-     * IsAccessible decides it for a type named through the one holding it, which is taken to be usable: a
-     * public one anywhere, an internal one on its own side of the standard library's boundary, a private one
-     * inside the type holding it, and a protected one inside that type or one deriving from it. Inside means
-     * in the declaration itself, when it is a type, or in any type around it. C# binds a type's base list
-     * before the type has any bases, so for a type named in it the type's own bases do not count, though
-     * those of the types around it do. */
-    internal static bool IsAccessibleFrom(PackMember nested,
-        PackMember user,
-        bool isInOwnBaseList,
-        PackResolutionContext context)
+     * IsAccessible decides it for a type found in the one holding it, which is taken to be usable: a public
+     * one anywhere, an internal one on its own side of the standard library's boundary, a private one inside
+     * the type holding it, and a protected one inside that type or one deriving from it. Inside means in the
+     * declaration itself, when it is a type, or in any type around it. The bases come from a source which
+     * resolves them when first asked, while signatures are being resolved; C# binds a type's base list
+     * before the type has any bases, which the source answers with none, so for a type named in that list
+     * the type's own bases do not count, though those of the types around it do. As in C#, what derives
+     * from what is only asked when the access needs it, after the side of the boundary where that decides,
+     * and no further than the first type which derives, since asking may resolve a base list. */
+    internal static bool IsAccessibleFrom(PackMember nested, PackMember user, IBaseTypeSource bases)
     {
         ArgumentNullException.ThrowIfNull(nested, nameof(nested));
         ArgumentNullException.ThrowIfNull(user, nameof(user));
-        ArgumentNullException.ThrowIfNull(context, nameof(context));
+        ArgumentNullException.ThrowIfNull(bases, nameof(bases));
 
         PackMemberModifiers Access = MemberRelations.GetEffectiveAccess(nested);
         PackMember? Holder = GetContainingType(nested);
@@ -97,28 +97,47 @@ internal static class AccessDomains
 
         PackMember? UserType = MemberRelations.IsType(user) ? user : GetContainingType(user);
         bool IsSameAssembly = nested.SourceFile.Kind == user.SourceFile.Kind;
-        bool IsInsideHolder = false;
-        for (PackMember? Type = UserType; Type != null; Type = GetContainingType(Type))
-        {
-            IsInsideHolder |= ReferenceEquals(Type, Holder);
-        }
-        bool IsInsideDerived = isInOwnBaseList
-            ? (ReferenceEquals(UserType, Holder) || IsWithinDerived(Holder, GetOuterType(UserType), context))
-            : IsWithinDerived(Holder, UserType, context);
-
         return Access switch
         {
             PackMemberModifiers.Internal => IsSameAssembly,
-            PackMemberModifiers.Private => IsInsideHolder,
-            PackMemberModifiers.Protected => IsInsideDerived,
-            PackMemberModifiers.Protected | PackMemberModifiers.Internal => IsSameAssembly || IsInsideDerived,
-            PackMemberModifiers.Private | PackMemberModifiers.Protected => IsSameAssembly && IsInsideDerived,
+            PackMemberModifiers.Private => IsInsideType(UserType, Holder),
+            PackMemberModifiers.Protected => IsInsideDerived(UserType, Holder, bases),
+            PackMemberModifiers.Protected | PackMemberModifiers.Internal => IsSameAssembly
+                || IsInsideDerived(UserType, Holder, bases),
+            PackMemberModifiers.Private | PackMemberModifiers.Protected => IsSameAssembly
+                && IsInsideDerived(UserType, Holder, bases),
             _ => true
         };
     }
 
 
     // Private static methods.
+    /* Whether a type is the given one, or is declared inside it however deeply. */
+    private static bool IsInsideType(PackMember? type, PackMember holder)
+    {
+        for (PackMember? Type = type; Type != null; Type = GetContainingType(Type))
+        {
+            if (ReferenceEquals(Type, holder))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /* Whether a type, or one around it, is the given type or derives from it, by the bases a source gives. */
+    private static bool IsInsideDerived(PackMember? type, PackMember holder, IBaseTypeSource bases)
+    {
+        for (PackMember? Type = type; Type != null; Type = GetContainingType(Type))
+        {
+            if (MemberRelations.IsDerivedOrSame(Type, holder, bases))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /* One step of Roslyn's walk: whether a level of the narrower member's declaration, with its own access,
      * makes the whole of its domain lie within the wider member's. */
     private static bool IsWithinAt(PackMemberModifiers widerAccess,
@@ -232,11 +251,6 @@ internal static class AccessDomains
                 implemented => ReferenceEquals(implemented.Declaration, baseType))
             : context.Hierarchy.GetBaseClasses(Instance).Any(
                 baseClass => ReferenceEquals(baseClass.Declaration, baseType));
-    }
-
-    private static PackMember? GetOuterType(PackMember? type)
-    {
-        return (type == null) ? null : GetContainingType(type);
     }
 
     /* The nearest type holding a member, past the property or indexer holding an accessor. */

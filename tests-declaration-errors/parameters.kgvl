@@ -5,23 +5,25 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 375 errors and 18 warnings. Expected from this
- * file, 11 errors and 3 warnings:
+ * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * file, 13 errors and 3 warnings:
  *
- *   line 36 FN error 10     required parameters after an optional one, each reported
- *   line 36 FN error 10     required parameters after an optional one, each reported
- *   line 37 FN error 9      a params parameter before another parameter
- *   line 38 FN error 9      the first of two params parameters
- *   line 39 FN error 12     a default value on a params parameter
- *   line 40 FN error 11     a default value on a ref parameter, and no error for what follows it
- *   line 41 FN error 11     a default value on an out parameter
- *   line 42 FN warning 3    a default an indexer of one parameter cannot use
- *   line 43 FN warning 2    a default an operator cannot use
- *   line 44 FN warning 1    an explicit implementation's default, and a required parameter after it
- *   line 44 FN error 10     an explicit implementation's default, and a required parameter after it
- *   line 47 FN error 10     a required parameter after an optional one in a delegate
- *   line 51 FN error 9      a params parameter both not last and with a default, two mistakes
- *   line 51 FN error 12     a params parameter both not last and with a default, two mistakes
+ *   line 38 FN error 10     required parameters after an optional one, each reported
+ *   line 38 FN error 10     required parameters after an optional one, each reported
+ *   line 39 FN error 9      a params parameter before another parameter
+ *   line 40 FN error 9      the first of two params parameters
+ *   line 41 FN error 12     a default value on a params parameter
+ *   line 42 FN error 11     a default value on a ref parameter, and no error for what follows it
+ *   line 43 FN error 11     a default value on an out parameter
+ *   line 44 FN warning 3    a default an indexer of one parameter cannot use
+ *   line 45 FN warning 2    a default an operator cannot use
+ *   line 46 FN warning 1    an explicit implementation's default, and a required parameter after it
+ *   line 46 FN error 10     an explicit implementation's default, and a required parameter after it
+ *   line 49 FN error 10     a required parameter after an optional one in a delegate
+ *   line 53 FN error 9      a params parameter both not last and with a default, two mistakes
+ *   line 53 FN error 12     a params parameter both not last and with a default, two mistakes
+ *   line 58 FN error 13     a params parameter whose type is not an array
+ *   line 59 FN error 13     a params parameter of a generic parameter's type
  */
 
 namespace Game.Parameters;
@@ -49,4 +51,10 @@ public delegate void Handler(int first = 1, string second);
 public class MoreParameters
 {
     public void ParamsFirstWithDefault(params int[] values = null, int count) { }
+}
+
+public class ParamsTypes<T>
+{
+    public void NotArray(params int values) { }
+    public void Parameter(params T values) { }
 }

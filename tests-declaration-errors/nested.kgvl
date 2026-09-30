@@ -1,0 +1,188 @@
+/* Declaration check test source file, for nested types in lookup: a type's own header and nested types
+ * reached through base types. Every error in here is deliberate. The directory parses cleanly, so that
+ * resolution runs at all, and the point is that each mistake is reported once, where it is, without
+ * errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
+ *
+ * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * file, 24 errors:
+ *
+ *   line 48 RS error 2      a class naming its own nested class in its base list
+ *   line 53 RS error 2      a class naming its own nested class in its constraint
+ *   line 58 RS error 2      a class naming a nested type of its base in its own base list
+ *   line 60 RS error 2      a class naming a nested type of its base in its own constraint
+ *   line 62 RS error 2      a record naming its own nested class in its parameter list
+ *   line 74 RS error 2      a class naming a nested type of an interface it implements
+ *   line 79 RS error 2      a structure naming a nested type of an interface it implements
+ *   line 89 RS error 64     a name declared in two base interfaces, neither hiding the other
+ *   line 94 RS error 59     a private nested type of the base class
+ *   line 99 RS error 59     a private nested type of the base class, named after the derived class
+ *   line 104 RS error 48    a protected nested type of the base, less accessible than the field
+ *   line 115 RS error 20    a nested type of a generic base, the same as when named with the base
+ *   line 125 RS error 64    a name in one generic interface, reached with two sets of type arguments
+ *   line 130 RS error 64    the same name, named after the interface deriving from both
+ *   line 140 RS error 64    a name hidden for one set of type arguments but not for the other
+ *   line 143 RS error 65    a class naming, in its own base list, what it would inherit
+ *   line 145 RS error 65    a structure naming, in its own base list, what it would inherit
+ *   line 147 RS error 57    what the nested class would inherit, which C# reports too, as it has no base
+ *   line 149 RS error 65    the nested class's base, looked for in the class around it, whose bases are pending
+ *   line 157 RS error 2     a base which cannot be read, and no error for a nested type reached through it
+ *   line 169 RS error 8     two base classes, and no error for a nested type inherited through the first
+ *   line 177 RS error 15    interfaces deriving from each other, each reported
+ *   line 179 RS error 15    interfaces deriving from each other, each reported
+ *   line 187 RS error 64    a name in two instantiations, still ambiguous beside a loop of interfaces
+ */
+
+namespace Game.NestedErrors;
+
+public interface IMarked<T> { }
+
+public class Holder
+{
+    private class Hidden { }
+    protected class Guarded { }
+    public class Open { }
+}
+
+public class OwnNestedAsBase : Nest
+{
+    public class Nest { }
+}
+
+public class OwnNestedAsConstraint<T> where T : Inner
+{
+    public class Inner { }
+}
+
+public class InheritedInOwnBaseList : Holder, IMarked<Open> { }
+
+public class InheritedInOwnConstraint<T> : Holder where T : Open { }
+
+public record OwnNestedAsParameter(Kept Value)
+{
+    public class Kept { }
+}
+
+public interface IWithNested
+{
+    public class Inside { }
+}
+
+public class Implementing : IWithNested
+{
+    public Inside Field;
+}
+
+public struct ImplementingStructure : IWithNested
+{
+    public Inside Field;
+}
+
+public interface IOther
+{
+    public class Inside { }
+}
+
+public interface IBothDeclare : IWithNested, IOther
+{
+    Inside Get();
+}
+
+public class PrivateOfBase : Holder
+{
+    public Hidden Field;
+}
+
+public class Outside
+{
+    public PrivateOfBase.Hidden Field;
+}
+
+public class Exposed : Holder
+{
+    public Guarded Field;
+}
+
+public class Generic<T>
+{
+    public class Inner { }
+}
+
+public class SameThroughBase : Generic<int>
+{
+    public void Take(Inner value) { }
+    public void Take(Generic<int>.Inner value) { }
+}
+
+public interface IGeneric<T>
+{
+    public interface Inner { }
+}
+
+public interface ITwoArguments : IGeneric<int>, IGeneric<string>
+{
+    Inner Get();
+}
+
+public class NamedThroughTwo
+{
+    public ITwoArguments.Inner Field;
+}
+
+public interface IGenericHiding : IGeneric<int>
+{
+    new public interface Inner { }
+}
+
+public interface IHidesOnlyOne : IGenericHiding, IGeneric<string>
+{
+    Inner Get();
+}
+
+public class SelfQualified : SelfQualified.Missing { }
+
+public struct SelfQualifiedStructure : SelfQualifiedStructure.Missing { }
+
+public class CircularHolder : IMarked<CircularHolder.Inner.Open>
+{
+    public class Inner : Holder { }
+}
+
+public class TakesInner
+{
+    public virtual void Take(Generic<int>.Inner value) { }
+}
+
+public class UnreadableBase : Generic<Missing>
+{
+    public class Sub : TakesInner
+    {
+        public override void Take(Inner value) { }
+    }
+}
+
+public class GenericMiddle : Generic<int> { }
+
+public class GenericLower : GenericMiddle { }
+
+public class TwoBaseClasses : GenericLower, Generic<string>
+{
+    public class Sub : TakesInner
+    {
+        public override void Take(Inner value) { }
+    }
+}
+
+public interface ILoopOne : ILoopTwo { }
+
+public interface ILoopTwo : ILoopOne { }
+
+public interface IGenericString : IGeneric<string> { }
+
+public interface IGenericBesideLoop : IGeneric<int>, IGenericString, ILoopOne { }
+
+public class NamedBesideLoop
+{
+    public IGenericBesideLoop.Inner Field;
+}
