@@ -13,6 +13,10 @@ namespace KeigValCompiler.Semantician.Resolver;
  * declaration can use the types it names at all is decided as they are resolved, by SignatureResolver. */
 internal class AccessibilityChecker : IPackResolver
 {
+    // Private fields.
+    private readonly IBaseTypeSource _bases = new ResolvedBaseTypes();
+
+
     // Private methods.
     private void CheckMember(PackMember member, PackResolutionContext context)
     {
@@ -109,7 +113,7 @@ internal class AccessibilityChecker : IPackResolver
         {
             return;
         }
-        PackMember? LessAccessible = AccessDomains.FindLessAccessible(Type, member, context);
+        PackMember? LessAccessible = AccessDomains.FindLessAccessible(Type, member, _bases);
         if (LessAccessible == null)
         {
             return;
@@ -132,8 +136,8 @@ internal class AccessibilityChecker : IPackResolver
 
         PackFunction? Setter = (member as IPackAccessorHolder)?.SetFunction
             ?? (member as IPackAccessorHolder)?.InitFunction;
-        bool IsVisible = AccessDomains.IsAtLeastAsAccessible(member, Holder, context)
-            && ((Setter == null) || AccessDomains.IsAtLeastAsAccessible(Setter, Holder, context));
+        bool IsVisible = AccessDomains.IsAtLeastAsAccessible(member, Holder, _bases)
+            && ((Setter == null) || AccessDomains.IsAtLeastAsAccessible(Setter, Holder, _bases));
         if (!IsVisible)
         {
             context.AddError(context.ErrorCreator.RequiredLessAccessible.CreateOptions(

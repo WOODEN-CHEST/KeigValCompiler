@@ -8,6 +8,10 @@ namespace KeigValCompilerTest;
 
 public class TwoIntDecimalTester : ICodeTester
 {
+    // Fields.
+    public string Name => "TwoIntDecimal";
+
+
     // Private methods.
 
 

@@ -5,7 +5,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * The whole directory gives 410 errors and 18 warnings. Expected from this
  * file, 21 errors and 9 warnings:
  *
  *   line 57 RS error 22     an override of nothing

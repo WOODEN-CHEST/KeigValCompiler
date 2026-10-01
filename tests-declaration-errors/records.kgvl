@@ -5,7 +5,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * The whole directory gives 410 errors and 18 warnings. Expected from this
  * file, 28 errors and 1 warnings:
  *
  *   line 44 RE error 8      a declared property of another type

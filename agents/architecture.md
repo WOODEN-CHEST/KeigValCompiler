@@ -64,8 +64,11 @@ each relying on what the ones before it set:
    has no bases, as in C#, which also ends loops. A lookup which finds nothing
    in a class or structure in that state ends there with RS 65, as C# ends it
    with CS0146, since what the type inherits could have been the answer; for
-   an interface in that state the lookup goes on, as in C#. Everything else
-   follows.
+   an interface in that state the lookup goes on, as in C#. Base lists waiting
+   on each other more than 100 deep, which no real program does, stop
+   resolution with RS 66 (`ResolutionStoppedException`, which
+   `FullPackResolver` catches), rather than run out of stack or report the
+   whole chain. Everything else follows.
    `TypeSearcher` looks names up as C# does: generic parameters around the
    use, and the nested types each type around it declares or inherits,
    innermost first (a class inherits its base classes' nested types, the
@@ -176,7 +179,13 @@ it.
   is dropped, as Roslyn drops it. As in Roslyn, a class's base class is the
   first of its bases which is not an interface: one which did not resolve, or
   is no class, keeps that place, leaving the class with none but `object` in
-  `TypeHierarchy`, and a class after it is not taken for the base class.
+  `TypeHierarchy`, and a class after it is not taken for the base class. A
+  base written as an array or with `?` (RS 18, C#'s CS1521) is left out of
+  this pass's other checks; as Roslyn does, a class's base class and an
+  interface's base interfaces written with `?` are still bases everywhere
+  else, read as the type named, while a class's or a structure's interfaces
+  written so are none (`SemanticTypeReader.GetWrittenBaseClassName`,
+  `MemberRelations.GetBaseDeclarations`).
 - `DeclarationNameChecker`: names that cannot coincide, from two enum constants
   of one name to a field named like a function beside it, a type's generic
   parameter, or a namespace.
@@ -231,7 +240,10 @@ inherits, and what an explicit implementation implements.
   its declaration (C#'s inconsistent accessibility, a class's base class and
   an interface's base interfaces included), and required members, and their
   setters, as accessible as their type. `AccessDomains` compares two
-  members' accessibility domains as Roslyn's `IsAsRestrictive` does.
+  members' accessibility domains as Roslyn's `IsAsRestrictive` does, and
+  answers what derives from what by declaration through an
+  `IBaseTypeSource`: `SignatureResolver` while signatures are resolved,
+  `ResolvedBaseTypes` afterwards.
 
 What remains unchecked in declarations: whether `notnull` is satisfied, which
 is nullability checking; constructor chains which come back round to where
@@ -373,7 +385,7 @@ error in a file is useful or noise depends on the input. After a recovered error
 the object model holds a partially built, possibly nonsensical tree, which is
 the other reason the next stage must not run.
 
-## Current state (as of 2026-09-30)
+## Current state (as of 2026-10-01)
 
 The build is **green**. **The parser is syntactically complete** apart from the
 gaps in [`parser-gaps.md`](parser-gaps.md): it reads every construct, down to
@@ -383,7 +395,9 @@ expressions inside function bodies, and builds the full statement tree for them.
 **The resolver resolves declarations, binds the standard library, and checks
 declarations against C#'s rules**, apart from the gaps listed below, but does not
 look inside function bodies: `Foo bar = Nonexistent();` in a body still
-compiles. Five fixtures cover what exists, all run by hand:
+compiles. Five fixtures cover what exists, and `KeigValCompilerTest` runs them
+all (`dotnet run --project KeigValCompilerTest`), comparing every message with
+the headers:
 
 | Directory | Run with | Expect |
 |---|---|---|
@@ -414,16 +428,15 @@ shape and types of operators, inheritance, names, parameters, signatures,
 overriding and hiding, interface implementation, generic constraints, field
 types, static classes used as types, and accessibility.
 
-### The two blocking gaps
+### The blocking gap
 
 1. **Function bodies are not resolved.** No expression has a type, no name
    inside a body is looked up, and no overload, conversion or operator is chosen.
-   This is the next large piece of the resolver, and needs designing first.
+   This is the next large piece of the resolver. Its decisions were made with
+   the owner on 2026-10-01 and are in `language.md`, "Function bodies"; it
+   builds a separate bound tree, leaving the parse tree as written.
 
-2. **No test harness.** `KeigValCompilerTest` has no `ProjectReference` to the
-   compiler and its `Main` prints `Hello, World!`. `ICodeTester`, `TestResults`
-   and `TwoIntDecimalTester` exist but nothing runs them. The five fixtures above
-   are run by hand and their output read by eye.
+`TwoIntDecimalTester` is still a stub: nothing tests `TwoIntDecimal` yet.
 
 ### Smaller known gaps
 - `TwoIntDecimal`'s `%` returns wrong remainders for most operands, and `Pow`
@@ -449,12 +462,6 @@ types, static classes used as types, and accessibility.
   then sees the first complete, so fewer errors are given, and which ones
   depends on the order of declarations. Roslyn fails both sides. The code is
   rejected either way.
-- A base written with `?` is no base at all once `InheritanceChecker` has
-  reported it (C#'s CS1521), so names inherited through it are not found
-  either, where Roslyn keeps the base and finds them.
-- Base lists are resolved when first needed, recursively, so a chain of
-  thousands of types each naming a type the next one inherits, declared from
-  the far end, overflows the stack: 5000 compile, 6000 do not.
 - A chain of thousands of classes each deriving from the next, declared from
   the far end, takes long (3000 take about 36 seconds); this was so before
   nested types were looked up through bases.
@@ -465,8 +472,8 @@ Roughly dependency-ordered; the owner decides priorities.
 
 1. ~~Get the build green.~~ Done.
 2. ~~Finish the parser.~~ Done.
-3. Wire up `KeigValCompilerTest` so the five fixtures run automatically. All are
-   currently checked by eye, which will not survive the resolver work.
+3. ~~Wire up `KeigValCompilerTest` so the five fixtures run automatically.~~
+   Done on 2026-10-01. Add each new fixture directory to its `Program`.
 4. ~~Decide how the built-in types and standard library are declared.~~
    Decided: see "The standard library" above. Building it, in order:
    1. ~~The language additions the library needs: `object`, `char` and `const`,
@@ -528,12 +535,17 @@ Roughly dependency-ordered; the owner decides priorities.
          chain arguments.
       6. ~~Nested types of base classes in lookup.~~ Done on 2026-09-30: see
          `SignatureResolver` and `TypeSearcher` under stage 2.
-   3. Resolve function bodies: expression types, names inside bodies, overloads,
-      conversions and operators, with the operators the library declares on its
-      built in types standing in for C#'s predefined ones. Then the enum values
-      and literal ranges described under stage 2, and C#'s warning for a
-      record's positional parameter which nothing reads, when a member the
-      record declares or inherits keeps its value instead of a made property.
+   3. Resolve function bodies into a separate bound tree, as decided with the
+      owner on 2026-10-01 (`language.md`, "Function bodies"), in steps:
+      A. the bound tree, scopes, names, literals, locals, simple assignment and
+         `return`; B. conversions, operators and constants, with the enum
+         values, parameter defaults and literal ranges described under stage 2;
+      C. member lookup, overload resolution, type inference, object creation,
+         lambdas and constructor chains, which unblocks the chain checks left
+         unchecked above; D. statements and C#'s flow analysis, with C#'s
+         warning for a record's positional parameter which nothing reads;
+      E. nullable warnings, as their own step. The operators the library
+      declares on its built-in types stand in for C#'s predefined ones.
 6. Design and prototype the datapack backend.
 
 Step 6 is worth starting **earlier than its position suggests**, even crudely.

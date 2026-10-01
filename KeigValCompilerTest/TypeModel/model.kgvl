@@ -1,0 +1,37 @@
+using KGVL;
+namespace Model;
+
+public class Outer<T> : IEquatable<Outer<T>>
+{
+    public T Plain;
+    public T? Annotated;
+    public string Text;
+    public string? MaybeText;
+    public int Number;
+    public int? MaybeNumber;
+    public int?[]?[] Jagged;
+    public Inner Nested;
+    public Outer<int> Closed;
+    public bool Equals(Outer<T> other) => true;
+    public void First<TA>(TA value, Outer<TA> other) { }
+    public void Second<TB>(TB value, Outer<TB> other) { }
+    public class Inner
+    {
+        public T Value;
+    }
+}
+
+public struct Pair<TFirst> where TFirst : struct
+{
+    public TFirst? Maybe;
+}
+
+public abstract class Maker
+{
+    public abstract T? Make<T>() where T : struct;
+}
+
+public class Made : Maker
+{
+    public override T? Make<T>() => default;
+}

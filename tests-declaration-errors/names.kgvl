@@ -5,7 +5,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * The whole directory gives 410 errors and 18 warnings. Expected from this
  * file, 17 errors and 2 warnings:
  *
  *   line 32 SFR error 10    a using directive naming no namespace

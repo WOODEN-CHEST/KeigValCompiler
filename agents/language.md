@@ -99,7 +99,12 @@ this file can do
   or `string` never stands before a `.` in a type's name. A type's nested types
   are inherited as in C#, by a class from its base classes and by an interface
   from its base interfaces, and a type's own base list and constraints see
-  none of its members.
+  none of its members. Unlike C#, a namespace and a type of the same name on
+  one side of the library's boundary clash even when the type is generic, as
+  `Clash` and `Clash<T>` (decided 2026-10-01). Base lists which need each
+  other resolved more than 100 deep, each naming a type the next one
+  inherits, are an error rather than a stack overflow (decided 2026-10-01);
+  no real program comes near it.
 
 ## Member syntax
 
@@ -262,6 +267,49 @@ four, and `\U` with exactly eight, naming a code point up to U+10FFFF. As in C#,
 `\x` takes as many hex digits as follow, up to four, so `"\x41BC"` is one char,
 and a `\U` code point above U+FFFF is a surrogate pair, two chars, in a string,
 and an error in a char literal, which holds one.
+
+## Function bodies
+
+Decided on 2026-10-01, and not built yet: what resolving function bodies (step
+5.3) has to do. Everything not listed follows C#: overload resolution,
+conversions, operators, `init` and `required`, protected access, events,
+iterators, what may be thrown and caught.
+
+- **Names in a body** are looked for in this order: locals and parameters, from
+  the innermost block outwards; the members of each type around the code,
+  inherited ones included, from the innermost type outwards; then at the
+  current namespace and each one containing it, the fields, properties,
+  functions and events it holds together with its types and namespaces; last
+  the members and types of the namespaces imported with `using`, where two
+  imports offering the name are ambiguous.
+- **Lambdas** follow C#, capturing locals included; the backend moves captured
+  locals into a compiler-made object, as C# does. The library declares
+  `Action` and `Func` with 0 to 8 parameters, so that lambdas need no delegate
+  of their own.
+- **Generic type inference** is C#'s, including inference from a lambda's
+  return type and from method groups.
+- **`foreach`** takes C#'s pattern: a type with an accessible `GetEnumerator()`
+  whose result has `MoveNext()` and `Current`, with arrays handled apart.
+- **Constants** are computed as C# computes them, decimals with
+  `TwoIntDecimal`, and as in C# a constant expression which overflows, a
+  constant integer division by zero, and a constant conversion which does not
+  fit are errors; there is no `unchecked` to allow them. Runtime arithmetic
+  still wraps.
+- **Flow analysis** is C#'s: a local read before it is surely assigned, an
+  `out` parameter left unassigned, a path which does not return a value, and a
+  `switch` section falling through are errors, and unreachable code is a
+  warning. So are, as in C#, a local declared and never used, one assigned and
+  never read, and a private field never used or never read.
+- **Nullability** gives C#'s nullable warnings, as a step of its own after
+  bodies resolve. Unlike C#, which needs attributes for it, it should look into
+  the functions a body calls to see which nullable fields and parameters they
+  assign, so that, for instance, a field set by an `Init()` just called is not
+  warned about.
+- **`typeof`** gives a minimal library type, `KGVL.Type`, enough for the
+  compiler to compare types and print them. How a type exists at runtime is
+  left to the backend, which will see how it is used: where it is known it can
+  be written into the commands, and an object of unknown origin may carry an
+  NBT entry naming its type, looked up in a table of type information.
 
 ## Built-in types and the standard library
 

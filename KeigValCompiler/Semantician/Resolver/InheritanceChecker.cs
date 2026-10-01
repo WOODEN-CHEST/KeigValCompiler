@@ -16,7 +16,10 @@ internal class InheritanceChecker : IPackResolver
 {
     // Private methods.
     /* A base written as an array or with '?', as in "Foo[]", is no class or interface itself, and is left
-     * out of every other check once reported, which would otherwise take it for the type it is made of. */
+     * out of every other check here once reported, which would otherwise take it for the type it is made of.
+     * As in C#, a class's base class written with '?' is still its base everywhere else, so that the names
+     * and members it gives the class are not reported as well; see
+     * SemanticTypeReader.GetWrittenBaseClassName. */
     private void CheckBaseMarkers(PackMember type, PackResolutionContext context)
     {
         foreach (TypeTargetIdentifier Base in ((IPackMemberExtender)type).ExtendedMembers)

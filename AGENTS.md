@@ -20,7 +20,7 @@ and are made by the repository owner, not by agents.
 
 ## Project status: early and incomplete
 
-Be honest with yourself about how little exists. As of 2026-09-30:
+Be honest with yourself about how little exists. As of 2026-10-01:
 
 - The **parser is complete** for the language's syntax, including function
   bodies, expressions and operator precedence, apart from the gaps listed in
@@ -45,6 +45,7 @@ comments implying features exist when they do not. See
 dotnet build                       # from repository root
 dotnet run --project KeigValCompiler -- <source dir> [--output <dir>]
 dotnet run --project KeigValCompiler -- --help    # every argument the compiler accepts
+dotnet run --project KeigValCompilerTest          # every test; arguments pick testers by name
 ```
 
 Paths may be relative to the working directory.
@@ -67,12 +68,15 @@ recursively. `tests-resolution/` and `tests-resolution-errors/` are the same
 pair for the resolver: the first must compile with zero errors, and the second
 must report what its header lists. `tests-declaration-errors/` is a second
 error fixture for the resolver, for its checks of declarations, with each file's
-header listing what that file reports. None of the fixtures are automated — you
-run them and read the output.
+header listing what that file reports.
 
-The `KeigValCompilerTest` project exists but is **not wired up** — it has no
-`ProjectReference` to the compiler and its `Main` prints `Hello, World!`. There
-is effectively no automated test coverage.
+`KeigValCompilerTest` runs them all: it compiles each fixture directory in
+process and compares every message, by line, category and code, with what the
+headers list, and checks the counts the headers state. It also checks the
+semantic type model against `KeigValCompilerTest/TypeModel/model.kgvl`, and the
+limit on how deeply base lists may wait on each other. It exits with 1 when
+anything fails. A header is the contract: change it with the fixture, never to
+make a run pass. `TwoIntDecimalTester` is still a stub, reported as skipped.
 
 ## Rules
 

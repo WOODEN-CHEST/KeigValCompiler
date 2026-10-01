@@ -5,31 +5,35 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 406 errors and 18 warnings. Expected from this
- * file, 21 errors and 1 warnings:
+ * The whole directory gives 410 errors and 18 warnings. Expected from this
+ * file, 25 errors and 1 warnings:
  *
- *   line 46 RS error 8      two base classes
- *   line 47 RS error 9      the base class after an interface
- *   line 48 RS error 10     a structure deriving from a class
- *   line 49 RS error 10     an interface deriving from a class
- *   line 50 RS error 11     a class deriving from a structure
- *   line 51 RS error 11     a class deriving from an enum
- *   line 52 RS error 11     a class deriving from its generic parameter
- *   line 53 RS error 12     a class deriving from a sealed class
- *   line 54 RS error 13     a class deriving from a static class
- *   line 55 RS error 14     a static class implementing an interface
- *   line 56 RS error 15     two classes deriving from each other, reported on the first
- *   line 57 RS error 15     and on the second
- *   line 58 RS error 15     an interface deriving from itself
- *   line 59 RE error 6      a record deriving from a class
- *   line 60 RE error 7      a class deriving from a record
- *   line 61 RS error 2      an unknown base, with nothing reported about the class base after it
- *   line 62 RS error 18     a class deriving from an array
- *   line 63 RS error 18     a class deriving from a nullable interface
- *   line 66 RS error 19     an explicit implementation naming an array of an interface
- *   line 71 RS warning 4    an interface listed twice, differing only in '?'
- *   line 78 RS error 59     an unusable first base, which keeps the base class's place, so no loop through the class after it
- *   line 84 RS error 12     a class deriving from a sealed one, which is dropped, so no loop
+ *   line 50 RS error 8      two base classes
+ *   line 51 RS error 9      the base class after an interface
+ *   line 52 RS error 10     a structure deriving from a class
+ *   line 53 RS error 10     an interface deriving from a class
+ *   line 54 RS error 11     a class deriving from a structure
+ *   line 55 RS error 11     a class deriving from an enum
+ *   line 56 RS error 11     a class deriving from its generic parameter
+ *   line 57 RS error 12     a class deriving from a sealed class
+ *   line 58 RS error 13     a class deriving from a static class
+ *   line 59 RS error 14     a static class implementing an interface
+ *   line 60 RS error 15     two classes deriving from each other, reported on the first
+ *   line 61 RS error 15     and on the second
+ *   line 62 RS error 15     an interface deriving from itself
+ *   line 63 RE error 6      a record deriving from a class
+ *   line 64 RE error 7      a class deriving from a record
+ *   line 65 RS error 2      an unknown base, with nothing reported about the class base after it
+ *   line 66 RS error 18     a class deriving from an array
+ *   line 67 RS error 18     a class deriving from a nullable interface
+ *   line 70 RS error 19     an explicit implementation naming an array of an interface
+ *   line 75 RS warning 4    an interface listed twice, differing only in '?'
+ *   line 82 RS error 59     an unusable first base, which keeps the base class's place, so no loop through the class after it
+ *   line 88 RS error 12     a class deriving from a sealed one, which is dropped, so no loop
+ *   line 96 RS error 18     a nullable base class, still the base: no error for what it gives
+ *   line 104 RS error 18    a nullable sealed base class, reported once
+ *   line 111 RS error 18    a class's nullable interface, which as in C# is then no base at all
+ *   line 118 RS error 18    a nullable base interface, still the base: no error for what it gives
  */
 
 namespace Test.Inheritance;
@@ -82,3 +86,36 @@ public class TakesPlace : PlaceTaken { }
 public sealed class SealedLoop : LoopsBack { }
 
 public class LoopsBack : SealedLoop { }
+
+public class MarkedBase
+{
+    public class Plain { }
+    public virtual void Run() { }
+}
+
+public class FromMarkedBase : MarkedBase?
+{
+    public Plain Kept;
+    public override void Run() { }
+}
+
+public sealed class SealedMarked { }
+
+public class FromSealedMarked : SealedMarked? { }
+
+public interface IMarkedNeeds
+{
+    void Need();
+}
+
+public class FromMarkedInterface : IMarkedNeeds? { }
+
+public interface IMarkedHolder
+{
+    public interface IInside { }
+}
+
+public interface IFromMarkedHolder : IMarkedHolder?
+{
+    IInside Get();
+}

@@ -1765,6 +1765,13 @@ internal class ErrorRepository
         "the base list of \"{2}\" is what led to this name. As in C#, what a type inherits cannot depend on " +
         "itself, so the name is not looked for any further");
 
+    internal virtual ErrorDefinition BaseListsTooDeep { get; } = new(66,
+        CompilerMessageCategory.Resolution,
+        "Resolving the base list of the {0} \"{1}\" needs the base list of another type resolved first, which " +
+        "needs another's, and so on more than {2} deep, since each names a type the next one inherits. The " +
+        "compiler stops resolving here rather than go deeper. Declaring each of those types before the one " +
+        "naming it lets each base list be resolved in turn instead");
+
 
     /* Warnings. */
     internal virtual WarningDefinition DuplicateUsingDirective { get; } = new(1,

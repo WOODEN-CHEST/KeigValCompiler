@@ -20,6 +20,11 @@
     <Folder Include="Executor\" />
   </ItemGroup>
 
+  <!-- The tests use the compiler's internal classes directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="KeigValCompilerTest" />
+  </ItemGroup>
+
   <!-- The standard library is read from beside the compiler unless "library" says otherwise. The
        directory name must match CompilerOptions.DEFAULT_LIBRARY_DIRECTORY_NAME. -->
   <ItemGroup>

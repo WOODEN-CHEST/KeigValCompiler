@@ -26,6 +26,26 @@ internal class SemanticTypeReader
     }
 
 
+    // Internal static methods.
+    /* What stands in a class's base class's place, as C# decides it: the first base it lists which is not an
+     * interface, when that names a class, even written with '?', which is reported but still names the class.
+     * One which did not resolve, or is no class, has been reported, and leaves the class with no base class of
+     * its own rather than letting a class written after it take its place. A base written as an array is
+     * passed over. Null for any type but a class. */
+    internal static TypeTargetIdentifier? GetWrittenBaseClassName(PackMember declaration)
+    {
+        ArgumentNullException.ThrowIfNull(declaration, nameof(declaration));
+
+        if (declaration is not PackClass Class)
+        {
+            return null;
+        }
+        TypeTargetIdentifier? Written = Class.ExtendedMembers.FirstOrDefault(written => !written.IsArray
+            && (written.MainTarget.Target is not PackInterface));
+        return (Written?.MainTarget.Target is PackClass) ? Written : null;
+    }
+
+
     // Internal methods.
     /* The named type with its arguments first, then its array levels and '?' markers from the innermost
      * out, as KGVL writes them: each "[]" wraps what is to its left, and each '?' marks what is just to
@@ -74,7 +94,8 @@ internal class SemanticTypeReader
     }
 
     /* The types GetWrittenBaseTypes gives, each with the base as the declaration writes it. */
-    internal IEnumerable<(TypeTargetIdentifier WrittenBase, DeclaredType Base)> GetWrittenBases(DeclaredType type)
+    internal IEnumerable<(TypeTargetIdentifier WrittenBase, DeclaredType Base)> GetWrittenBases(
+        DeclaredType type)
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));
 
@@ -83,12 +104,15 @@ internal class SemanticTypeReader
             yield break;
         }
 
-        /* A base written as an array or with '?' is reported by InheritanceChecker and no base at all. */
         TypeSubstitution Substitution = TypeSubstitution.Of(type);
+        TypeTargetIdentifier? BaseClassName = GetWrittenBaseClassName(type.Declaration);
         foreach (TypeTargetIdentifier WrittenBase in Extender.ExtendedMembers.Where(
-            written => !written.IsArrayOrNullable))
+            written => !written.IsArray))
         {
-            if (Read(WrittenBase)?.Substitute(Substitution) is DeclaredType BaseType)
+            SemanticType? Base = WrittenBase.IsNullable
+                ? (IsKeptDespiteMarker(type.Declaration, WrittenBase, BaseClassName) ? ReadNamedType(WrittenBase) : null)
+                : Read(WrittenBase);
+            if (Base?.Substitute(Substitution) is DeclaredType BaseType)
             {
                 yield return (WrittenBase, BaseType);
             }
@@ -97,6 +121,16 @@ internal class SemanticTypeReader
 
 
     // Private methods.
+    /* A base written as an array is reported by InheritanceChecker and no base at all, and so is one written
+     * with '?', as Roslyn takes it, but for a class's base class and an interface's base interfaces, which it
+     * still takes as the type named: only a class's or a structure's interfaces written so are none. */
+    private bool IsKeptDespiteMarker(PackMember declaration,
+        TypeTargetIdentifier writtenBase,
+        TypeTargetIdentifier? baseClassName)
+    {
+        return (declaration is PackInterface) || ReferenceEquals(writtenBase, baseClassName);
+    }
+
     /* Whether a '?' after the type makes it Nullable rather than annotating it. As in C#, a function which
      * overrides another or implements one explicitly cannot restate its generic parameters' constraints,
      * so a '?' on one of them makes it Nullable unless it is written with a "class" constraint, which is
@@ -197,7 +231,8 @@ internal class SemanticTypeReader
     {
         for (PackMember? Type = declaration; Type != null; Type = Type.ParentItem?.Target as PackMember)
         {
-            if ((Type is IGenericParameterHolder GenericsHolder) && (GenericsHolder.GenericParameters.Count > 0))
+            if ((Type is IGenericParameterHolder GenericsHolder)
+                && (GenericsHolder.GenericParameters.Count > 0))
             {
                 return true;
             }
@@ -218,7 +253,7 @@ internal class SemanticTypeReader
         foreach (TypeTargetIdentifier WrittenBase in type.InheritedPath ?? Array.Empty<TypeTargetIdentifier>())
         {
             Current = (Current == null) ? null
-                : Read(WrittenBase)?.Substitute(TypeSubstitution.Of(Current)) as DeclaredType;
+                : ReadNamedType(WrittenBase)?.Substitute(TypeSubstitution.Of(Current)) as DeclaredType;
         }
         _inheritedHolders[type] = Current;
         return Current;

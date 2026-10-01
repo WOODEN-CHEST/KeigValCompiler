@@ -6,4 +6,4 @@ using System.Threading.Tasks;
 
 namespace KeigValCompilerTest;
 
-public record class TestResults(int TestCount, FailedTestResuls[] FailResults);
+public record class TestResults(int TestCount, FailedTestResult[] FailResults);

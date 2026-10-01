@@ -26,22 +26,40 @@ namespace KeigValCompiler.Semantician.Resolver;
  * derives from as the type model reads them, since the lookup tells them apart by declaration only. */
 internal class SignatureResolver : IPackResolver, IBaseTypeSource
 {
+    // Static fields.
+    /* How deep resolving one base list may need others resolved first, each waiting on the next. Real
+     * programs stay far below it; far enough past it, the waiting lists would run out of stack. */
+    private const int MAX_BASE_LIST_DEPTH = 100;
+
+
     // Private fields.
     /* Whether each type's base list is resolved, false while it is being resolved. */
     private readonly Dictionary<PackMember, bool> _isBaseListResolved = new(ReferenceEqualityComparer.Instance);
     private PackResolutionContext? _context = null;
+    private int _baseListDepth = 0;
 
 
     // Private methods.
+    /* Past the deepest base lists may wait on each other, resolution stops, since what it would go on to
+     * report would only follow from the base lists left unresolved. */
     private void ResolveBaseList(PackMember type)
     {
         if ((type is not IPackMemberExtender Extender) || _isBaseListResolved.ContainsKey(type))
         {
             return;
         }
+        if (_baseListDepth == MAX_BASE_LIST_DEPTH)
+        {
+            _context!.AddError(_context.ErrorCreator.BaseListsTooDeep.CreateOptions(MemberRelations.GetKindName(type),
+                MemberRelations.GetDisplayName(type), MAX_BASE_LIST_DEPTH), type);
+            throw new ResolutionStoppedException();
+        }
+
+        _baseListDepth++;
         _isBaseListResolved.Add(type, false);
         ResolveTypes(Extender.ExtendedMembers, type, _context!);
         _isBaseListResolved[type] = true;
+        _baseListDepth--;
     }
 
     private void ResolveMember(PackMember member, PackResolutionContext context)
@@ -192,7 +210,7 @@ internal class SignatureResolver : IPackResolver, IBaseTypeSource
 
         if (Result.IsFound)
         {
-            SetFound(type, Result);
+            SetFound(type, Result, context);
         }
         else if (Result.IsNameSpace)
         {
@@ -232,7 +250,7 @@ internal class SignatureResolver : IPackResolver, IBaseTypeSource
         }
         if (Result.IsFound)
         {
-            SetFound(qualifier, Result);
+            SetFound(qualifier, Result, context);
             return Result;
         }
         ReportNotFound(qualifier, Result, true, scope, context);
@@ -508,12 +526,17 @@ internal class SignatureResolver : IPackResolver, IBaseTypeSource
     }
 
     /* A type found through the bases of the type it was looked for in keeps that type, and the way to the base
-     * holding it, along which the type model reads that base. */
-    private void SetFound(TypeTargetIdentifier type, TypeSearchResult result)
+     * holding it, along which the type model reads that base. It is read at once, while each base on the way
+     * has just been read in turn, so that reading it later never goes down a long chain of such ways. */
+    private void SetFound(TypeTargetIdentifier type, TypeSearchResult result, PackResolutionContext context)
     {
         SetTarget(type.MainTarget, result.Target!);
         type.InheritedThrough = result.InheritedThrough;
         type.InheritedPath = result.InheritedPath;
+        if (type.InheritedPath != null)
+        {
+            context.TypeReader.Read(type);
+        }
     }
 
     private void SetTarget(Identifier identifier, IIdentifiable target)
@@ -556,15 +579,7 @@ internal class SignatureResolver : IPackResolver, IBaseTypeSource
         ArgumentNullException.ThrowIfNull(type, nameof(type));
 
         ResolveBaseList(type);
-        if ((type is not IPackMemberExtender Extender) || IsResolvingBases(type))
-        {
-            return Enumerable.Empty<PackMember>();
-        }
-
-        PackClass? BaseClass = MemberRelations.GetWrittenBaseClass(type);
-        IEnumerable<PackMember> Interfaces = Extender.ExtendedMembers.Where(written => !written.IsArrayOrNullable)
-            .Select(written => written.MainTarget.Target).OfType<PackInterface>();
-        return (BaseClass != null) ? Interfaces.Prepend(BaseClass) : Interfaces;
+        return IsResolvingBases(type) ? Enumerable.Empty<PackMember>() : MemberRelations.GetBaseDeclarations(type);
     }
 
     public bool IsResolvingBases(PackMember type)

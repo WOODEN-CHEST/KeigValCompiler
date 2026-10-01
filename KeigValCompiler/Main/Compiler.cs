@@ -59,7 +59,7 @@ public static class Compiler
             Stopwatch CompilationTimeMeasurer = new();
             CompilationTimeMeasurer.Start();
 
-            bool IsCompilationSuccessful = CompilePack(Options, Arguments, ErrorCreator);
+            bool IsCompilationSuccessful = CompilePack(Options, Arguments, ErrorCreator, PrintStageMessages);
 
             CompilationTimeMeasurer.Stop();
             if (!IsCompilationSuccessful)
@@ -85,34 +85,35 @@ public static class Compiler
         }
     }
 
-
-
-    // Private static methods.
     /* Every stage reports everything it found before the next one is allowed to start. Running a
-     * stage on what a failed one left behind only buries its errors under invented ones. */
-    private static bool CompilePack(CompilerOptions options,
+     * stage on what a failed one left behind only buries its errors under invented ones. Each stage's
+     * messages are handed on as soon as it is done, to be printed, or kept by the tests. */
+    internal static bool CompilePack(CompilerOptions options,
         CompilerArguments arguments,
-        ErrorRepository errorCreator)
+        ErrorRepository errorCreator,
+        Action<CompilerMessageCollection> reportStage)
     {
+        ArgumentNullException.ThrowIfNull(options, nameof(options));
+        ArgumentNullException.ThrowIfNull(arguments, nameof(arguments));
+        ArgumentNullException.ThrowIfNull(errorCreator, nameof(errorCreator));
+        ArgumentNullException.ThrowIfNull(reportStage, nameof(reportStage));
+
         CompilerMessageCollection Messages = new();
         ParserUtilities ParserUtilities = new();
-        CompilerMessagePrinter MessagePrinter = new();
         DataPack Pack = new();
 
         PackParser Parser = new(errorCreator, ParserUtilities, Messages);
         ParseLibrary(Parser, Pack, options, arguments, errorCreator, Messages);
         Parser.ParseDirectory(Pack, options.SourceDirectory, SourceFileKind.User);
 
-        MessagePrinter.PrintMessages(Messages);
-        MessagePrinter.PrintSummary(Messages);
+        reportStage(Messages);
         if (Messages.HasErrors || options.IsParseOnly)
         {
             return !Messages.HasErrors;
         }
 
         CompilerMessageCollection ResolutionMessages = ResolvePack(Pack, options, arguments, errorCreator);
-        MessagePrinter.PrintMessages(ResolutionMessages);
-        MessagePrinter.PrintSummary(ResolutionMessages);
+        reportStage(ResolutionMessages);
         if (ResolutionMessages.HasErrors)
         {
             return false;
@@ -122,18 +123,19 @@ public static class Compiler
         return true;
     }
 
-    /* Its messages are a collection of their own, so that the parser's warnings are not printed again
-     * with them. As with parsing, a broken library says so once, on top of its own errors. */
-    private static CompilerMessageCollection ResolvePack(DataPack pack,
-        CompilerOptions options,
-        CompilerArguments arguments,
-        ErrorRepository errorCreator)
+    /* Everything the resolution stage shares between its passes, for a pack which has been parsed. */
+    internal static PackResolutionContext CreateResolutionContext(DataPack pack,
+        ErrorRepository errorCreator,
+        CompilerMessageCollection messages)
     {
-        CompilerMessageCollection Messages = new();
+        ArgumentNullException.ThrowIfNull(pack, nameof(pack));
+        ArgumentNullException.ThrowIfNull(errorCreator, nameof(errorCreator));
+        ArgumentNullException.ThrowIfNull(messages, nameof(messages));
+
         BuiltInTypeRegistry Registry = new();
         SemanticTypeReader TypeReader = new(Registry);
         GenericConstraintReader Constraints = new(TypeReader);
-        PackResolutionContext Context = new()
+        return new()
         {
             Pack = pack,
             Registry = Registry,
@@ -145,8 +147,28 @@ public static class Compiler
             BindingTable = DefaultLibraryBindings.CreateTable(),
             IdentifierGenerator = new(),
             ErrorCreator = errorCreator,
-            Messages = Messages
+            Messages = messages
         };
+    }
+
+
+    // Private static methods.
+    private static void PrintStageMessages(CompilerMessageCollection messages)
+    {
+        CompilerMessagePrinter MessagePrinter = new();
+        MessagePrinter.PrintMessages(messages);
+        MessagePrinter.PrintSummary(messages);
+    }
+
+    /* Its messages are a collection of their own, so that the parser's warnings are not printed again
+     * with them. As with parsing, a broken library says so once, on top of its own errors. */
+    private static CompilerMessageCollection ResolvePack(DataPack pack,
+        CompilerOptions options,
+        CompilerArguments arguments,
+        ErrorRepository errorCreator)
+    {
+        CompilerMessageCollection Messages = new();
+        PackResolutionContext Context = CreateResolutionContext(pack, errorCreator, Messages);
 
         new FullPackResolver().ResolvePack(Context);
 

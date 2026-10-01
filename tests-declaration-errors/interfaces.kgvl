@@ -5,7 +5,7 @@
  *
  *     dotnet run --project KeigValCompiler -- <repository root>/tests-declaration-errors
  *
- * The whole directory gives 406 errors and 18 warnings. Expected from this
+ * The whole directory gives 410 errors and 18 warnings. Expected from this
  * file, 36 errors:
  *
  *   line 60 RS error 29     three abstract members not implemented, each reported

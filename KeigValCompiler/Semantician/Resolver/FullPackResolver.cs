@@ -1,14 +1,12 @@
 namespace KeigValCompiler.Semantician.Resolver;
 
 /* Resolves declarations, binds the standard library, and checks declarations against C#'s rules.
- * Function bodies are not resolved yet. */
+ * Function bodies are not resolved yet. A pass which cannot go on stops resolution, having reported why. */
 internal class FullPackResolver : IPackResolver
 {
-    // Inherited methods.
-    public void ResolvePack(PackResolutionContext context)
+    // Private methods.
+    private void ResolveInOrder(PackResolutionContext context)
     {
-        ArgumentNullException.ThrowIfNull(context, nameof(context));
-
         /* The order must NOT be changed: each pass relies on what the ones before it set. Types are
          * named before any is looked up, known types are found before keywords can resolve through
          * them, and signatures are resolved before members can be named after their parameter types
@@ -46,5 +44,21 @@ internal class FullPackResolver : IPackResolver
         new FieldTypeChecker().ResolvePack(context);
         new StaticClassUsageChecker().ResolvePack(context);
         new AccessibilityChecker().ResolvePack(context);
+    }
+
+
+    // Inherited methods.
+    public void ResolvePack(PackResolutionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context, nameof(context));
+
+        try
+        {
+            ResolveInOrder(context);
+        }
+        catch (ResolutionStoppedException)
+        {
+            /* What stopped it has been reported. */
+        }
     }
 }

@@ -1,5 +1,6 @@
 using KeigValCompiler.Semantician.Library;
 using KeigValCompiler.Semantician.Member;
+using KeigValCompiler.Semantician.Types;
 using System.Text;
 
 namespace KeigValCompiler.Semantician.Resolver;
@@ -56,8 +57,8 @@ internal static class MemberRelations
     }
 
     /* A class's base class, as C# decides it: the first base it lists which is not an interface, when that is
-     * a class. One which did not resolve, or is no class, has been reported, and leaves the class with none of
-     * its own, rather than letting a class written after it take its place. Null for any other type. */
+     * a class, even written with '?', as SemanticTypeReader.GetWrittenBaseClassName explains. Null for any
+     * other type, and for a class with none of its own. */
     internal static PackClass? GetWrittenBaseClass(PackMember type)
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));
@@ -70,13 +71,7 @@ internal static class MemberRelations
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));
 
-        if (type is not PackClass Class)
-        {
-            return null;
-        }
-        TypeTargetIdentifier? Written = Class.ExtendedMembers.FirstOrDefault(written => !written.IsArrayOrNullable
-            && (written.MainTarget.Target is not PackInterface));
-        return (Written?.MainTarget.Target is PackClass) ? Written : null;
+        return SemanticTypeReader.GetWrittenBaseClassName(type);
     }
 
     /* The types among a type and those it derives from, however far back, which derive from themselves,
@@ -145,8 +140,29 @@ internal static class MemberRelations
         return SelfDeriving;
     }
 
+    /* The bases a type's declaration names, as declarations: a class's base class, when it has one, and then
+     * the interfaces it lists; an interface's or a structure's interfaces. A base written as an array, or which
+     * did not resolve, is none, and so is the object a class naming no base class derives from. One written
+     * with '?' is none for a class's or a structure's interfaces, but an interface's base interfaces are kept,
+     * as Roslyn keeps them, as is a class's base class (see SemanticTypeReader.GetWrittenBaseClassName). */
+    internal static IEnumerable<PackMember> GetBaseDeclarations(PackMember type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        if (type is not IPackMemberExtender Extender)
+        {
+            return Enumerable.Empty<PackMember>();
+        }
+        PackClass? BaseClass = GetWrittenBaseClass(type);
+        IEnumerable<PackMember> Interfaces = Extender.ExtendedMembers.Where(written => !written.IsArray
+            && (!written.IsNullable || (type is PackInterface)))
+            .Select(written => written.MainTarget.Target).OfType<PackInterface>();
+        return (BaseClass != null) ? Interfaces.Prepend(BaseClass) : Interfaces;
+    }
+
     /* Whether a type is another or derives from it, through its base class or the interfaces it lists, however
-     * far back, compared by declaration, as C# compares original definitions. */
+     * far back, compared by declaration, as C# compares original definitions. The object a class naming no
+     * base class derives from is not among the bases a source gives. */
     internal static bool IsDerivedOrSame(PackMember type, PackMember baseType, IBaseTypeSource bases)
     {
         ArgumentNullException.ThrowIfNull(type, nameof(type));

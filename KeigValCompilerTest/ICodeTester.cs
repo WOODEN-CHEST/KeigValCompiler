@@ -8,5 +8,11 @@ namespace KeigValCompilerTest;
 
 public interface ICodeTester
 {
+    // Fields.
+    /* What is tested, as the results are printed under. */
+    string Name { get; }
+
+
+    // Methods.
     TestResults Test();
 }
