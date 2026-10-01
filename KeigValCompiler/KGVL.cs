@@ -251,6 +251,11 @@ internal static class KGVL
     public const string NAME_OPERATOR_OVERLOAD = "operator overload";
     public const string NAME_ACCESSOR = "accessor";
     public const string NAME_STATIC_CLASS = "static class";
+    public const string NAME_GENERIC_PARAMETER = "generic parameter";
+    public const string NAME_TYPE = "type";
+    public const string NAME_ENUM_CONSTANT = "enum constant";
+    public const string NAME_LOCAL = "local";
+    public const string NAME_PARAMETER = "parameter";
 
     public const string DOUBLE_CURLY_OPEN = "{{";
     public const string DOUBLE_CURLY_CLOSE = "}}";

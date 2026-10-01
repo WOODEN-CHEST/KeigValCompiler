@@ -298,12 +298,40 @@ internal static class MemberRelations
             & (PackMemberModifiers.Static | PackMemberModifiers.Const)) != PackMemberModifiers.None;
     }
 
+    /* Whether a field, property, function or event belongs to no object: one written static, as a constant is,
+     * or held by a namespace, which has no objects. */
+    internal static bool IsStaticMember(PackMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        return IsWrittenStatic(member) || (GetHoldingMember(member) == null);
+    }
+
     /* Whether a static class can hold a member other than a type: one written static, but not an operator
      * or an indexer, which work on values of their type, of which a static class has none. */
     internal static bool CanStaticClassHold(PackMember member)
     {
         ArgumentNullException.ThrowIfNull(member, nameof(member));
         return IsWrittenStatic(member) && (GetOperatorOverload(member) == null) && (member is not PackIndexer);
+    }
+
+    /* Whether a property can store a value of its own: an interface holds no data, so only its static ones
+     * can. */
+    internal static bool CanStoreValue(PackMember property)
+    {
+        ArgumentNullException.ThrowIfNull(property, nameof(property));
+        return (GetHoldingMember(property) is not PackInterface)
+            || property.HasModifier(PackMemberModifiers.Static);
+    }
+
+    /* Whether a property stores its own value: one with an accessor without a body, which is neither abstract nor
+     * builtin, and can store a value. */
+    internal static bool IsStoringProperty(PackProperty property)
+    {
+        ArgumentNullException.ThrowIfNull(property, nameof(property));
+
+        return !property.HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.BuiltIn)
+            && CanStoreValue(property)
+            && property.SubMembers.Any(accessor => ((PackFunction)accessor).Statements == null);
     }
 
     /* Whether a member is abstract: written so, or an interface's own instance member without a body which
@@ -437,6 +465,13 @@ internal static class MemberRelations
             Builder.Append(member.SelfIdentifier.SourceCodeName);
         }
         return Builder.ToString();
+    }
+
+    /* A member as messages name it after what holds it, as in "Thing.Count" or "KGVL.Helpers.Clamp". */
+    internal static string GetQualifiedDisplayName(PackMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        return GetHolderDisplayName(member) + KGVL.MEMBER_ACCESS + GetDisplayName(member);
     }
 
     /* What holds a member, as messages call it: a member's kind, or "namespace". */

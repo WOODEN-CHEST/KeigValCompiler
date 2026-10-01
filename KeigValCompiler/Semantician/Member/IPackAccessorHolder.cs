@@ -6,6 +6,8 @@ namespace KeigValCompiler.Semantician.Member;
 internal interface IPackAccessorHolder : IIdentifiable
 {
     // Fields.
+    /* The type of the value the accessors read and set. */
+    TypeTargetIdentifier Type { get; }
     PackFunction? GetFunction { get; set; }
     PackFunction? SetFunction { get; set; }
     PackFunction? InitFunction { get; set; }

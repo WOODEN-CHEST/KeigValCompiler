@@ -1,0 +1,38 @@
+/* Body binding error test source file, for constant fields. Every error in here is deliberate, and was
+ * compared with what C# reports for the same code, whose code each description gives, where C# has the
+ * construct. The directory parses cleanly, and the point is that each mistake is reported once, where
+ * it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 4 errors:
+ *
+ *   line 21 EX error 67     two constants from each other, reported at the first (CS0110)
+ *   line 23 EX error 67     three constants in a loop, reported at the first (CS0110)
+ *   line 29 EX error 66     a constant from a static field (CS0133)
+ *   line 34 EX error 75     a constant field of the type object given a string (CS0134)
+ */
+
+namespace Constants;
+
+public class Constants
+{
+    public const int A = B;
+    public const int B = A;
+    public const int C = E;
+    public const int D = C;
+    public const int E = D;
+    public const int Fine = 1;
+    public const int UsesFine = Fine;
+    public static int NotConstant = 1;
+    public const int FromStatic = NotConstant;
+}
+
+public class Later
+{
+    public const object Boxed = "text";
+    public const object Empty = null;
+    public const string Text = "text";
+    public const int FromFailed = Constants.FromStatic;
+}

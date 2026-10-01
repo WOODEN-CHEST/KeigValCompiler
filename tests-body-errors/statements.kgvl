@@ -1,0 +1,81 @@
+/* Body binding error test source file, for statements and "return". Every error in here is deliberate,
+ * and was compared with what C# reports for the same code, whose code each description gives, where C#
+ * has the construct. The directory parses cleanly, and the point is that each mistake is reported once,
+ * where it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 15 errors:
+ *
+ *   line 36 ST error 27     a field as a statement (CS0201)
+ *   line 37 ST error 27     a number as a statement (CS0201)
+ *   line 38 ST error 27     a string as a statement (CS0201)
+ *   line 40 ST error 27     this as a statement (CS0201)
+ *   line 43 FN error 14     return without a value in a function returning one (CS0126)
+ *   line 44 FN error 15     return with a value in a function returning nothing (CS0127)
+ *   line 45 FN error 15     return with a value in a constructor (CS0127)
+ *   line 46 FN error 14     the same in a getter (CS0126) and a setter (CS0127)
+ *   line 46 FN error 15     the same in a getter (CS0126) and a setter (CS0127)
+ *   line 48 ST error 27     a field as a function's => value, which it runs (CS0201)
+ *   line 50 EX error 44     a return converting int to string (CS0029)
+ *   line 51 FN error 14     return without a value in a static function returning one (CS0126)
+ *   line 60 ST error 27     a parenthesized assignment as a statement (CS0201)
+ *   line 74 EX error 28     a name nothing declares, returned from a function returning nothing, and nothing more (CS0103)
+ *   line 79 EX error 42     a private field, returned from a function returning nothing, and nothing more (CS0122)
+ */
+
+namespace Statements;
+
+public class Statements
+{
+    int stored;
+
+    public void Values()
+    {
+        stored;
+        5;
+        "text";
+        stored = 1;
+        this;
+    }
+
+    public int Value() { return; }
+    public void Nothing() { return 5; }
+    public Statements() { return 1; }
+    public int Property { get { return; } set { return value; } }
+    public int Arrow => stored;
+    public void VoidArrow() => stored;
+    public void VoidAssign() => stored = 2;
+    public string Text() { return 5; }
+    public static int Static() { return; }
+}
+
+public class Later
+{
+    int stored;
+
+    public void Run()
+    {
+        (stored = 1);
+        ((stored)) = 2;
+    }
+}
+
+public class Secretive
+{
+    private int secret;
+}
+
+public class Returns
+{
+    public void Unknown()
+    {
+        return Absent;
+    }
+
+    public void Private(Secretive other)
+    {
+        return other.secret;
+    }
+}

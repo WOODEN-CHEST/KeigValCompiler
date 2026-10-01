@@ -1107,11 +1107,13 @@ internal class MemberParser : AbstractParserBase
 
             /* The single value of a "=>" body is what the function returns, so it is stored the
              * same way an explicit return would be. A throw expression returns nothing, and is stored
-             * as the throw statement it amounts to. */
+             * as the throw statement it amounts to. A function returning nothing only runs the value,
+             * which is why the function remembers how its body was written. */
             Statement Body = _statementParser.ParseExpressionBody();
             function.Statements = new();
             function.Statements.AddStatement((Body is ThrowStatement) ? Body
-                : new ReturnStatement() { ReturnValue = Body });
+                : new ReturnStatement() { ReturnValue = Body, Origin = Body.Origin });
+            function.IsExpressionBodied = true;
 
             Parser.SkipUntilNonWhitespace(null);
             if (Parser.GetCharAtDataIndex() != KGVL.SEMICOLON)

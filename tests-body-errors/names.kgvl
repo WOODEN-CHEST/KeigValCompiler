@@ -1,0 +1,210 @@
+/* Body binding error test source file, for names and member access. Every error in here is deliberate,
+ * and was compared with what C# reports for the same code, whose code each description gives, where C#
+ * has the construct. The directory parses cleanly, and the point is that each mistake is reported once,
+ * where it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 43 errors:
+ *
+ *   line 85 EX error 43     an instance field in an instance field's starting value (CS0236)
+ *   line 86 EX error 43     an instance field in a static field's starting value (CS0236)
+ *   line 87 EX error 32     this in an instance field's starting value (CS0027)
+ *   line 88 EX error 31     this in a static field's starting value (CS0026)
+ *   line 89 EX error 34     base in a field's starting value (CS1512)
+ *   line 93 EX error 28     a name nothing declares (CS0103)
+ *   line 94 EX error 29     a type as a value (CS0119)
+ *   line 95 EX error 30     a namespace as a value (CS0118)
+ *   line 96 EX error 50     a local before its declaration (CS0841)
+ *   line 98 EX error 51     a local before its declaration, hiding a field (CS0844)
+ *   line 100 EX error 42    a private field of another class (CS0122)
+ *   line 101 EX error 36    no such member through a value (CS1061)
+ *   line 102 EX error 37    no such member through a type (CS0117)
+ *   line 103 EX error 77    an instance field through its type (CS0120)
+ *   line 104 EX error 40    a static field through a value (CS0176)
+ *   line 105 EX error 41    a nested type through a value, once (CS0572)
+ *   line 106 EX error 35    base on its own (CS0175)
+ *   line 107 EX error 38    no such member in a namespace (CS0234)
+ *   line 108 EX error 61    a member of null (CS0023)
+ *   line 109 EX error 62    a member of default alone (CS8716)
+ *   line 110 EX error 60    a member two interfaces declare (CS0229)
+ *   line 111 RS error 4     a generic type without type arguments (CS0305)
+ *   line 112 RS error 4     a generic type with too many type arguments (CS0305)
+ *   line 117 EX error 31    this in a static function (CS0026)
+ *   line 118 EX error 33    base in a static function (CS1511)
+ *   line 119 EX error 39    an instance field in a static function (CS0120)
+ *   line 126 EX error 39    an instance field of the type around a nested type (CS0120)
+ *   line 145 EX error 39    a type and a field both named Color, reaching an instance member in static code (CS0120)
+ *   line 146 EX error 36    a type and a field both named Color, reaching a member neither has (CS1061)
+ *   line 151 EX error 51    a type and a field both named Color, where a later local has the name (CS0844)
+ *   line 159 EX error 50    a local before its declaration, where an outer type's field has the name (CS0841)
+ *   line 161 EX error 51    a local before its declaration, hiding an inherited private field (CS0844)
+ *   line 163 RS error 4     type arguments for a type with no generic parameters (CS0308)
+ *   line 164 RS error 4     a generic type without type arguments, before a member (CS0305)
+ *   line 165 EX error 74    type arguments for a field (CS0307)
+ *   line 166 EX error 37    base reaching a member the base class lacks (CS0117)
+ *   line 189 EX error 68    base in an interface (CS0174)
+ *   line 194 EX error 79    a record's positional parameter in a static field's starting value (CS9105)
+ *   line 204 EX error 74    type arguments for a local (CS0307)
+ *   line 205 EX error 74    type arguments for a parameter (CS0307)
+ *   line 206 EX error 74    type arguments for a function's generic parameter (CS0307)
+ *   line 207 EX error 74    type arguments for a type's generic parameter (CS0307)
+ *   line 208 EX error 74    type arguments for a namespace (CS0307)
+ */
+
+namespace Lookup;
+
+public class Base
+{
+    public int Inherited;
+    public static int Shared;
+    public class Nested { }
+}
+
+public class Other
+{
+    private int secret;
+    public int Open;
+    public static int Counted;
+}
+
+public interface ILeft { int Both { get; } }
+public interface IRight { int Both { get; } }
+public interface IBoth : ILeft, IRight { }
+
+public class Holder<T>
+{
+    public static int Count;
+}
+
+public class Names : Base
+{
+    int stored;
+    static int shared;
+    int fromField = stored;
+    static int fromStaticField = stored;
+    int fromThis = this.stored;
+    static int fromStaticThis = this.stored;
+    int fromBase = base.Inherited;
+
+    public void Instance(Other other, IBoth both)
+    {
+        int missing = Missing;
+        int type = Base;
+        int nameSpace = Lookup;
+        int early = later;
+        int later = 1;
+        int hiding = stored;
+        int stored = 2;
+        int hidden = other.secret;
+        int absent = other.Absent;
+        int typeAbsent = Other.Absent;
+        int instance = Other.Open;
+        int counted = other.Counted;
+        Base.Nested nested = this.Nested;
+        int alone = base;
+        int inNameSpace = Lookup.Absent;
+        int onNull = null.Length;
+        int onDefault = default.Length;
+        int ambiguous = both.Both;
+        int arity = Holder.Count;
+        int tooMany = Holder<int, int>.Count;
+    }
+
+    public static void Static()
+    {
+        int a = this.stored;
+        int b = base.Inherited;
+        int c = stored;
+    }
+
+    public class Inner
+    {
+        public void Run()
+        {
+            int a = stored;
+            int b = shared;
+        }
+    }
+}
+
+public class Color
+{
+    public static int Static = 1;
+    public int Instance = 2;
+}
+
+public class Painter
+{
+    public Color Color;
+    public int Plain;
+
+    public static void InStatic()
+    {
+        int a = Color.Instance;
+        int b = Color.Absent;
+    }
+
+    public void Early()
+    {
+        int a = Color.Static;
+        Color Color = null;
+    }
+
+    public class Inner : Hidden
+    {
+        public void Run()
+        {
+            int a = Plain;
+            int Plain = 1;
+            int b = secret;
+            int secret = 2;
+            int c = Painter.Kinds<int>.Count;
+            int d = Painter.Generic.Count;
+            int e = Painter.Plain<int>.Count;
+            int f = base.Absent;
+        }
+    }
+
+    public class Kinds
+    {
+        public static int Count;
+    }
+
+    public class Generic<T>
+    {
+        public static int Count;
+    }
+}
+
+public class Hidden
+{
+    private int secret;
+}
+
+public interface IFace
+{
+    int Value { get; }
+    int Through { get { return base.Value; } }
+}
+
+public record Point(int X)
+{
+    public static int Static = X;
+}
+
+public class TypeArguments<T>
+{
+    public int Field;
+
+    public void Run<U>(TypeArguments<T> parameter)
+    {
+        TypeArguments<T> local = parameter;
+        int a = local<int>.Field;
+        int b = parameter<int>.Field;
+        int c = U<int>.Field;
+        int d = T<int>.Field;
+        int e = Lookup<int>.Other;
+    }
+}

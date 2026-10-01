@@ -15,6 +15,9 @@ internal class VariableAssignment : IIdentifiable
     // Internal fields.
     internal Statement? Value { get; set; }
 
+    /* The line the name is written on, which messages about the local it declares point at. */
+    internal SourceFileOrigin Origin { get; init; }
+
 
     // Constructors.
     internal VariableAssignment(Identifier identifier, Statement? value = null)

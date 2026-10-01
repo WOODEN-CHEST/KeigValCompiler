@@ -1,0 +1,149 @@
+/* Body binding error test source file, for conversions. Every error in here is deliberate, and was
+ * compared with what C# reports for the same code, whose code each description gives, where C# has the
+ * construct. The directory parses cleanly, and the point is that each mistake is reported once, where
+ * it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 38 errors:
+ *
+ *   line 76 EX error 45     a base class to a derived one (CS0266)
+ *   line 77 EX error 45     object to string (CS0266)
+ *   line 78 EX error 45     an interface to a class implementing it (CS0266)
+ *   line 79 EX error 45     int to an enum (CS0266)
+ *   line 80 EX error 45     an enum to int (CS0266)
+ *   line 81 EX error 45     long to int (CS0266)
+ *   line 82 EX error 45     int? to int (CS0266)
+ *   line 83 EX error 45     object to int, unboxing (CS0266)
+ *   line 84 EX error 44     string to int (CS0029)
+ *   line 85 EX error 44     a structure to an interface it does not implement (CS0029)
+ *   line 86 EX error 44     a sealed class to an interface it does not implement (CS0029)
+ *   line 87 EX error 45     a class to an interface it does not implement (CS0266)
+ *   line 88 EX error 49     two equally good user-defined conversions (CS0457)
+ *   line 89 EX error 48     null to an unconstrained generic parameter (CS0403)
+ *   line 91 EX error 47     null to int (CS0037)
+ *   line 93 EX error 45     a constant 1 to an enum (CS0266)
+ *   line 94 EX error 46     128 as a byte (CS0031)
+ *   line 95 EX error 46     256 as a ubyte (CS0031)
+ *   line 96 EX error 46     40000 as a short (CS0031)
+ *   line 97 EX error 46     70000 as a ushort (CS0031)
+ *   line 98 EX error 45     ushort to char (CS0266)
+ *   line 99 EX error 45     char to ubyte (CS0266)
+ *   line 100 EX error 45    a constant uint to int (CS0266)
+ *   line 101 EX error 47    null to a structure (CS0037)
+ *   line 103 EX error 44    int to an unconstrained generic parameter (CS0029)
+ *   line 104 EX error 44    an unconstrained generic parameter to int (CS0029)
+ *   line 105 EX error 45    a nullable to a type its value converts to, which lifting does not give (CS0266)
+ *   line 106 EX error 45    int to a type converting from ubyte (CS0266)
+ *   line 107 EX error 45    a type with an explicit conversion to int (CS0266)
+ *   line 109 EX error 49    two equally good conversions from ubyte (CS0457)
+ *   line 110 EX error 44    a conversion to a derived class does not give its base (CS0029)
+ *   line 111 EX error 44    a nullable structure to an interface it does not implement (CS0029)
+ *   line 112 EX error 45    int to decimal, explicit in KGVL as its 9 digits may not hold it, unlike C#'s implicit one
+ *   line 125 EX error 44    zero to a structure converting from an enumeration, which zero does not encompass (CS0029)
+ *   line 126 EX error 44    string[] to object[], which C# allows by array covariance and KGVL does not
+ *   line 127 EX error 44    Dog[] to Animal[], which C# allows by array covariance and KGVL does not
+ *   line 146 EX error 45    two explicit operators equally good, with no implicit one, reported as needing a cast (CS0266)
+ *   line 147 EX error 45    a Nullable to a type converting from a wider type, through the lifted operator (CS0266)
+ */
+
+namespace Conversions;
+
+public interface IThing { }
+public interface IOther { }
+public class Animal { }
+public class Dog : Animal, IThing { }
+public sealed class Sealed { }
+public struct Value : IThing { }
+public enum Shade { Red, Blue }
+public struct A { public static implicit operator B(A a) => default; }
+public struct B { public static implicit operator B(A a) => default; }
+public struct Two { public static implicit operator Two(short s) => default; public static implicit operator Two(ushort s) => default; }
+public struct Celsius { public static implicit operator Kelvin(Celsius c) => default; }
+public struct Kelvin { }
+public struct Small { public static implicit operator Small(ubyte value) => default; }
+public class Explicit { public static explicit operator int(Explicit e) => 0; }
+public class Base { }
+public class Derived : Base { public static implicit operator Derived(int i) => null; }
+
+public class Conversions<T, U> where U : class
+{
+    public void Run(Animal animal, object o, IThing thing, Shade shade, int number, long wide, int? maybe, A a,
+        Sealed sealedOne, Value value, Dog dog, T t, ushort small, char letter, Celsius? maybeCelsius,
+        Explicit explicitOne, byte signedByte, ubyte unsignedByte)
+    {
+        Dog d1 = animal;
+        string s1 = o;
+        Dog d2 = thing;
+        Shade e1 = number;
+        int i1 = shade;
+        int i2 = wide;
+        int i3 = maybe;
+        int i4 = o;
+        int i5 = "text";
+        IOther x1 = value;
+        IOther x2 = sealedOne;
+        IOther x3 = dog;
+        B b1 = a;
+        T t1 = null;
+        U u1 = null;
+        int i6 = null;
+        Shade e2 = 0;
+        Shade e3 = 1;
+        byte y1 = 128;
+        ubyte y2 = 256;
+        short y3 = 40000;
+        ushort y4 = 70000;
+        char c1 = small;
+        ubyte y6 = letter;
+        int y8 = 3000000000;
+        Value v1 = null;
+        Value? v2 = null;
+        T t2 = number;
+        int i7 = t;
+        Kelvin k1 = maybeCelsius;
+        Small s2 = number;
+        int i8 = explicitOne;
+        Two w1 = signedByte;
+        Two w2 = unsignedByte;
+        Base b2 = 5;
+        IThing f1 = maybeCelsius;
+        decimal m1 = number;
+    }
+}
+
+public struct FromShade
+{
+    public static implicit operator FromShade(Shade shade) => default;
+}
+
+public class Later
+{
+    public void Run(string[] texts, Dog[] dogs)
+    {
+        FromShade zero = 0;
+        object[] objects = texts;
+        Animal[] animals = dogs;
+    }
+}
+
+public struct ExplicitPair
+{
+    public static explicit operator ExplicitPair(short value) => default;
+    public static explicit operator ExplicitPair(ushort value) => default;
+}
+
+public struct FromShort
+{
+    public static implicit operator FromShort(short value) => default;
+}
+
+public class Last
+{
+    public void Run(ubyte small, ubyte? maybeSmall)
+    {
+        ExplicitPair pair = small;
+        FromShort lifted = maybeSmall;
+    }
+}

@@ -12,7 +12,7 @@ would go stale within a few commits. Read the code.
    v
 DataPack  (in-memory object model)
    |
-   |  2. RESOLVE .......................... declarations only; bodies not yet
+   |  2. RESOLVE .......................... declarations; bodies in part
    v
 DataPack  (identifiers resolved to targets)
    |
@@ -39,10 +39,11 @@ on. `AbstractParserBase` gives the sub-parsers access to the shared
 
 ### Stage 2 — Resolve (`KeigValCompiler/Semantician/Resolver/`)
 
-Resolves every declaration and binds the standard library. **Function bodies
-are not resolved at all yet**: nothing inside one is looked up or checked, so
-`Foo bar = Nonexistent();` in a body still compiles. `Compiler.CompilePack` runs
-it after parsing, with messages of its own, and stops on any error; the
+Resolves every declaration, binds the standard library, and binds function
+bodies into a bound tree, **so far only in part** (step A of 5.3, see "Binding
+function bodies" below): what is not bound yet is kept as a node which counts as
+having errors, so nothing in it is checked or reported. `Compiler.CompilePack`
+runs it after parsing, with messages of its own, and stops on any error; the
 `--parse-only` flag stops before it.
 
 `FullPackResolver` runs these passes **in a fixed order that must not change**,
@@ -229,13 +230,15 @@ inherits, and what an explicit implementation implements.
   through a declaration's generic parameters, conflicting classes reached
   through other parameters, overrides not restating theirs and agreeing on
   `class` and `struct`, and every type argument in a declaration satisfying
-  its parameter's constraints.
+  its parameter's constraints, and in a body as it is bound.
 - `FieldTypeChecker`: `const` field types, and structures holding themselves,
   worked out by declaration: which generic parameters each structure holds,
   then which structures hold which.
 - `StaticClassUsageChecker`: a static class used as the type of a value. As
   in C#, only a warning in an interface's signatures, and allowed as a
-  delegate's return type.
+  delegate's return type. The types written in bodies are checked as they are
+  bound, through `BodyBinder.CheckWrittenType`, which also checks their
+  constraints.
 - `AccessibilityChecker`: a type less accessible than a member naming it in
   its declaration (C#'s inconsistent accessibility, a class's base class and
   an interface's base interfaces included), and required members, and their
@@ -245,12 +248,88 @@ inherits, and what an explicit implementation implements.
   `IBaseTypeSource`: `SignatureResolver` while signatures are resolved,
   `ResolvedBaseTypes` afterwards.
 
+Last, `BodyResolver` binds every body, as the next section describes.
+
+### Binding function bodies (step 5.3, in progress)
+
+Decided with the owner on 2026-10-01 (`language.md`, "Function bodies"):
+resolution builds a separate **bound tree** from each body's parse tree, which
+stays as written. The bound tree is in `Semantician/Bound/`: `BoundNode`, with
+`BoundExpression` (a `SemanticType` or none, for the literal null and
+`default` alone, and a `ConstantValue` when it is a constant) and
+`BoundStatement`, each keeping the parse tree's `Statement` it came from, for
+its line. A node has errors when a mistake in it or below it was reported;
+nothing more is reported about it, and `ErrorType` (in `Semantician/Types/`)
+is the type of a value which could not be bound, so that one mistake makes one
+message, as Roslyn's error types do. A local is a `LocalSymbol`; parameters
+stay `FunctionParameter`s, a setter's `value` being made on demand
+(`PackFunction.ValueParameter`). Results live on the members:
+`PackFunction.BoundBody`, `PackField.BoundInitialValue` and `ConstantValue`,
+`PackProperty.BoundInitialValue`.
+
+`BodyResolver` binds constant fields first, in declaration order, so that a
+loop of constants is reported once, at its first, as C# reports it (CS0110),
+then every other body, the library's included, which have to bind cleanly. The
+binding itself is in `Semantician/Binding/`:
+
+- `BodyBindingContext`: what every body shares, and fields' starting values,
+  bound when first needed, since a constant may be named before the pass
+  reaches it. A constant may wait on others only so deep
+  (`MAX_CONSTANT_DEPTH`, 100), past which resolution stops with one error
+  rather than run out of stack; `ConstantDepthTester` checks the limit.
+- `BodyBinder`: one body, with what its names depend on (the type around it,
+  whether there is a `this`, what it returns, the locals and parameters in
+  scope, through `BlockScope` and `ParameterScope`), and where its messages
+  go: the line of the statement or value they are about.
+- `NameBinder`: names, in the decided order, and member access through a
+  namespace, a type or a value, C#'s "Color Color" rule included (§12.8.7.2:
+  the member after the '.' decides which is meant, and one neither has is
+  reported as missing from the value, as Roslyn reports it).
+  `MemberLookup` is C#'s member lookup (§12.5) in a type, with hiding, arity
+  and ambiguity, and the members a KGVL namespace holds. A function which
+  overrides is left out, the one it overrides standing for it, but a property
+  or event which overrides is found, as Roslyn finds it, and an accessor it
+  does not declare is looked for where it overrides
+  (`InheritedMembers.FindAccessor`). A name not found in a type whose bases
+  did not all resolve, or which derives from itself, is not reported, since it
+  may be inherited from what is missing (`TypeHierarchy.HasUnknownBases`).
+- `ExpressionBinder`: literals (their C# types), `this`, `base`, `default`,
+  assignment (what can be assigned, readonly fields, `init`, get-only
+  properties, values of value types which are not variables), reading a
+  property through its getter, and converting a value to the type it is
+  needed as, reporting a conversion which does not exist as C# reports it.
+- `ConversionClassifier`: C#'s conversions (§10), all of them but lambdas'
+  and method groups': the library's builtin conversion operators on its
+  built-in types are C#'s predefined numeric and nullable conversions, so they
+  count as standard conversions around a user-defined one and never as
+  user-defined ones; the rest are the language's, user-defined conversions
+  following Roslyn where it differs from the specification. No array
+  covariance (decided 2026-10-01).
+- `StatementBinder`: blocks, with C#'s local scope rules, local declarations
+  (`var` and `const` included), expression statements and `return`.
+- `ConstantFolder`: constants through conversions; the rest is step B.
+- `TypeNameResolver` (in `Resolver/`): the type-name lookup and its errors,
+  which `SignatureResolver` and bodies share, reporting where it is told to.
+
+What is not bound yet becomes a `BoundNotYetSupported` value or a
+`BoundNotYetSupportedStatement`, never an error: operators, compound
+assignment and `??=`, `?:`, casts, calls and everything callable, `new`,
+arrays and indexing, lambdas, `?.`, `??`, `is`/`as`, throw expressions,
+`nameof`, `typeof`, interpolated strings, switch expressions, enum constants,
+events, members reached through a generic parameter, and every statement but
+blocks, declarations, expression statements and `return`. In an iterator,
+`return` is left for later too, with `yield`. The last step deletes both node
+kinds.
+
+Bodies are bound even when declarations have errors, unlike the C# compiler,
+which stops after them (`language.md`, "Function bodies").
+
 What remains unchecked in declarations: whether `notnull` is satisfied, which
 is nullability checking; constructor chains which come back round to where
 they started (C#'s CS0516 and CS0768), which need overload resolution; what a
 record's copy constructor runs first (CS8868), and that it is public or
-protected (CS8878); and everything inside function bodies. See "Suggested
-order of work".
+protected (CS8878). Function bodies are checked only as far as they are bound.
+See "Suggested order of work".
 
 Errors are queued, like the parser's, so one missing type does not hide the rest.
 A type which cannot be resolved is left with no `Target`, and later passes skip
@@ -263,7 +342,7 @@ The object model lives in `KeigValCompiler/Semantician/Member/` (`PackClass`,
 `Identifier` carries both its `SourceCodeName` and, after resolution, a
 `ResolvedName` and a `Target`.
 
-Three checks the parser cannot make are left to this stage, and are not done yet,
+Three checks the parser cannot make are left to this stage, two not done yet,
 because they need function bodies' expressions resolved. **Enum constant values**
 are stored as the expressions written for them
 (`PackEnumerationConstant.ValueExpression`), since they may name other constants;
@@ -271,8 +350,9 @@ they are to be computed in declaration order, a constant without one being the
 previous value plus one, and each checked to fit `int`. **Default parameter
 values** are stored the same way (`FunctionParameter.DefaultValue`), and each is
 to be checked to be a constant which converts to its parameter's type. And
-**integer literals** carry their value and C# type, but whether that value fits
-the type it is assigned to is to be checked here.
+**integer literals** carry their value, which body binding gives C#'s type and
+checks, as C# does, to fit an integer type it converts to as a constant
+(CS0031).
 
 ### The standard library
 
@@ -393,11 +473,12 @@ expressions inside function bodies, and builds the full statement tree for them.
 `tests/test.kgvl` exercises the grammar and parses with zero errors.
 
 **The resolver resolves declarations, binds the standard library, and checks
-declarations against C#'s rules**, apart from the gaps listed below, but does not
-look inside function bodies: `Foo bar = Nonexistent();` in a body still
-compiles. Five fixtures cover what exists, and `KeigValCompilerTest` runs them
-all (`dotnet run --project KeigValCompilerTest`), comparing every message with
-the headers:
+declarations against C#'s rules**, apart from the gaps listed below, and binds
+function bodies in part (step A of 5.3): names, member access, literals,
+conversions, locals, assignment and `return`. Seven fixtures cover what
+exists, and `KeigValCompilerTest` runs them all (`dotnet run --project
+KeigValCompilerTest`), comparing every message with the headers, along with
+the type model and the limits on base lists and constants:
 
 | Directory | Run with | Expect |
 |---|---|---|
@@ -406,6 +487,8 @@ the headers:
 | `tests-resolution/` | | zero errors |
 | `tests-resolution-errors/` | | the resolution errors its header lists |
 | `tests-declaration-errors/` | | the errors and warnings each file's header lists |
+| `tests-bodies/` | | zero errors |
+| `tests-body-errors/` | | the errors each file's header lists, each compared with C#'s |
 
 ### Works
 The grammar, apart from the parser gaps listed under the smaller known gaps
@@ -430,11 +513,11 @@ types, static classes used as types, and accessibility.
 
 ### The blocking gap
 
-1. **Function bodies are not resolved.** No expression has a type, no name
-   inside a body is looked up, and no overload, conversion or operator is chosen.
-   This is the next large piece of the resolver. Its decisions were made with
-   the owner on 2026-10-01 and are in `language.md`, "Function bodies"; it
-   builds a separate bound tree, leaving the parse tree as written.
+1. **Function bodies are only partly resolved.** Step A of 5.3 binds names,
+   member access, literals, conversions, locals, assignment and `return`;
+   operators, calls, object creation, lambdas and most statements are not
+   bound yet, and nothing inside them is checked. Its decisions were made with
+   the owner on 2026-10-01 and are in `language.md`, "Function bodies".
 
 `TwoIntDecimalTester` is still a stub: nothing tests `TwoIntDecimal` yet.
 
@@ -465,6 +548,26 @@ types, static classes used as types, and accessibility.
 - A chain of thousands of classes each deriving from the next, declared from
   the far end, takes long (3000 take about 36 seconds); this was so before
   nested types were looked up through bases.
+- The parser accepts keywords as the names of locals, such as `int static = 1;`,
+  which C# rejects.
+- A declaration as the single statement of an `if` or a loop without braces,
+  as in `if (x) int a = 1;`, is not reported (C#'s CS1023): the parse tree
+  does not keep whether a body was braced.
+- A `default:` sharing a switch section with `case` labels, as in
+  `case 1: default:`, does not parse, and a `default` section's place among
+  the others is not kept.
+- Differences from Roslyn in bodies, all in code rejected either way, found by
+  the recheck of step A on 2026-10-01: a loop of more than 100 constants is
+  reported as too deep (RS 67) rather than as a loop (CS0110); a constant
+  naming one whose value failed gets nothing more, even where C# reports
+  CS0134 for boxing it; type arguments on a generic parameter written as a type
+  (`T<int> x;`) give RS 2 where C# gives CS0307; a second, independent mistake
+  in one statement is sometimes not reported (CS0176 after CS0120, CS0201 after
+  the value's own error, CS0819 with CS0822 and CS0818 with CS0819); and two
+  equal messages on one line show once, since messages have no column.
+- About 20,000 assignments chained in one statement, or 5,000 nested brackets,
+  overflow the stack, in the binder and the parser respectively, where Roslyn
+  reports CS8078.
 
 ## Suggested order of work
 
@@ -537,8 +640,9 @@ Roughly dependency-ordered; the owner decides priorities.
          `SignatureResolver` and `TypeSearcher` under stage 2.
    3. Resolve function bodies into a separate bound tree, as decided with the
       owner on 2026-10-01 (`language.md`, "Function bodies"), in steps:
-      A. the bound tree, scopes, names, literals, locals, simple assignment and
-         `return`; B. conversions, operators and constants, with the enum
+      A. the bound tree, scopes, names, literals, locals, simple assignment,
+         `return`, and the whole conversion classifier (done on 2026-10-01);
+         B. casts, operators and constants, with the enum
          values, parameter defaults and literal ranges described under stage 2;
       C. member lookup, overload resolution, type inference, object creation,
          lambdas and constructor chains, which unblocks the chain checks left

@@ -259,7 +259,9 @@ internal class SemanticTypeReader
         return Current;
     }
 
-    private DeclaredType? ReadKnownType(LibraryType knownType, SemanticType typeArgument)
+    /* A type the compiler knows by name with one type argument, as Nullable<int>, or null when the library
+     * does not declare it, which has been reported. */
+    internal DeclaredType? ReadKnownType(LibraryType knownType, SemanticType typeArgument)
     {
         PackMember? Declaration = _registry.GetDeclaredType(knownType);
         if (Declaration == null)

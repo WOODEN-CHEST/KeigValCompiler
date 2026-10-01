@@ -30,8 +30,11 @@ Be honest with yourself about how little exists. As of 2026-10-01:
   where C# allows none, and a record's base arguments where none can be passed.
 - The **resolver** resolves the types named in declarations, binds the
   standard library, and checks declarations against C#'s rules apart from
-  the few gaps listed in `agents/architecture.md`, but does not look inside
-  function bodies at all: nothing in a body is looked up or type checked.
+  the few gaps listed in `agents/architecture.md`. It binds function bodies
+  only in part: names, member access, literals, conversions, locals,
+  assignment and `return` are looked up and checked as C# checks them, but
+  operators, calls, object creation, lambdas and most statements are not
+  bound yet, and nothing inside them is checked.
 - The **datapack backend does not exist**. Not one line. The project does not
   currently emit any output at all.
 
@@ -68,15 +71,17 @@ recursively. `tests-resolution/` and `tests-resolution-errors/` are the same
 pair for the resolver: the first must compile with zero errors, and the second
 must report what its header lists. `tests-declaration-errors/` is a second
 error fixture for the resolver, for its checks of declarations, with each file's
-header listing what that file reports.
+header listing what that file reports. `tests-bodies/` and `tests-body-errors/`
+are the pair for function bodies, each error compared with what C# reports.
 
 `KeigValCompilerTest` runs them all: it compiles each fixture directory in
 process and compares every message, by line, category and code, with what the
 headers list, and checks the counts the headers state. It also checks the
 semantic type model against `KeigValCompilerTest/TypeModel/model.kgvl`, and the
-limit on how deeply base lists may wait on each other. It exits with 1 when
-anything fails. A header is the contract: change it with the fixture, never to
-make a run pass. `TwoIntDecimalTester` is still a stub, reported as skipped.
+limits on how deeply base lists and constants may wait on each other. It exits
+with 1 when anything fails. A header is the contract: change it with the
+fixture, never to make a run pass. `TwoIntDecimalTester` is still a stub,
+reported as skipped.
 
 ## Rules
 

@@ -1,0 +1,133 @@
+/* Body binding error test source file, for locals and blocks. Every error in here is deliberate, and
+ * was compared with what C# reports for the same code, whose code each description gives, where C# has
+ * the construct. The directory parses cleanly, and the point is that each mistake is reported once,
+ * where it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 30 errors:
+ *
+ *   line 55 ST error 28     a local declared twice in a block (CS0128)
+ *   line 56 ST error 29     a local named like a parameter (CS0136)
+ *   line 57 ST error 30     a local named like a generic parameter of the function (CS0412)
+ *   line 58 ST error 29     a local named like one of a block around (CS0136)
+ *   line 59 ST error 29     a local named like one the block around declares after it (CS0136)
+ *   line 61 ST error 31     var without a starting value (CS0818)
+ *   line 62 ST error 32     var declaring two locals (CS0819)
+ *   line 63 ST error 33     var from null (CS0815)
+ *   line 64 EX error 62     var from default alone (CS8716)
+ *   line 65 ST error 34     a constant declared with var (CS0822)
+ *   line 66 ST error 35     a constant of a structure type (CS0283)
+ *   line 67 EX error 66     a constant from a field (CS0133)
+ *   line 69 EX error 50     var from itself (CS0841)
+ *   line 70 EX error 67     a constant from itself (CS0110)
+ *   line 74 ST error 29     an inner block's local named like one its block declares after it (CS0136)
+ *   line 92 RTMC error 41   a local of a static class (CS0723)
+ *   line 93 RTMC error 44   a local of an array of a static class (CS0719)
+ *   line 94 GE error 25     a static class as a type argument of a local's type (CS0718)
+ *   line 95 RTMC error 41   a var local inferred as a static class (CS0723)
+ *   line 96 EX error 75     a constant local of the type object given a string (CS0134)
+ *   line 100 EX error 66    a constant local given a variable, and nothing for the constant given it (CS0133)
+ *   line 103 ST error 28    a local declared twice in one declaration (CS0128)
+ *   line 124 RTMC error 44  an array of a static class in default (CS0719)
+ *   line 125 GE error 25    a static class as a type argument in default (CS0718)
+ *   line 126 GE error 25    a static class as a type argument before a '.' (CS0718)
+ *   line 127 RTMC error 44  an array of a static class as a type argument before a '.' (CS0719)
+ *   line 128 GE error 19    a local's type argument not satisfying struct (CS0453)
+ *   line 129 GE error 19    a type argument before a '.' not satisfying struct (CS0453)
+ *   line 130 GE error 19    a type argument in default not satisfying class (CS0452)
+ *   line 131 GE error 19    a type argument's own type argument not satisfying struct (CS0453)
+ */
+
+namespace Locals;
+
+public struct Plain { }
+
+public class Locals
+{
+    int stored;
+    const int A = 1;
+
+    public void Run<T>(int parameter)
+    {
+        int x = 1;
+        int x = 2;
+        int parameter = 3;
+        int T = 4;
+        { int x = 5; }
+        { int inner = 1; }
+        int inner = 2;
+        var v1;
+        var v2 = 1, v3 = 2;
+        var v4 = null;
+        var v5 = default;
+        const var v6 = 1;
+        const Plain p1 = default;
+        const int c1 = stored;
+        const int c2 = A;
+        var z = z;
+        const int self = self;
+        { int stored = 1; }
+        {
+            {
+                int deep = 1;
+            }
+            int deep = 2;
+        }
+    }
+}
+
+public static class Tools
+{
+    public static int Count;
+}
+
+public class Generic<T> { }
+
+public class Later
+{
+    public void Run()
+    {
+        Tools tools = null;
+        Tools[] many = null;
+        Generic<Tools> generic = null;
+        var inferred = default(Tools);
+        const object boxed = "text";
+        const int pending = 1 + 2;
+        const int fromPending = pending;
+        int stored = 1;
+        const int fromStored = stored;
+        const int fromFailed = fromStored;
+        int first = 1,
+            first = 2;
+    }
+}
+
+public class OnlyStruct<T> where T : struct
+{
+    public static int Count;
+}
+
+public class OnlyClass<T> where T : class { }
+
+public class Holding<T>
+{
+    public static int Count;
+}
+
+public class Written
+{
+    public void Run()
+    {
+        object plain = default(Tools);
+        object array = default(Tools[]);
+        object argument = default(Generic<Tools>);
+        int reached = Holding<Tools>.Count;
+        int nested = Holding<Tools[]>.Count;
+        OnlyStruct<string> local = null;
+        int through = OnlyStruct<string>.Count;
+        object made = default(OnlyClass<int>);
+        Holding<OnlyStruct<string>> inside = null;
+    }
+}

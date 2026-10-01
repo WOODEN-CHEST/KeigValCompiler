@@ -1,7 +1,7 @@
 namespace KeigValCompiler.Semantician.Resolver;
 
-/* Resolves declarations, binds the standard library, and checks declarations against C#'s rules.
- * Function bodies are not resolved yet. A pass which cannot go on stops resolution, having reported why. */
+/* Resolves declarations, binds the standard library, checks declarations against C#'s rules, and binds function
+ * bodies, as far as binding them is written. A pass which cannot go on stops resolution, having reported why. */
 internal class FullPackResolver : IPackResolver
 {
     // Private methods.
@@ -44,6 +44,9 @@ internal class FullPackResolver : IPackResolver
         new FieldTypeChecker().ResolvePack(context);
         new StaticClassUsageChecker().ResolvePack(context);
         new AccessibilityChecker().ResolvePack(context);
+
+        /* Bodies come last, since what they name has to be resolved and checked first. */
+        new BodyResolver().ResolvePack(context);
     }
 
 

@@ -1,0 +1,192 @@
+/* Body binding error test source file, for assignments. Every error in here is deliberate, and was
+ * compared with what C# reports for the same code, whose code each description gives, where C# has the
+ * construct. The directory parses cleanly, and the point is that each mistake is reported once, where
+ * it is, without errors which only follow from others. Run the directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 33 errors:
+ *
+ *   line 68 EX error 54     a static readonly field in an instance constructor (CS0198)
+ *   line 72 EX error 55     a property with only a getter in an init accessor (CS0200)
+ *   line 77 EX error 53     in a derived class's constructor, a readonly field (CS0191) and a property with only a getter (CS0200)
+ *   line 77 EX error 55     in a derived class's constructor, a readonly field (CS0191) and a property with only a getter (CS0200)
+ *   line 85 EX error 52     a constant local (CS0131)
+ *   line 86 EX error 52     a constant field (CS0131)
+ *   line 87 EX error 53     a readonly field outside a constructor (CS0191)
+ *   line 88 EX error 54     a static readonly field outside the static constructor (CS0198)
+ *   line 89 EX error 55     a property with only a getter outside a constructor (CS0200)
+ *   line 90 EX error 56     a property without a getter read (CS0154)
+ *   line 91 EX error 57     a private setter (CS0272)
+ *   line 92 EX error 58     an init accessor outside an object's making (CS8852)
+ *   line 93 EX error 59     a field of a structure a property gives (CS1612)
+ *   line 94 EX error 59     a property of a structure a property gives (CS1612)
+ *   line 95 EX error 69     a field of a structure a readonly field holds (CS1648)
+ *   line 97 EX error 65     an in parameter (CS8331)
+ *   line 100 EX error 64    this in a class (CS1604)
+ *   line 102 EX error 52    a number (CS0131)
+ *   line 103 EX error 52    a string (CS0131)
+ *   line 119 EX error 71    this assigned in a readonly function of a structure (CS1604)
+ *   line 120 EX error 71    a field assigned in a readonly function of a structure (CS1604)
+ *   line 121 EX error 71    a field's member assigned in a readonly function of a structure (CS1604)
+ *   line 124 EX error 71    a field assigned in a readonly property of a structure (CS1604)
+ *   line 133 EX error 71    this assigned in a readonly structure (CS1604)
+ *   line 148 EX error 70    an abstract property read through base (CS0205)
+ *   line 149 EX error 70    an abstract property assigned through base (CS0205)
+ *   line 161 EX error 72    a member of an in parameter assigned (CS8332)
+ *   line 162 EX error 73    a member of a static readonly field assigned (CS1650)
+ *   line 163 EX error 69    a member of a member of a readonly field assigned (CS1648)
+ *   line 164 EX error 52    a member of default assigned (CS0131)
+ *   line 165 EX error 78    a type assigned (CS0118)
+ *   line 178 EX error 57    a property with a private getter read from another class (CS0271)
+ *   line 190 EX error 55    a static get-only property of another instantiation, in the static constructor (CS0200)
+ */
+
+namespace Assignments;
+
+public struct Point
+{
+    public int X;
+    public int Y { get; set; }
+}
+
+public class Holder
+{
+    public const int Constant = 1;
+    public readonly int Fixed;
+    public static readonly int StaticFixed;
+    public readonly Point FixedPoint;
+    public Point Stored;
+    public Point Computed { get { return Stored; } }
+    public int ReadOnly { get; }
+    public int WriteOnly { set { } }
+    public int PrivateSet { get; private set; }
+    public int InitOnly { get; init; }
+    public int Normal { get; set; }
+
+    public Holder() { Fixed = 1; StaticFixed = 2; ReadOnly = 3; InitOnly = 4; FixedPoint.X = 5; }
+
+    static Holder() { StaticFixed = 1; }
+
+    public int Other { get { return 0; } init { Fixed = value; ReadOnly = value; InitOnly = value; } }
+}
+
+public class Derived : Holder
+{
+    public Derived() { InitOnly = 1; Fixed = 2; ReadOnly = 3; }
+}
+
+public class Tests
+{
+    public void Run(Holder holder, in int input, ref int byReference, out int result)
+    {
+        const int local = 1;
+        local = 2;
+        Holder.Constant = 3;
+        holder.Fixed = 4;
+        Holder.StaticFixed = 5;
+        holder.ReadOnly = 6;
+        int read = holder.WriteOnly;
+        holder.PrivateSet = 7;
+        holder.InitOnly = 8;
+        holder.Computed.X = 9;
+        holder.Computed.Y = 10;
+        holder.FixedPoint.X = 11;
+        holder.Stored.X = 12;
+        input = 13;
+        byReference = 14;
+        result = 15;
+        this = null;
+        holder.Normal = 16;
+        5 = 17;
+        "text" = 18;
+    }
+}
+
+public struct Inner
+{
+    public int X;
+}
+
+public struct Plain
+{
+    public int B;
+    public Inner In;
+
+    public readonly void Change()
+    {
+        this = default;
+        B = 1;
+        In.X = 2;
+    }
+
+    public readonly int P { get { B = 2; return B; } }
+}
+
+public readonly struct Fixed
+{
+    public readonly int F;
+
+    public void Change()
+    {
+        this = default;
+    }
+}
+
+public abstract class AbstractBase
+{
+    public abstract int Abstract { get; set; }
+}
+
+public class AbstractDerived : AbstractBase
+{
+    public override int Abstract { get { return 1; } set { } }
+
+    public void Run()
+    {
+        int read = base.Abstract;
+        base.Abstract = 2;
+    }
+}
+
+public class Holders
+{
+    public static readonly Point StaticPoint;
+    public readonly Wrapper Wrapped;
+    public int PrivateGet { private get; set; }
+
+    public void Run(in Point input)
+    {
+        input.X = 1;
+        StaticPoint.X = 2;
+        Wrapped.Inner.X = 3;
+        default(Point).X = 4;
+        Holders = null;
+    }
+}
+
+public struct Wrapper
+{
+    public Point Inner;
+}
+
+public class Reader
+{
+    public void Run(Holders holders)
+    {
+        int read = holders.PrivateGet;
+    }
+}
+
+public class Instantiated<T>
+{
+    public static T Shared { get; }
+
+    static Instantiated()
+    {
+        Shared = default;
+        Instantiated<T>.Shared = default;
+        Instantiated<int>.Shared = 1;
+    }
+}

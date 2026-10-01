@@ -480,6 +480,38 @@ public class StatementTests
                 break;
         }
 
+        /* A section goes on to the next label, whatever ends it, and may hold a block. */
+        while (n > 0)
+        {
+            switch (n)
+            {
+                case 1:
+                {
+                    _count = 1;
+                    break;
+                }
+                case 2:
+                    n--;
+                    continue;
+                case 3:
+                    break;
+                    _count = 3;
+                default:
+                    throw new SomeException("message");
+            }
+        }
+
+        /* A block on its own keeps its locals to itself. */
+        {
+            int scoped = 1;
+            { int inner = scoped; }
+        }
+        {
+            int scoped = 2;
+        }
+        string nullText = "null";
+        string? nothing = null;
+
         int described = n switch { 1 => 10, 2 => 20, _ => 30 };
 
         try { _count = 1; }

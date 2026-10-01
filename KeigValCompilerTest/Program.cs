@@ -25,8 +25,11 @@ internal class Program
             new FixtureTester(Path.Combine(Root, "tests-resolution"), Library, false),
             new FixtureTester(Path.Combine(Root, "tests-resolution-errors"), Library, false),
             new FixtureTester(Path.Combine(Root, "tests-declaration-errors"), Library, false),
+            new FixtureTester(Path.Combine(Root, "tests-bodies"), Library, false),
+            new FixtureTester(Path.Combine(Root, "tests-body-errors"), Library, false),
             new TypeModelTester(Library, Path.Combine(Root, "KeigValCompilerTest", "TypeModel")),
             new BaseListDepthTester(Library),
+            new ConstantDepthTester(Library),
             new TwoIntDecimalTester()
         };
 

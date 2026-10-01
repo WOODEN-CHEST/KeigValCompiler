@@ -1,0 +1,85 @@
+/* Body binding error test source file, for what namespaces hold, which KGVL has and C# does not. Every
+ * error in here is deliberate, and was compared with what C# reports for the same code, whose code each
+ * description gives, where C# has the construct. The directory parses cleanly, and the point is that
+ * each mistake is reported once, where it is, without errors which only follow from others. Run the
+ * directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 9 errors:
+ *
+ *   line 37 RS error 3      a field two imported namespaces hold (CS0104)
+ *   line 38 RS error 3      a type two imported namespaces hold, written as a type
+ *   line 39 RS error 3      the same, before a '.'
+ *   line 40 RS error 3      a field in one imported namespace and a type in another
+ *   line 41 EX error 38     no such member in a namespace (CS0234)
+ *   line 42 EX error 38     the same, in a nested namespace
+ *   line 48 EX error 39     the type's instance field, found before the namespace's, in a static function (CS0120)
+ *   line 76 RTMC error 18   init on a property a namespace holds, and nothing for assigning it
+ *   line 82 EX error 76     a readonly field a namespace holds, assigned in a function
+ */
+
+using Spaces.First;
+using Spaces.Second;
+namespace Spaces;
+
+public int Level = 1;
+
+namespace Spaces.World;
+
+public class Scene
+{
+    public int Level = 5;
+
+    public void Run()
+    {
+        int shared = Shared;
+        Widget widget = null;
+        int count = Widget.Count;
+        int mixed = Mixed;
+        int absent = Spaces.Absent;
+        int deeper = Spaces.World.Absent;
+        int found = Spaces.Level;
+    }
+
+    public static void Static()
+    {
+        int level = Level;
+    }
+}
+
+namespace Spaces.First;
+
+public int Shared = 1;
+public int Mixed = 2;
+
+public class Widget
+{
+    public static int Count;
+}
+
+namespace Spaces.Second;
+
+public int Shared = 2;
+
+public class Widget
+{
+    public static int Count;
+}
+
+public class Mixed { }
+
+namespace Spaces.Fixed;
+
+public readonly int Locked = 1;
+public int Initial { get; init; }
+
+public class User
+{
+    public void Run()
+    {
+        Locked = 2;
+        Initial = 3;
+    }
+}

@@ -38,6 +38,13 @@ internal abstract class AbstractParserBase
         return new(Parser.FilePath, Parser.Line, Parser.GetColumn(index));
     }
 
+    /* The line the parser is on, which a statement or value starting here keeps, so that what resolution
+     * reports about it later points at it. */
+    protected SourceFileOrigin GetCurrentOrigin()
+    {
+        return new(Parser.Line);
+    }
+
     /* For errors where the parser still knows exactly where it is and what it is looking at - the
      * construct is understood, it is just wrong. Parsing carries straight on from the call. */
     protected void AddError(ErrorCreateOptions error)

@@ -10,7 +10,8 @@ the worked example.
 Familiar from C#: namespaces and `using`; `class`, `struct`, `interface`,
 `record`, `enum`, `delegate`, `event`; generics with `where` constraints;
 properties and indexers; access modifiers and `static` / `abstract` / `virtual`
-/ `override` / `sealed` / `readonly` / `required` / `const` / `new`; `if` / `for` / `foreach` /
+/ `override` / `sealed` / `readonly` / `required` / `const` / `new`; blocks and
+`if` / `for` / `foreach` /
 `while` / `do` / `switch` / `try` / `catch` / `finally` / `throw` / `return`;
 throw expressions such as `x ?? throw new E()`, where C# allows them; `is` and
 `as` with a type; `ref` / `out` / `in` / `params`, and default parameter values;
@@ -258,8 +259,10 @@ holds its value, narrowed to the unsigned ones by `u` and to the long ones by
 parsed, since its range does not depend on where it is used: one above
 `MaxValue`, or a nonzero one closer to zero than `Epsilon`, is an error. So is an
 integer too large even for `ulong`. Whether an integer fits the type it is
-assigned to, as in `byte b = 300`, depends on that type, so that check belongs to
-the validation stage and does not exist yet.
+assigned to, as in `byte b = 300`, depends on that type, so it is checked where
+the value is converted to it, as in C#: a constant `int` converts implicitly to
+a smaller integer type, `uint` or `ulong`, and a constant `long` to `ulong`, only
+when its value fits.
 
 **Escape sequences** in char and string literals are C#'s: `\0 \a \b \e \f \n \r
 \t \v \' \" \\`, `\x` with one to four hexadecimal digits, `\u` with exactly
@@ -270,14 +273,17 @@ and an error in a char literal, which holds one.
 
 ## Function bodies
 
-Decided on 2026-10-01, and not built yet: what resolving function bodies (step
-5.3) has to do. Everything not listed follows C#: overload resolution,
-conversions, operators, `init` and `required`, protected access, events,
-iterators, what may be thrown and caught.
+Decided on 2026-10-01: what resolving function bodies (step 5.3) has to do.
+Its first step is built: names, implicit conversions, locals, blocks,
+assignments and `return`. The rest is not; see
+[`architecture.md`](architecture.md). Everything not listed follows C#:
+overload resolution, conversions, operators, `init` and `required`, protected
+access, events, iterators, what may be thrown and caught.
 
 - **Names in a body** are looked for in this order: locals and parameters, from
-  the innermost block outwards; the members of each type around the code,
-  inherited ones included, from the innermost type outwards; then at the
+  the innermost block outwards; the function's generic parameters; the generic
+  parameters and members of each type around the code, inherited members
+  included, from the innermost type outwards; then at the
   current namespace and each one containing it, the fields, properties,
   functions and events it holds together with its types and namespaces; last
   the members and types of the namespaces imported with `using`, where two
@@ -311,12 +317,36 @@ iterators, what may be thrown and caught.
   be written into the commands, and an object of unknown origin may carry an
   NBT entry naming its type, looked up in a table of type information.
 
+Also decided on 2026-10-01, while building the first step:
+
+- **No array covariance.** C# lets `string[]` convert to `object[]`, checked
+  at runtime on every store into such an array. KGVL's `T[]` is `Array<T>`, a
+  generic class, and has no such conversion: an array converts to `object` and
+  to the interfaces `Array<T>` implements. Generic variance (`out T`), which
+  would give the safe part of it, does not exist either; it could come later as
+  a feature of its own.
+- **Blocks** can be written as statements of their own, as in C#, and keep
+  their locals to themselves. A `switch` section's statements go on to the next
+  `case` or `default` label, as in C#, so a section may hold a block, or end
+  with `continue` or with statements after its `break`.
+- **Messages** about bodies are in the categories of their subject: values in
+  Expression (EX), statements and locals in Statement (ST), and what a function
+  returns in Function (FN), as the resolver's checks of parameters already are.
+- A function returning nothing written with `=>`, as a constructor or a setter
+  can be, runs its value, as in C#, which has to be one that can stand as a
+  statement.
+- **Bodies are checked even when declarations have errors.** The C# compiler
+  stops after reporting errors in declarations and checks no body; KGVL goes on,
+  so that one run reports both. What an error leaves unknown, such as the type
+  of a field whose type was not found, is treated as an error type, about which
+  nothing more is reported.
+
 ## Built-in types and the standard library
 
 Decided on 2026-09-28. The resolver loads the library, binds its builtin
-members to what the compiler implements, and checks declarations, but what
-depends on function bodies, such as conversions, operators and boxing, is not
-enforced yet; see [`architecture.md`](architecture.md).
+members to what the compiler implements, and checks declarations. In function
+bodies, implicit conversions and boxing are enforced; casts and operators are
+not yet; see [`architecture.md`](architecture.md).
 
 **Where it lives.** The built-in types and the standard library are ordinary
 `.kgvl` files under [`library-stubs/`](../library-stubs/), laid out like .NET's:

@@ -154,6 +154,39 @@ internal class TypeSearcher
             ?? TypeSearchResult.NotFound(OtherGenericParameterCount, InaccessibleType, null);
     }
 
+    /* A type one namespace holds, of the name and number of generic parameters, which the use can see, as a
+     * namespace a file imports offers it. */
+    internal PackMember? FindNameSpaceType(PackNameSpace nameSpace,
+        string name,
+        int typeArgumentCount,
+        PackMember scope)
+    {
+        ArgumentNullException.ThrowIfNull(nameSpace, nameof(nameSpace));
+        ArgumentNullException.ThrowIfNull(name, nameof(name));
+        ArgumentNullException.ThrowIfNull(scope, nameof(scope));
+
+        int? OtherGenericParameterCount = null;
+        PackMember? InaccessibleType = null;
+        return FindType(name, typeArgumentCount, nameSpace.Types, type => IsVisibleFrom(type, scope),
+            ref OtherGenericParameterCount, ref InaccessibleType);
+    }
+
+    /* Whether a name, written where the scope is, names a namespace at the root, which the use can see. */
+    internal bool IsRootNameSpace(string name, PackMember scope)
+    {
+        ArgumentNullException.ThrowIfNull(name, nameof(name));
+        ArgumentNullException.ThrowIfNull(scope, nameof(scope));
+
+        return IsVisibleNameSpace(name, scope);
+    }
+
+    /* The namespace a member is in, and the name of each one holding it, innermost first. */
+    internal IEnumerable<string> GetNameSpaceNames(PackMember member)
+    {
+        ArgumentNullException.ThrowIfNull(member, nameof(member));
+        return GetNameSpaceAndParentNames(member.NameSpace);
+    }
+
     /* A type one type declares itself, of the name and number of generic parameters, which the use can see. */
     internal PackMember? FindDeclaredType(PackMember holder,
         string name,

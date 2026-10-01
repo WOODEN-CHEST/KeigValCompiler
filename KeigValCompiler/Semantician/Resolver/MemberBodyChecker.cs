@@ -66,13 +66,6 @@ internal class MemberBodyChecker : IPackResolver
         }
     }
 
-    /* An interface holds no data of its own, so only its static properties can store a value. */
-    private bool CanStoreValue(PackMember property)
-    {
-        return (MemberRelations.GetHoldingMember(property) is not PackInterface)
-            || property.HasModifier(PackMemberModifiers.Static);
-    }
-
     /* A property or indexer is abstract when it says so, and an interface's is when none of its accessors
      * has a body. Otherwise a property whose accessors are without bodies stores its own value, as long as
      * it can be read back, and an indexer's accessors all need bodies. */
@@ -100,7 +93,7 @@ internal class MemberBodyChecker : IPackResolver
         }
 
         PackFunction[] BodilessAccessors = Accessors.Where(accessor => accessor.Statements == null).ToArray();
-        if (!isProperty || !CanStoreValue(member))
+        if (!isProperty || !MemberRelations.CanStoreValue(member))
         {
             foreach (PackFunction Accessor in BodilessAccessors)
             {
@@ -124,10 +117,7 @@ internal class MemberBodyChecker : IPackResolver
             return;
         }
 
-        bool IsStoring = !property.HasAnyModifier(PackMemberModifiers.Abstract, PackMemberModifiers.BuiltIn)
-            && CanStoreValue(property)
-            && property.SubMembers.Any(accessor => ((PackFunction)accessor).Statements == null);
-        if (!IsStoring)
+        if (!MemberRelations.IsStoringProperty(property))
         {
             context.AddError(context.ErrorCreator.InitializerWithoutStorage.CreateOptions(
                 property.SelfIdentifier.SourceCodeName), property);

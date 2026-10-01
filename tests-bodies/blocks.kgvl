@@ -1,0 +1,80 @@
+/* Locals, blocks and "return" the resolution stage has to accept, since C# accepts them: locals of a written
+ * type, with and without a starting value, and several declared together; "var" taking its starting value's
+ * type; constant locals of every type a constant can have, made of literals and other constants; blocks written
+ * on their own, siblings declaring locals of one name, and a local named like a field it hides; "return" with a
+ * value converted to what the function returns, and without one in a function returning nothing, a constructor
+ * and a setter; and functions written with "=>", a function returning nothing running its value, as
+ * constructors and setters do. */
+
+namespace Blocks;
+
+public enum Shade { Red }
+
+public class Blocks
+{
+    public const int Field = 1;
+    public int Stored;
+    public int Value
+    {
+        get { return Stored; }
+        set { Stored = value; return; }
+    }
+    public int Arrow => Stored;
+    public int Both { get => Stored; set => Stored = value; }
+
+    public Blocks()
+    {
+        return;
+    }
+
+    public Blocks(int start) => Stored = start;
+
+    public void Locals()
+    {
+        int plain;
+        int started = 1, other = 2, last;
+        var inferred = 5;
+        var text = "text";
+        const int number = 1;
+        const long wide = number;
+        const byte tiny = -1;
+        const ubyte small = 1;
+        const short half = 1;
+        const ushort unsignedHalf = 1;
+        const uint unsignedNumber = 1;
+        const ulong unsignedWide = 1;
+        const string name = "name";
+        const char letter = 'a';
+        const bool truth = true;
+        const decimal amount = 2.5;
+        const Shade shade = 0;
+        const string nothing = null;
+        const object empty = null;
+        const object nothingAgain = nothing;
+        const object fromDefault = default(string);
+        int Stored = 3;
+        {
+            int scoped = 1;
+            {
+                int deeper = scoped;
+            }
+        }
+        {
+            int scoped = 2;
+        }
+    }
+
+    public long Widened()
+    {
+        return Field;
+    }
+
+    public object Boxed() => Field;
+
+    public void Nothing()
+    {
+        return;
+    }
+
+    public void Runs() => Stored = 5;
+}

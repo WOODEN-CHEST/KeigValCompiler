@@ -115,6 +115,14 @@ internal class StatementParser : AbstractParserBase
             return new EmptyStatement() { Origin = Origin };
         }
 
+        /* A block needs no terminator, as there is none after the closing bracket of an "if" either. */
+        if (Parser.GetCharAtDataIndex() == KGVL.OPEN_CURLY_BRACKET)
+        {
+            BlockStatement Block = new() { Origin = Origin };
+            Block.Body.SetFrom(ParseStatementBody());
+            return Block;
+        }
+
         int WordStartIndex = Parser.DataIndex;
         string Keyword = Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
             ? Parser.ReadIdentifier(null) : string.Empty;
@@ -504,7 +512,7 @@ internal class StatementParser : AbstractParserBase
         if (Parser.GetCharAtDataIndex() == stopChar)
         {
             Parser.IncrementDataIndex();
-            return new EmptyStatement();
+            return new EmptyStatement() { Origin = GetCurrentOrigin() };
         }
 
         Statement Section = ParseNonKeywordStatement();
@@ -607,13 +615,11 @@ internal class StatementParser : AbstractParserBase
         SwitchCase Case = new();
         Parser.SkipUntilNonWhitespace(null);
 
+        /* A "default" followed by anything but ':' starts the section's first statement, as "default(T)" can. */
         bool IsDefaultCase = false;
-        int StartIndex = Parser.DataIndex;
-        string Keyword = Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
-            ? Parser.ReadIdentifier(null) : string.Empty;
-
-        while ((Keyword == KGVL.KEYWORD_CASE) || (Keyword == KGVL.KEYWORD_DEFAULT))
+        while (IsSwitchLabelAhead())
         {
+            string Keyword = Parser.ReadIdentifier(null);
             if (Keyword == KGVL.KEYWORD_DEFAULT)
             {
                 if (IsDefaultCase)
@@ -635,20 +641,16 @@ internal class StatementParser : AbstractParserBase
                 throw new SourceFileReadException(Parser, ErrorCreator.ExpectedSwitchCaseColon.CreateOptions());
             }
             Parser.IncrementDataIndex();
-
             Parser.SkipUntilNonWhitespace(null);
-            StartIndex = Parser.DataIndex;
-            Keyword = Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
-                ? Parser.ReadIdentifier(null) : string.Empty;
         }
-
-        Parser.DataIndex = StartIndex;
 
         if (IsDefaultCase && (Case.CaseConditions.Count > 0))
         {
             throw new SourceFileReadException(Parser, ErrorCreator.DefaultCaseWithConditions.CreateOptions());
         }
 
+        /* As in C#, a section's statements go on to the next case's label or the end of the switch, whatever
+         * the last of them is. That the end of a section cannot be reached is for flow analysis to check. */
         Statement BodyStatement;
         do
         {
@@ -657,7 +659,7 @@ internal class StatementParser : AbstractParserBase
             Parser.SkipUntilNonWhitespace(null);
         } while (Parser.IsMoreDataAvailable
             && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET)
-            && (BodyStatement is not (BreakStatement or ThrowStatement or ReturnStatement)));
+            && !IsSwitchLabelAhead());
 
         Case.IsBrokenOutOf = BodyStatement is BreakStatement;
 
@@ -673,6 +675,24 @@ internal class StatementParser : AbstractParserBase
         }
 
         targetStatement.AddCase(Case);
+    }
+
+    /* Whether a case's label starts here: "case", or "default" followed by ':', which unlike "default(T)"
+     * cannot begin a statement. The cursor is left where it was. */
+    private bool IsSwitchLabelAhead()
+    {
+        if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex()))
+        {
+            return false;
+        }
+
+        int StartIndex = Parser.DataIndex;
+        string Keyword = Parser.ReadIdentifier(null);
+        Parser.SkipUntilNonWhitespace(null);
+        bool IsLabel = (Keyword == KGVL.KEYWORD_CASE)
+            || ((Keyword == KGVL.KEYWORD_DEFAULT) && (Parser.GetCharAtDataIndex() == KGVL.COLON));
+        Parser.DataIndex = StartIndex;
+        return IsLabel;
     }
 
 
@@ -715,6 +735,7 @@ internal class StatementParser : AbstractParserBase
 
         while (true)
         {
+            SourceFileOrigin NameOrigin = GetCurrentOrigin();
             Identifier Name = new(Parser.ReadIdentifier(ErrorCreator.ExpectedVariableName.CreateOptions()));
             Parser.SkipUntilNonWhitespace(null);
 
@@ -728,7 +749,7 @@ internal class StatementParser : AbstractParserBase
                 Parser.SkipUntilNonWhitespace(null);
             }
 
-            Declaration.Declarations.AddItem(new VariableAssignment(Name, Value));
+            Declaration.Declarations.AddItem(new VariableAssignment(Name, Value) { Origin = NameOrigin });
 
             if (Parser.GetCharAtDataIndex() != KGVL.COMMA)
             {

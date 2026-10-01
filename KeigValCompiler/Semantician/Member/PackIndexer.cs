@@ -44,4 +44,8 @@ internal class PackIndexer : PackMember, IExplicitInterfaceMember, IPackAccessor
     {
         Type = type;
     }
+
+
+    // Inherited fields.
+    TypeTargetIdentifier IPackAccessorHolder.Type => Type;
 }

@@ -23,6 +23,19 @@ internal class FieldTypeChecker : IPackResolver
     }).ToArray();
 
 
+    // Internal static methods.
+    /* Whether a constant can have a type, as in C#: a built-in numeric type, bool, char, string or an enum, or a
+     * class, interface or delegate, whose constant can only be null. A generic parameter never can. */
+    internal static bool IsConstantType(SemanticType type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        return (type is DeclaredType Declared)
+            && (_constantLibraryTypes.Contains(Declared.LibraryType) || (Declared.Declaration is PackEnumeration)
+                || (Declared.Declaration is PackClass or PackInterface or PackDelegate));
+    }
+
+
     // Private methods.
     private void CheckConstantType(PackField field, PackResolutionContext context)
     {
@@ -32,10 +45,7 @@ internal class FieldTypeChecker : IPackResolver
             return;
         }
 
-        bool IsConstantType = (Type is DeclaredType Declared)
-            && (_constantLibraryTypes.Contains(Declared.LibraryType) || (Declared.Declaration is PackEnumeration)
-                || (Declared.Declaration is PackClass or PackInterface or PackDelegate));
-        if (!IsConstantType)
+        if (!IsConstantType(Type))
         {
             context.AddError(context.ErrorCreator.ConstantTypeNotConstant.CreateOptions(
                 field.SelfIdentifier.SourceCodeName, Type.ToString()), field);

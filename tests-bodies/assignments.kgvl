@@ -1,0 +1,141 @@
+/* Assignments the resolution stage has to accept, since C# accepts them: to locals and to parameters, those passed
+ * by "ref" and "out" included; to fields, static ones, inherited ones and one a structure stored in a local or a
+ * field holds; to properties through "set", an override's included, whose other accessor is found where it
+ * overrides, and through "base"; a readonly field in a constructor of its type, a static one in its static
+ * constructor, and an instance one in an "init" accessor of its type; a property with only a getter which stores
+ * its value, in a constructor of its type, an override and an interface's static one in its static constructor
+ * included; an "init" property in a constructor or an "init" accessor of its type, and in a constructor of a class
+ * deriving from it, through "this" and "base"; "this" in a structure; and an assignment's value used as a value,
+ * since it is one. */
+
+namespace Assignments;
+
+public struct Point
+{
+    public int X;
+    public int Y { get; set; }
+
+    public Point(int x)
+    {
+        X = x;
+        Y = x;
+    }
+
+    public void Reset()
+    {
+        this = default;
+    }
+}
+
+public class Shape
+{
+    public static int Count;
+    public static readonly int Limit;
+    public readonly int Sides;
+    public readonly Point Origin;
+    public int Area { get; }
+    public int Name { get; init; }
+    public int Tag { get; set; }
+    public Point Where;
+    public int Copy
+    {
+        get => Sides;
+        init
+        {
+            Sides = value;
+            Name = value;
+        }
+    }
+
+    static Shape()
+    {
+        Limit = 10;
+    }
+
+    public Shape(int sides)
+    {
+        Sides = sides;
+        this.Sides = sides;
+        Origin.X = sides;
+        Area = sides;
+        Name = sides;
+        Count = sides;
+    }
+
+    public void Change(int value, ref int byReference, out int result)
+    {
+        int local = value;
+        local = value;
+        value = local;
+        byReference = value;
+        result = value;
+        Tag = value;
+        this.Tag = value;
+        Count = value;
+        Shape.Count = value;
+        Where.X = value;
+        Where.Y = value;
+        Point stored = Where;
+        stored.X = value;
+        int chained = Tag = local = value;
+    }
+}
+
+public class Square : Shape
+{
+    public Square() : base(4)
+    {
+        Name = 1;
+        this.Name = 2;
+        base.Name = 3;
+        Tag = 4;
+        Count = 5;
+        Where.X = 6;
+    }
+}
+
+public abstract class Figure
+{
+    public abstract int Corners { get; }
+}
+
+public class Triangle : Figure
+{
+    public override int Corners { get; }
+
+    public Triangle()
+    {
+        Corners = 3;
+    }
+}
+
+public class Creature
+{
+    public virtual int Legs { get { return 4; } set { } }
+}
+
+public class Bird : Creature
+{
+    public override int Legs { get { return base.Legs; } }
+}
+
+public class Chick : Bird
+{
+    public override int Legs { set { base.Legs = value; } }
+
+    public int Count()
+    {
+        Legs = 2;
+        return Legs;
+    }
+}
+
+public interface ICounter
+{
+    static int Made { get; }
+
+    static ICounter()
+    {
+        Made = 1;
+    }
+}

@@ -6,6 +6,10 @@ internal abstract class Statement
     internal virtual TypeTargetIdentifier? StatementReturnType { get; set; } = null;
     internal virtual SourceFileOrigin Origin { get; set; }
 
+    /* Written inside brackets, as in "(a = 1)". As in C#, a value in brackets cannot stand as a statement, even
+     * one which could without them. */
+    internal bool IsParenthesized { get; set; } = false;
+
     /* Every statement directly held by this one, in the order they appear in source, including the
      * contents of statement bodies. Abstract rather than defaulting to empty so that adding a new
      * statement type without declaring its children is a compile error rather than a traversal

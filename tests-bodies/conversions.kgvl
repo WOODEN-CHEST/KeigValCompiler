@@ -1,0 +1,152 @@
+/* Implicit conversions the resolution stage has to accept, since C# accepts them, where a value of one type is
+ * given where another is needed: the identity; the numeric conversions the standard library declares as implicit,
+ * which differ from C#'s only in that int, uint, long and ulong convert to decimal explicitly; a constant int to a
+ * smaller integer type when it fits, and a constant long to ulong; a zero, a decimal one included, to an enum; null
+ * to a reference type, a Nullable or a generic parameter known to be a reference type; "default" to anything; a
+ * value into a Nullable, and one Nullable to another, as the value types convert; a class to its base classes, its
+ * interfaces and object, an interface to those it derives from; boxing a structure, an enum or a Nullable to object
+ * or an interface; a generic parameter to its constraints; and user-defined conversions, with a standard conversion
+ * before or after the operator, lifted to Nullables, and declared "static abstract" by an interface a generic
+ * parameter is constrained to. KGVL has no array covariance (decided 2026-10-01): an array converts to object and
+ * to the interfaces Array<T> implements. */
+
+using KGVL.Collections.Generic;
+namespace Conversions;
+
+public interface IShape { }
+public interface INamed : IShape { }
+public class Animal : INamed { }
+public class Dog : Animal { }
+public struct Point : IShape { }
+public enum Shade { Red, Blue }
+
+public struct Celsius
+{
+    public static implicit operator Kelvin(Celsius value) => default;
+}
+
+public struct Kelvin { }
+
+public struct Meters
+{
+    public static implicit operator Meters(int value) => default;
+    public static implicit operator int(Meters value) => 0;
+}
+
+public class Numbers
+{
+    public void Widen(byte signedByte, ubyte unsignedByte, short signedShort, ushort unsignedShort, int signedInt,
+        uint unsignedInt, long signedLong, char letter)
+    {
+        short fromByte = signedByte;
+        int fromShort = signedShort;
+        long fromInt = signedInt;
+        decimal fromByteToDecimal = signedByte;
+        decimal fromUnsignedShort = unsignedShort;
+        ulong fromUnsignedInt = unsignedInt;
+        uint fromUnsignedByte = unsignedByte;
+        ushort fromChar = letter;
+        int charToInt = letter;
+        decimal charToDecimal = letter;
+        long fromUnsigned = unsignedInt;
+    }
+
+    public void Constants()
+    {
+        byte small = 127;
+        ubyte unsignedSmall = 255;
+        short middle = 32767;
+        ushort unsignedMiddle = 65535;
+        uint unsigned = 4294967295;
+        ulong fromInt = 5;
+        ulong fromLong = 5000000000;
+        Shade zero = 0;
+        Shade decimalZero = 0.0;
+        Shade? maybeZero = 0;
+        ubyte? maybeSmall = 200;
+        char letter = 'a';
+        decimal fraction = 1.5;
+        string text = "text";
+        bool truth = true;
+    }
+
+    public void NullAndDefault<T, R>() where R : class
+    {
+        string? text = null;
+        int? number = null;
+        R reference = null;
+        int zero = default;
+        T anything = default;
+        string? nothing = default;
+        Point point = default;
+    }
+
+    public void Nullables(int number, int? maybe, Shade shade)
+    {
+        int? wrapped = number;
+        long? widened = number;
+        long? liftedWide = maybe;
+        Shade? shadeMaybe = shade;
+        object boxed = maybe;
+    }
+
+    public void References(Dog dog, Animal animal, INamed named, string text, int[] numbers)
+    {
+        Animal up = dog;
+        INamed face = dog;
+        IShape further = named;
+        object anything = animal;
+        object fromInterface = named;
+        object fromText = text;
+        IEnumerable<int> sequence = numbers;
+        object array = numbers;
+    }
+
+    public void Boxing(Point point, Shade shade, int number, Point? maybePoint)
+    {
+        IShape maybeShape = maybePoint;
+        object boxedPoint = point;
+        IShape shape = point;
+        object boxedShade = shade;
+        object boxedNumber = number;
+    }
+
+    public void Parameters<T, U, V>(T reference, U value, V constrained) where T : Animal where U : struct
+        where V : T
+    {
+        Animal toBase = reference;
+        INamed toInterface = reference;
+        object toObject = value;
+        T toOther = constrained;
+        U? wrapped = value;
+    }
+
+    public void UserDefined(Celsius celsius, Celsius? maybe, Meters meters, short small)
+    {
+        Kelvin kelvin = celsius;
+        Kelvin? wrappedAfter = celsius;
+        Kelvin? lifted = maybe;
+        Meters fromInt = 5;
+        Meters fromShort = small;
+        int back = meters;
+        long widenedAfter = meters;
+        Meters? maybeMeters = meters;
+    }
+}
+
+public interface IConvertsInt<TSelf> where TSelf : IConvertsInt<TSelf>
+{
+    static abstract implicit operator TSelf(int value);
+    static abstract implicit operator int(TSelf value);
+}
+
+public class GenericMaths<T> where T : IConvertsInt<T>
+{
+    public void Run(T value, int number)
+    {
+        T fromInt = number;
+        int toInt = value;
+        T fromConstant = 5;
+        long widened = value;
+    }
+}

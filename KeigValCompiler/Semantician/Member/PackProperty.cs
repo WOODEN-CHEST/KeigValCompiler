@@ -1,4 +1,5 @@
-﻿using KeigValCompiler.Semantician.Member.Code;
+﻿using KeigValCompiler.Semantician.Bound;
+using KeigValCompiler.Semantician.Member.Code;
 
 namespace KeigValCompiler.Semantician.Member;
 
@@ -14,6 +15,9 @@ internal class PackProperty : PackMember, IExplicitInterfaceMember, IPackAccesso
     // Internal fields.
     internal TypeTargetIdentifier Type { get; set; }
     internal Statement? InitialValue { get; set; }
+
+    /* The starting value as resolution binds it, converted to the property's type, once it is. */
+    internal BoundExpression? BoundInitialValue { get; set; } = null;
 
     /* Made by the compiler rather than written, as a record's property for one of its positional
      * parameters is. */
@@ -49,4 +53,8 @@ internal class PackProperty : PackMember, IExplicitInterfaceMember, IPackAccesso
     {
         Type = type;
     }
+
+
+    // Inherited fields.
+    TypeTargetIdentifier IPackAccessorHolder.Type => Type;
 }

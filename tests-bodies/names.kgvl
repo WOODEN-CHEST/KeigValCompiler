@@ -1,0 +1,143 @@
+/* Names in function bodies the resolution stage has to accept, since C# accepts them, looked up in the order KGVL
+ * decided (2026-10-01): locals and parameters, from the innermost block out; then the function's generic
+ * parameters; then each type around the code, its generic parameters and members, inherited ones included, as C#'s
+ * member lookup finds them; then at the code's namespace and each one holding it, the fields, properties, functions
+ * and events it holds, with its types and namespaces; last what the imported namespaces hold. Also member access
+ * through a value, a type and a namespace, a type's static members of one instantiation, as in "Cache<int>.Value",
+ * nested types reached through a generic type and inherited ones, a type keyword before a '.', "this" and "base", a
+ * member named like its type ("Color Color", where the member after the '.' decides which is meant), in instance
+ * and static code, starting values and a nested type, a member hidden by a derived one, protected members reached
+ * from a derived class, a record's positional parameters in its members' starting values, and constants used before
+ * they are declared. */
+
+using Names.Imported;
+namespace Names;
+
+public int Level = 1;
+public string Title { get; set; } = "names";
+
+namespace Names.Inner;
+
+public int Depth = Level;
+
+public class Cache<T>
+{
+    public static T Value;
+    public static int Hits;
+    public class Entry
+    {
+        public static int Size = 4;
+        public T Stored;
+    }
+}
+
+public class Base<T>
+{
+    public T Item;
+    public int Shared;
+    public static int Total;
+    protected int Guarded;
+    public class Nested
+    {
+        public static int Deep = 2;
+    }
+}
+
+public class Derived : Base<int>
+{
+    public new string Shared = "hidden";
+    public int Own;
+
+    public int Read(int parameter)
+    {
+        int local = parameter;
+        int fromBase = Item;
+        string hiding = Shared;
+        int through = base.Shared;
+        int named = this.Own;
+        int guarded = Guarded;
+        int total = Total;
+        int qualified = Base<int>.Total;
+        int nested = Nested.Deep;
+        int generic = Cache<int>.Hits;
+        int cached = Cache<int>.Value;
+        int inside = Cache<string>.Entry.Size;
+        int fromNameSpace = Level;
+        int outer = Names.Level;
+        int full = Names.Inner.Depth;
+        string property = Title;
+        int imported = Offered;
+        int fromKeyword = int.MaxValue;
+        int later = Constants.Second;
+        return local;
+    }
+
+    public static int Static()
+    {
+        return Total;
+    }
+}
+
+public class Color
+{
+    public static Color Red = null;
+    public int Value;
+}
+
+public class Painter
+{
+    public Color Color;
+
+    public void Paint()
+    {
+        Color red = Color.Red;
+        int instance = Color.Value;
+    }
+}
+
+public class Generic<T>
+{
+    public T Held;
+
+    public T Get()
+    {
+        T copy = Held;
+        return copy;
+    }
+}
+
+public record Pair(int First, int Second)
+{
+    public int Total { get; } = First;
+    public int Again = Second;
+}
+
+public class Constants
+{
+    public const int First = Second;
+    public const int Second = 2;
+}
+
+public class Mixer
+{
+    public Color Color;
+    public static Color Shared = Color.Red;
+    public Color Started = Color.Red;
+
+    public static void Mix()
+    {
+        Color red = Color.Red;
+    }
+
+    public class Brush
+    {
+        public void Use()
+        {
+            Color red = Color.Red;
+        }
+    }
+}
+
+namespace Names.Imported;
+
+public int Offered = 3;

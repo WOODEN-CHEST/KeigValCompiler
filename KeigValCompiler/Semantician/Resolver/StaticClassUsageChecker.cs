@@ -1,3 +1,4 @@
+using KeigValCompiler.Error;
 using KeigValCompiler.Semantician.Member;
 
 namespace KeigValCompiler.Semantician.Resolver;
@@ -7,9 +8,56 @@ namespace KeigValCompiler.Semantician.Resolver;
  * returns, nor a parameter's type, nor an array's elements, nor a type argument. As in C#, where these were
  * once allowed, an interface's members returning one or taking one are only warned about, and a delegate
  * may return one. Deriving from one and being constrained to one are InheritanceChecker's and
- * ConstraintChecker's to report. Types written in function bodies are not checked yet. */
+ * ConstraintChecker's to report. The types of locals are checked as their bodies are bound, through
+ * CheckWrittenType. */
 internal class StaticClassUsageChecker : IPackResolver
 {
+    // Internal static methods.
+    /* An array of a static class anywhere in a type, and a static class given as a type argument, the types
+     * written before a '.' included, each given to report as an error about what kind and name describe. A
+     * static class itself may stand before a '.', as in "Tools.Nested". The types of locals are checked with it
+     * too. */
+    internal static void CheckWrittenType(TypeTargetIdentifier written,
+        string kind,
+        string name,
+        ErrorRepository errorCreator,
+        Action<ErrorCreateOptions> report)
+    {
+        ArgumentNullException.ThrowIfNull(written, nameof(written));
+        ArgumentNullException.ThrowIfNull(kind, nameof(kind));
+        ArgumentNullException.ThrowIfNull(name, nameof(name));
+        ArgumentNullException.ThrowIfNull(errorCreator, nameof(errorCreator));
+        ArgumentNullException.ThrowIfNull(report, nameof(report));
+
+        if (written.Qualifier != null)
+        {
+            CheckWrittenType(written.Qualifier, kind, name, errorCreator, report);
+        }
+        if (IsStaticClass(written) && (written.ArrayRank > 0))
+        {
+            report(errorCreator.StaticClassAsArrayElement.CreateOptions(kind, name,
+                written.MainTarget.SourceCodeName, written.ToString()));
+        }
+
+        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
+        {
+            if (IsStaticClass(Argument) && (Argument.ArrayRank == 0))
+            {
+                report(errorCreator.StaticClassAsTypeArgument.CreateOptions(kind, name, Argument.ToString(),
+                    written.ToString()));
+            }
+            CheckWrittenType(Argument, kind, name, errorCreator, report);
+        }
+    }
+
+    /* Whether a type is written as a static class, arrays and '?' aside. */
+    internal static bool IsStaticClass(TypeTargetIdentifier type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+        return (type.MainTarget.Target is PackMember Declaration) && MemberRelations.IsStaticClass(Declaration);
+    }
+
+
     // Private methods.
     /* A record's property made for a positional parameter has the parameter's type, which is checked with
      * the parameter. */
@@ -73,35 +121,8 @@ internal class StaticClassUsageChecker : IPackResolver
 
         foreach (TypeTargetIdentifier Written in MemberRelations.GetWrittenTypes(member))
         {
-            CheckWrittenType(Written, member, context);
-        }
-    }
-
-    /* An array of a static class anywhere in a type, and a static class given as a type argument, the types
-     * written before a '.' included. A static class itself may stand before one, as in "Tools.Nested". */
-    private void CheckWrittenType(TypeTargetIdentifier written, PackMember member, PackResolutionContext context)
-    {
-        if (written.Qualifier != null)
-        {
-            CheckWrittenType(written.Qualifier, member, context);
-        }
-
-        string Kind = MemberRelations.GetKindName(member);
-        string Name = MemberRelations.GetDisplayName(member);
-        if (IsStaticClass(written) && (written.ArrayRank > 0))
-        {
-            context.AddError(context.ErrorCreator.StaticClassAsArrayElement.CreateOptions(Kind, Name,
-                written.MainTarget.SourceCodeName, written.ToString()), member);
-        }
-
-        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
-        {
-            if (IsStaticClass(Argument) && (Argument.ArrayRank == 0))
-            {
-                context.AddError(context.ErrorCreator.StaticClassAsTypeArgument.CreateOptions(Kind, Name,
-                    Argument.ToString(), written.ToString()), member);
-            }
-            CheckWrittenType(Argument, member, context);
+            CheckWrittenType(Written, MemberRelations.GetKindName(member), MemberRelations.GetDisplayName(member),
+                context.ErrorCreator, error => context.AddError(error, member));
         }
     }
 
@@ -113,11 +134,6 @@ internal class StaticClassUsageChecker : IPackResolver
         PackMember? Holder = MemberRelations.GetHoldingMember(member);
         return (Holder != null) && MemberRelations.IsStaticClass(Holder) && !MemberRelations.IsType(member)
             && !MemberRelations.CanStaticClassHold(member);
-    }
-
-    private bool IsStaticClass(TypeTargetIdentifier type)
-    {
-        return (type.MainTarget.Target is PackMember Declaration) && MemberRelations.IsStaticClass(Declaration);
     }
 
 

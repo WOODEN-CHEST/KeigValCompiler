@@ -132,7 +132,7 @@ internal class ExpressionParser : AbstractParserBase
 
         Parser.IncrementDataIndexNTimes(Spelling.Length);
         Parser.SkipUntilNonWhitespace(null);
-        return new AssignmentStatement(Left, Operator, ParseAssignment());
+        return new AssignmentStatement(Left, Operator, ParseAssignment()) { Origin = Left.Origin };
     }
 
     private Statement ParseTernary()
@@ -163,7 +163,7 @@ internal class ExpressionParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(null);
         Statement ElseBranch = ParseAssignmentOrThrow();
 
-        TernaryStatement Ternary = new(Condition);
+        TernaryStatement Ternary = new(Condition) { Origin = Condition.Origin };
         Ternary.IfBody.AddStatement(IfBranch);
         Ternary.ElseBody = new();
         Ternary.ElseBody.AddStatement(ElseBranch);
@@ -204,7 +204,7 @@ internal class ExpressionParser : AbstractParserBase
                 ? Found.Precedence : Found.Precedence + 1;
             Statement Right = ((Found.Operator == StatementOperator.NotNullOrElse)
                 && TryParseThrowExpression(out Statement? Throw)) ? Throw! : ParseBinary(NextPrecedence);
-            Left = new BinaryOperatorStatement(Found.Operator, Left, Right);
+            Left = new BinaryOperatorStatement(Found.Operator, Left, Right) { Origin = Left.Origin };
         }
 
         return Left;
@@ -223,6 +223,7 @@ internal class ExpressionParser : AbstractParserBase
     private bool TryParseThrowExpression(out Statement? result)
     {
         result = null;
+        SourceFileOrigin Origin = GetCurrentOrigin();
         int StartIndex = Parser.DataIndex;
         if (!Parser.IsIdentifierFirstChar(Parser.GetCharAtDataIndex())
             || (Parser.ReadIdentifier(null) != KGVL.KEYWORD_THROW))
@@ -232,7 +233,7 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         Parser.SkipUntilNonWhitespace(null);
-        result = new ThrowStatement(ParseBinary(0));
+        result = new ThrowStatement(ParseBinary(0)) { Origin = Origin };
         return true;
     }
 
@@ -263,10 +264,12 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         Parser.SkipUntilNonWhitespace(null);
+        SourceFileOrigin TypeOrigin = GetCurrentOrigin();
         TypeTargetIdentifier TargetType = Parser.ReadTypeTargetIdentifier(
             ErrorCreator.ExpectedTypeTestType.CreateOptions(Keyword),
             () => !CanStartValue() && !CanStartSignedValue());
-        result = new BinaryOperatorStatement(Operator.Value, left, new TypeOfStatement(TargetType));
+        result = new BinaryOperatorStatement(Operator.Value, left,
+            new TypeOfStatement(TargetType) { Origin = TypeOrigin }) { Origin = left.Origin };
         return true;
     }
 
@@ -286,13 +289,14 @@ internal class ExpressionParser : AbstractParserBase
     private Statement ParseUnary()
     {
         Parser.SkipUntilNonWhitespace(null);
+        SourceFileOrigin Origin = GetCurrentOrigin();
 
         string Spelling = PeekOperator();
         if ((Spelling.Length > 0) && _prefixOperators.TryGetValue(Spelling, out StatementOperator Operator))
         {
             Parser.IncrementDataIndexNTimes(Spelling.Length);
             Parser.SkipUntilNonWhitespace(null);
-            return new UnaryOperatorStatement(Operator, ParseUnary(), true);
+            return new UnaryOperatorStatement(Operator, ParseUnary(), true) { Origin = Origin };
         }
 
         if (TryParseCast(out Statement? Cast))
@@ -315,6 +319,7 @@ internal class ExpressionParser : AbstractParserBase
         }
 
         int StartIndex = Parser.DataIndex;
+        SourceFileOrigin Origin = GetCurrentOrigin();
         Parser.IncrementDataIndex();
         Parser.SkipUntilNonWhitespace(null);
 
@@ -343,7 +348,7 @@ internal class ExpressionParser : AbstractParserBase
             return false;
         }
 
-        result = new CastStatement(TargetType, ParseUnary());
+        result = new CastStatement(TargetType, ParseUnary()) { Origin = Origin };
         return true;
     }
 
@@ -420,7 +425,7 @@ internal class ExpressionParser : AbstractParserBase
                 /* Everything after "?." is skipped as a unit when the left side is null, so the
                  * rest of the chain becomes the right operand rather than another link. */
                 Current = new BinaryOperatorStatement(StatementOperator.ContinueIfNotNull,
-                    Current, ParsePostfix());
+                    Current, ParsePostfix()) { Origin = Current.Origin };
                 continue;
             }
 
@@ -452,14 +457,20 @@ internal class ExpressionParser : AbstractParserBase
             if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_INCREMENT))
             {
                 Parser.IncrementDataIndexNTimes(KGVL.OPERATOR_INCREMENT.Length);
-                Current = new UnaryOperatorStatement(StatementOperator.Increment, Current, false);
+                Current = new UnaryOperatorStatement(StatementOperator.Increment, Current, false)
+                {
+                    Origin = Current.Origin
+                };
                 continue;
             }
 
             if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.OPERATOR_DECREMENT))
             {
                 Parser.IncrementDataIndexNTimes(KGVL.OPERATOR_DECREMENT.Length);
-                Current = new UnaryOperatorStatement(StatementOperator.Decrement, Current, false);
+                Current = new UnaryOperatorStatement(StatementOperator.Decrement, Current, false)
+                {
+                    Origin = Current.Origin
+                };
                 continue;
             }
 
@@ -477,8 +488,9 @@ internal class ExpressionParser : AbstractParserBase
 
     private Statement ParseAccessComponent()
     {
+        SourceFileOrigin Origin = GetCurrentOrigin();
         Identifier Name = new(Parser.ReadIdentifier(ErrorCreator.ExpectedMemberAccessName.CreateOptions()));
-        return new IdentifiableAccessStatement(Name);
+        return new IdentifiableAccessStatement(Name) { Origin = Origin };
     }
 
     /* Member chains are kept flat, so "a.b.c" is one composite of three components rather than
@@ -491,7 +503,7 @@ internal class ExpressionParser : AbstractParserBase
             return Composite;
         }
 
-        CompositeAccessStatement NewComposite = new();
+        CompositeAccessStatement NewComposite = new() { Origin = current.Origin };
         NewComposite.AddStatement(current);
         NewComposite.AddStatement(component);
         return NewComposite;
@@ -500,7 +512,7 @@ internal class ExpressionParser : AbstractParserBase
     private Statement ParseIndexAccess(Statement target)
     {
         Parser.IncrementDataIndex();
-        IndexAccessStatement Access = new(target);
+        IndexAccessStatement Access = new(target) { Origin = target.Origin };
 
         Parser.SkipUntilNonWhitespace(null);
         while (Parser.GetCharAtDataIndex() != KGVL.CLOSE_SQUARE_BRACKET)
@@ -537,7 +549,8 @@ internal class ExpressionParser : AbstractParserBase
         {
             NamedFunctionCallStatement Call = new(DirectAccess.MemberIdentifier)
             {
-                GenericArguments = genericArguments ?? Array.Empty<TypeTargetIdentifier>()
+                GenericArguments = genericArguments ?? Array.Empty<TypeTargetIdentifier>(),
+                Origin = DirectAccess.Origin
             };
             ParseCallArguments(Call);
             return Call;
@@ -548,7 +561,8 @@ internal class ExpressionParser : AbstractParserBase
         {
             NamedFunctionCallStatement Call = new(LastAccess.MemberIdentifier)
             {
-                GenericArguments = genericArguments ?? Array.Empty<TypeTargetIdentifier>()
+                GenericArguments = genericArguments ?? Array.Empty<TypeTargetIdentifier>(),
+                Origin = LastAccess.Origin
             };
             ParseCallArguments(Call);
 
@@ -754,7 +768,7 @@ internal class ExpressionParser : AbstractParserBase
         }
         Parser.IncrementDataIndex();
 
-        SwitchExpressionStatement Switch = new(target);
+        SwitchExpressionStatement Switch = new(target) { Origin = target.Origin };
         Parser.SkipUntilNonWhitespace(null);
 
         while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.CLOSE_CURLY_BRACKET))
@@ -818,10 +832,11 @@ internal class ExpressionParser : AbstractParserBase
     {
         Parser.SkipUntilNonWhitespace(null);
         char Character = Parser.GetCharAtDataIndex();
+        SourceFileOrigin Origin = GetCurrentOrigin();
 
         if (Character == KGVL.DOUBLE_QUOTE)
         {
-            return new PrimitiveValueStatement(ParseString());
+            return new PrimitiveValueStatement(ParseString()) { Origin = Origin };
         }
         if (Character == KGVL.STRING_INTERPOLATION_OPERATOR)
         {
@@ -851,67 +866,68 @@ internal class ExpressionParser : AbstractParserBase
     private Statement ParseIdentifierPrimary()
     {
         int StartIndex = Parser.DataIndex;
+        SourceFileOrigin Origin = GetCurrentOrigin();
         string Word = Parser.ReadIdentifier(null);
 
         switch (Word)
         {
             case KGVL.KEYWORD_TRUE:
             case KGVL.KEYWORD_FALSE:
-                return new PrimitiveValueStatement(Word == KGVL.KEYWORD_TRUE);
+                return new PrimitiveValueStatement(Word == KGVL.KEYWORD_TRUE) { Origin = Origin };
 
             case KGVL.KEYWORD_NULL:
-                return new PrimitiveValueStatement(KGVL.KEYWORD_NULL);
+                return new PrimitiveValueStatement(new NullConstant()) { Origin = Origin };
 
             case KGVL.KEYWORD_THIS:
-                return new ThisStatement();
+                return new ThisStatement() { Origin = Origin };
 
             case KGVL.KEYWORD_BASE:
-                return new BaseStatement();
+                return new BaseStatement() { Origin = Origin };
 
             case KGVL.KEYWORD_NEW:
-                return ParseConstruction();
+                return ParseConstruction(Origin);
 
             case KGVL.KEYWORD_NAMEOF:
-                return ParseNameOf();
+                return ParseNameOf(Origin);
 
             case KGVL.KEYWORD_TYPEOF:
-                return ParseTypeOf();
+                return ParseTypeOf(Origin);
 
             case KGVL.KEYWORD_DEFAULT:
-                return ParseDefault();
+                return ParseDefault(Origin);
 
             case KGVL.KEYWORD_THROW:
-                return ParseMisplacedThrow(StartIndex);
+                return ParseMisplacedThrow(StartIndex, Origin);
         }
 
         /* A single parameter lambda needs no brackets, as in "x => x + 1". */
         Parser.SkipUntilNonWhitespace(null);
         if (Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
         {
-            return ParseLambdaBody(new FunctionParameter(null, new Identifier(Word),
+            return ParseLambdaBody(Origin, new FunctionParameter(null, new Identifier(Word),
                 FunctionParameterModifier.None));
         }
 
         Parser.DataIndex = StartIndex;
         Parser.ReadIdentifier(null);
-        return new IdentifiableAccessStatement(new Identifier(Word));
+        return new IdentifiableAccessStatement(new Identifier(Word)) { Origin = Origin };
     }
 
     /* Everywhere a throw expression is allowed it has been tried already, so one found here is misplaced. It is
      * still read whole, and reported only once it is, so that a throw with nothing to throw is reported as
      * that alone. */
-    private Statement ParseMisplacedThrow(int keywordIndex)
+    private Statement ParseMisplacedThrow(int keywordIndex, SourceFileOrigin origin)
     {
         CompilerMessageLocation Location = GetLocationOnLine(keywordIndex);
         Parser.SkipUntilNonWhitespace(null);
-        ThrowStatement Throw = new(ParseBinary(0));
+        ThrowStatement Throw = new(ParseBinary(0)) { Origin = origin };
         AddError(ErrorCreator.MisplacedThrowExpression.CreateOptions(), Location);
         return Throw;
     }
 
     /* What "nameof" names is read on its own rather than as any value, since only a name, or a chain of
      * member accesses ending in one, has a name to give: a call or an index does not. */
-    private Statement ParseNameOf()
+    private Statement ParseNameOf(SourceFileOrigin origin)
     {
         ExpectOpenParenthesis();
         CompilerMessageLocation TargetLocation = GetCurrentLocation();
@@ -943,7 +959,7 @@ internal class ExpressionParser : AbstractParserBase
         {
             AddError(ErrorCreator.NameOfWithoutName.CreateOptions(Nameless), TargetLocation);
         }
-        return new NameOfStatement(Target);
+        return new NameOfStatement(Target) { Origin = origin };
     }
 
     /* One name of a "nameof" chain, with the type arguments it may have, or at its start "this" or "base". A
@@ -951,6 +967,7 @@ internal class ExpressionParser : AbstractParserBase
     private Statement ParseNameOfPart(bool isFirst)
     {
         CompilerMessageLocation Location = GetCurrentLocation();
+        SourceFileOrigin Origin = GetCurrentOrigin();
         string Name = Parser.ReadIdentifier(ErrorCreator.ExpectedNameOfTarget.CreateOptions());
         if (!isFirst && KGVL.NON_QUALIFIER_KEYWORDS.Contains(Name))
         {
@@ -958,14 +975,14 @@ internal class ExpressionParser : AbstractParserBase
         }
         if (isFirst && (Name == KGVL.KEYWORD_THIS))
         {
-            return new ThisStatement();
+            return new ThisStatement() { Origin = Origin };
         }
         if (isFirst && (Name == KGVL.KEYWORD_BASE))
         {
-            return new BaseStatement();
+            return new BaseStatement() { Origin = Origin };
         }
 
-        IdentifiableAccessStatement Part = new(new Identifier(Name));
+        IdentifiableAccessStatement Part = new(new Identifier(Name)) { Origin = Origin };
         int NameEndIndex = Parser.DataIndex;
         Parser.SkipUntilNonWhitespace(null);
         if (TryReadGenericArguments(out TypeTargetIdentifier[]? Arguments))
@@ -979,29 +996,29 @@ internal class ExpressionParser : AbstractParserBase
         return Part;
     }
 
-    private Statement ParseTypeOf()
+    private Statement ParseTypeOf(SourceFileOrigin origin)
     {
         ExpectOpenParenthesis();
         TypeTargetIdentifier Target = Parser.ReadTypeTargetIdentifier(
             ErrorCreator.ExpectedTypeOfTarget.CreateOptions());
         ExpectCloseParenthesis();
-        return new TypeOfStatement(Target);
+        return new TypeOfStatement(Target) { Origin = origin };
     }
 
     /* "default" may stand alone, in which case its type comes from context. */
-    private Statement ParseDefault()
+    private Statement ParseDefault(SourceFileOrigin origin)
     {
         Parser.SkipUntilNonWhitespace(null);
         if (Parser.GetCharAtDataIndex() != KGVL.OPEN_PARENTHESIS)
         {
-            return new DefaultStatement(null);
+            return new DefaultStatement(null) { Origin = origin };
         }
 
         ExpectOpenParenthesis();
         TypeTargetIdentifier Target = Parser.ReadTypeTargetIdentifier(
             ErrorCreator.ExpectedTypeOfTarget.CreateOptions());
         ExpectCloseParenthesis();
-        return new DefaultStatement(Target);
+        return new DefaultStatement(Target) { Origin = origin };
     }
 
     private void ExpectOpenParenthesis()
@@ -1050,7 +1067,7 @@ internal class ExpressionParser : AbstractParserBase
 
 
     /* Construction. */
-    private Statement ParseConstruction()
+    private Statement ParseConstruction(SourceFileOrigin origin)
     {
         Parser.SkipUntilNonWhitespace(null);
 
@@ -1066,7 +1083,7 @@ internal class ExpressionParser : AbstractParserBase
             }
             Parser.IncrementDataIndex();
 
-            ArrayCreationStatement InferredArray = new(null);
+            ArrayCreationStatement InferredArray = new(null) { Origin = origin };
             InferredArray.Elements = ParseBracedValueList();
             return InferredArray;
         }
@@ -1079,17 +1096,17 @@ internal class ExpressionParser : AbstractParserBase
          * arriving here with a rank can only be "new int[] { ... }". */
         if (CreatedType.IsArray)
         {
-            ArrayCreationStatement SizedArray = new(CreatedType);
+            ArrayCreationStatement SizedArray = new(CreatedType) { Origin = origin };
             SizedArray.Elements = ParseBracedValueList();
             return SizedArray;
         }
 
         if (Parser.GetCharAtDataIndex() == KGVL.OPEN_SQUARE_BRACKET)
         {
-            return ParseSizedArrayCreation(CreatedType);
+            return ParseSizedArrayCreation(CreatedType, origin);
         }
 
-        ConstructorCallStatement Call = new(CreatedType);
+        ConstructorCallStatement Call = new(CreatedType) { Origin = origin };
         if (Parser.GetCharAtDataIndex() == KGVL.OPEN_PARENTHESIS)
         {
             ParseCallArguments(Call);
@@ -1103,9 +1120,9 @@ internal class ExpressionParser : AbstractParserBase
         return Call;
     }
 
-    private Statement ParseSizedArrayCreation(TypeTargetIdentifier elementType)
+    private Statement ParseSizedArrayCreation(TypeTargetIdentifier elementType, SourceFileOrigin origin)
     {
-        ArrayCreationStatement Array = new(elementType);
+        ArrayCreationStatement Array = new(elementType) { Origin = origin };
         Parser.IncrementDataIndex();
         Parser.SkipUntilNonWhitespace(null);
 
@@ -1202,6 +1219,7 @@ internal class ExpressionParser : AbstractParserBase
         Parser.SkipUntilNonWhitespace(null);
         Statement Value = ParseAssignment();
         ExpectCloseParenthesis();
+        Value.IsParenthesized = true;
         return Value;
     }
 
@@ -1211,6 +1229,7 @@ internal class ExpressionParser : AbstractParserBase
     {
         result = null;
         int StartIndex = Parser.DataIndex;
+        SourceFileOrigin Origin = GetCurrentOrigin();
 
         Parser.IncrementDataIndex();
         Parser.SkipUntilNonWhitespace(null);
@@ -1248,7 +1267,7 @@ internal class ExpressionParser : AbstractParserBase
             return false;
         }
 
-        result = ParseLambdaBody(Parameters.ToArray());
+        result = ParseLambdaBody(Origin, Parameters.ToArray());
         return true;
     }
 
@@ -1284,7 +1303,7 @@ internal class ExpressionParser : AbstractParserBase
         return true;
     }
 
-    private Statement ParseLambdaBody(params FunctionParameter[] parameters)
+    private Statement ParseLambdaBody(SourceFileOrigin origin, params FunctionParameter[] parameters)
     {
         Parser.SkipUntilNonWhitespace(null);
         if (!Parser.HasStringAtIndex(Parser.DataIndex, KGVL.QUICK_METHOD_BODY))
@@ -1294,7 +1313,7 @@ internal class ExpressionParser : AbstractParserBase
         Parser.IncrementDataIndexNTimes(KGVL.QUICK_METHOD_BODY.Length);
         Parser.SkipUntilNonWhitespace(null);
 
-        LambdaStatement Lambda = new();
+        LambdaStatement Lambda = new() { Origin = origin };
         foreach (FunctionParameter Parameter in parameters)
         {
             Lambda.Parameters.AddItem(Parameter);
@@ -1317,6 +1336,7 @@ internal class ExpressionParser : AbstractParserBase
     {
         /* Taken before the number is read, so that an error about it points at its start. */
         CompilerMessageLocation Location = GetCurrentLocation();
+        SourceFileOrigin Origin = GetCurrentOrigin();
         object? Number = Parser.ReadNumber(ErrorCreator.ExpectedNumberValue.CreateOptions(),
             out ErrorCreateOptions? MalformedError);
 
@@ -1325,13 +1345,14 @@ internal class ExpressionParser : AbstractParserBase
             /* The whole number was consumed, so the parser still knows exactly where it is. */
             AddError(MalformedError.Value, Location);
         }
-        return new PrimitiveValueStatement(Number ?? 0);
+        return new PrimitiveValueStatement(Number ?? 0) { Origin = Origin };
     }
 
     private Statement ParseCharacter()
     {
+        SourceFileOrigin Origin = GetCurrentOrigin();
         CharConstant? Character = Parser.ReadCharacter(ErrorCreator.ExpectedCharacterValue.CreateOptions());
-        return new PrimitiveValueStatement(Character ?? new CharConstant(KGVL.CHAR_NONE));
+        return new PrimitiveValueStatement(Character ?? new CharConstant(KGVL.CHAR_NONE)) { Origin = Origin };
     }
 
     internal string ParseString()
@@ -1366,6 +1387,7 @@ internal class ExpressionParser : AbstractParserBase
      * sections, in source order. "{{" and "}}" are literal braces rather than a substitution. */
     internal Statement ParseInterpolatedString()
     {
+        SourceFileOrigin Origin = GetCurrentOrigin();
         Parser.IncrementDataIndex();
         if (Parser.GetCharAtDataIndex() != KGVL.DOUBLE_QUOTE)
         {
@@ -1373,7 +1395,7 @@ internal class ExpressionParser : AbstractParserBase
         }
         Parser.IncrementDataIndex();
 
-        InterpolatedStringStatement Interpolated = new();
+        InterpolatedStringStatement Interpolated = new() { Origin = Origin };
         StringBuilder Literal = new();
 
         while (Parser.IsMoreDataAvailable && (Parser.GetCharAtDataIndex() != KGVL.DOUBLE_QUOTE))

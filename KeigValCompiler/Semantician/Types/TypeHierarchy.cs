@@ -92,6 +92,24 @@ internal class TypeHierarchy
         return false;
     }
 
+    /* Whether what a type inherits is not wholly known, so that a member not found in it may be one it would
+     * inherit: a base written for it, or for a type it derives from, did not resolve, or the types derive from
+     * each other in a loop, either of which has been reported. */
+    internal bool HasUnknownBases(DeclaredType type)
+    {
+        ArgumentNullException.ThrowIfNull(type, nameof(type));
+
+        IReadOnlyList<DeclaredType> Interfaces = GetInterfaces(type);
+        if (IsInBaseCycle(type) || Interfaces.Any(IsInBaseCycle))
+        {
+            return true;
+        }
+        return new DeclaredType[] { type }.Concat(GetBaseClasses(type)).Concat(Interfaces).Any(
+            declared => (declared.Declaration is IPackMemberExtender Extender)
+                && (Extender.ExtendedMembers.Count(written => !written.IsArray)
+                    > _reader.GetWrittenBases(declared).Count()));
+    }
+
     /* Every interface a type implements, directly, through its base classes, or through other interfaces,
      * each once; for an interface, every interface it derives from. An interface deriving from itself is
      * listed, but not what it derives from, as C# takes such an interface to derive from nothing. */

@@ -723,6 +723,15 @@ internal class ErrorRepository
         $"\"{KGVL.KEYWORD_PARAMS} {KGVL.KEYWORD_INT}" +
         $"{KGVL.OPEN_SQUARE_BRACKET}{KGVL.CLOSE_SQUARE_BRACKET} values\"");
 
+    internal virtual ErrorDefinition ReturnWithoutValue { get; } = new(14,
+        CompilerMessageCategory.Function,
+        $"The {{0}} \"{{1}}\" returns a value of the type \"{{2}}\", so a \"{KGVL.KEYWORD_RETURN}\" in it has " +
+        "to give one");
+
+    internal virtual ErrorDefinition ReturnValueFromNothing { get; } = new(15,
+        CompilerMessageCategory.Function,
+        $"The {{0}} \"{{1}}\" returns nothing, so a \"{KGVL.KEYWORD_RETURN}\" in it cannot give a value");
+
 
     /* Literals. */
     internal virtual ErrorDefinition InvalidHexEscapeSequence { get; } = new(1,
@@ -972,6 +981,278 @@ internal class ErrorRepository
         "it could give. It takes a name, or a chain of member accesses ending in one, as in " +
         $"\"{KGVL.KEYWORD_NAMEOF}{KGVL.OPEN_PARENTHESIS}value{KGVL.MEMBER_ACCESS}Member" +
         $"{KGVL.CLOSE_PARENTHESIS}\"");
+
+    /* Expressions in function bodies. */
+    internal virtual ErrorDefinition NameNotFound { get; } = new(28,
+        CompilerMessageCategory.Expression,
+        "Nothing named \"{0}\" can be found here. A name is looked for among the locals and parameters " +
+        "around it, then the function's generic parameters, then each type around it, its generic " +
+        "parameters and its members, those it inherits included, then the members, types and namespaces of " +
+        "its namespace and of each namespace holding that, and last among those of the namespaces the file " +
+        $"imports with \"{KGVL.KEYWORD_USING}\"");
+
+    internal virtual ErrorDefinition TypeUsedAsValue { get; } = new(29,
+        CompilerMessageCategory.Expression,
+        $"\"{{0}}\" is a {{1}}, which is not a value. A type can only stand before a '{KGVL.MEMBER_ACCESS}', to " +
+        "reach one of its static members or the types it holds");
+
+    internal virtual ErrorDefinition NameSpaceUsedAsValue { get; } = new(30,
+        CompilerMessageCategory.Expression,
+        $"\"{{0}}\" is a namespace, which is not a value. A namespace can only stand before a " +
+        $"'{KGVL.MEMBER_ACCESS}', to reach what it holds");
+
+    internal virtual ErrorDefinition ThisInStaticCode { get; } = new(31,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_THIS}\" cannot be used in the {{0}} \"{{1}}\", which is static or held by a " +
+        "namespace, and so runs on no object for it to name");
+
+    internal virtual ErrorDefinition ThisInInitializer { get; } = new(32,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_THIS}\" cannot be used in the starting value of the {{0}} \"{{1}}\". Starting " +
+        "values are worked out while the object is still being made, before its constructor runs, so nothing " +
+        "there can use the object yet");
+
+    internal virtual ErrorDefinition BaseInStaticCode { get; } = new(33,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_BASE}\" cannot be used in the {{0}} \"{{1}}\", which is static or held by a " +
+        "namespace, and so runs on no object whose base class it could reach");
+
+    internal virtual ErrorDefinition BaseInInitializer { get; } = new(34,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_BASE}\" cannot be used in the starting value of the {{0}} \"{{1}}\". Starting " +
+        "values are worked out while the object is still being made, before its constructor runs, so nothing " +
+        "there can use the object yet");
+
+    internal virtual ErrorDefinition BaseWithoutMember { get; } = new(35,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_BASE}\" is not a value on its own. It only stands before a '{KGVL.MEMBER_ACCESS}', " +
+        "to reach a member of the base class as the base class has it, overrides left out");
+
+    internal virtual ErrorDefinition MemberNotFoundThroughValue { get; } = new(36,
+        CompilerMessageCategory.Expression,
+        "The type \"{0}\" has no member named \"{1}\" which can be reached here, of its own or inherited");
+
+    internal virtual ErrorDefinition MemberNotFoundThroughType { get; } = new(37,
+        CompilerMessageCategory.Expression,
+        "The type \"{0}\" has no member named \"{1}\", of its own or inherited, and holds no type of that name");
+
+    internal virtual ErrorDefinition MemberNotFoundInNameSpace { get; } = new(38,
+        CompilerMessageCategory.Expression,
+        "The namespace \"{0}\" holds no namespace, type, field, property, function or event named \"{1}\"");
+
+    internal virtual ErrorDefinition InstanceMemberWithoutObject { get; } = new(39,
+        CompilerMessageCategory.Expression,
+        "The {0} \"{1}\" belongs to each object of its type, so it needs an object to be reached through, and " +
+        "there is none here: the code is static, held by a namespace, or inside another type, whose code runs " +
+        $"on objects of its own type. Name the object it belongs to before a '{KGVL.MEMBER_ACCESS}'");
+
+    internal virtual ErrorDefinition StaticMemberThroughValue { get; } = new(40,
+        CompilerMessageCategory.Expression,
+        "The {0} \"{1}\" is static, so it belongs to no object and cannot be reached through a value. Reach it " +
+        $"through its type instead, as in \"{{2}}{KGVL.MEMBER_ACCESS}{{1}}\"");
+
+    internal virtual ErrorDefinition TypeThroughValue { get; } = new(41,
+        CompilerMessageCategory.Expression,
+        "\"{0}\" is a type held by \"{1}\", so it cannot be reached through a value. Reach it through the type " +
+        $"holding it instead, as in \"{{1}}{KGVL.MEMBER_ACCESS}{{0}}\"");
+
+    internal virtual ErrorDefinition MemberInaccessible { get; } = new(42,
+        CompilerMessageCategory.Expression,
+        "The {0} \"{1}\" cannot be used here, since it is \"{2}\"");
+
+    internal virtual ErrorDefinition InstanceMemberInInitializer { get; } = new(43,
+        CompilerMessageCategory.Expression,
+        "The starting value of the {0} \"{1}\" cannot use the {2} \"{3}\", which belongs to each object of its " +
+        "type. No starting value can: an instance member's is worked out while its object is still being made, " +
+        "before its constructor runs, and a static or constant member's belongs to no object at all");
+
+    internal virtual ErrorDefinition NoImplicitConversion { get; } = new(44,
+        CompilerMessageCategory.Expression,
+        "A value of the type \"{0}\" is used where one of the type \"{1}\" is needed, and no conversion " +
+        "takes one to the other");
+
+    internal virtual ErrorDefinition ImplicitConversionNeedsCast { get; } = new(45,
+        CompilerMessageCategory.Expression,
+        "A value of the type \"{0}\" is used where one of the type \"{1}\" is needed, and the conversion " +
+        $"between them has to be written, as in \"{KGVL.OPEN_PARENTHESIS}{{1}}{KGVL.CLOSE_PARENTHESIS}value\", " +
+        "since it may lose information or fail");
+
+    internal virtual ErrorDefinition ConstantDoesNotFit { get; } = new(46,
+        CompilerMessageCategory.Expression,
+        "The constant {0} does not fit in the type \"{1}\" it is converted to");
+
+    internal virtual ErrorDefinition NullToValueType { get; } = new(47,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_NULL}\" cannot be a value of the type \"{{0}}\", which is a value type, and so always " +
+        $"holds a value. Its nullable form, \"{{0}}{KGVL.TYPE_NULLABLE_INDICATOR}\", can hold " +
+        $"\"{KGVL.KEYWORD_NULL}\"");
+
+    internal virtual ErrorDefinition NullToGenericParameter { get; } = new(48,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_NULL}\" cannot be a value of the type \"{{0}}\", a generic parameter which may stand " +
+        $"for a value type, which always holds a value. \"{KGVL.KEYWORD_DEFAULT}\" gives whatever the type's " +
+        "default is");
+
+    internal virtual ErrorDefinition AmbiguousUserConversion { get; } = new(49,
+        CompilerMessageCategory.Expression,
+        "A value of the type \"{0}\" could be converted to the type \"{1}\" by more than one conversion " +
+        "operator, such as \"{2}\" and \"{3}\", and none of them fits the conversion better than the others");
+
+    internal virtual ErrorDefinition LocalUsedBeforeDeclaration { get; } = new(50,
+        CompilerMessageCategory.Expression,
+        "The local \"{0}\" is used before it is declared. A local can be named only after its declaration, " +
+        "though it belongs to the whole block declaring it");
+
+    internal virtual ErrorDefinition LocalUsedBeforeDeclarationHidingField { get; } = new(51,
+        CompilerMessageCategory.Expression,
+        "The local \"{0}\" is used before it is declared. A local belongs to the whole block declaring it, so " +
+        "it hides the field \"{1}\" there, even before its declaration, where it cannot be named yet");
+
+    internal virtual ErrorDefinition NotAssignable { get; } = new(52,
+        CompilerMessageCategory.Expression,
+        "Only a variable, a field, a property or an indexer can be given a value, and what stands on the left " +
+        "of this assignment is none of those, or is a constant");
+
+    internal virtual ErrorDefinition ReadOnlyFieldAssigned { get; } = new(53,
+        CompilerMessageCategory.Expression,
+        $"The field \"{{0}}\" is \"{KGVL.KEYWORD_READONLY}\", so it can only be given a value where it is " +
+        $"declared, in a constructor of the type declaring it, or in an \"{KGVL.KEYWORD_INIT}\" accessor " +
+        "of that type, on the object being made");
+
+    internal virtual ErrorDefinition StaticReadOnlyFieldAssigned { get; } = new(54,
+        CompilerMessageCategory.Expression,
+        $"The static field \"{{0}}\" is \"{KGVL.KEYWORD_READONLY}\", so it can only be given a value where it " +
+        "is declared, or in the static constructor of the type declaring it");
+
+    internal virtual ErrorDefinition PropertyWithoutSetter { get; } = new(55,
+        CompilerMessageCategory.Expression,
+        $"The property \"{{0}}\" has no \"{KGVL.KEYWORD_SET}\" or \"{KGVL.KEYWORD_INIT}\" accessor, so it " +
+        "cannot be given a value here. Without one, only a property which stores its value can be given one, in " +
+        "a constructor of the type declaring it, on the object being made, or for a static property, on that " +
+        "very type, not another instantiation of it");
+
+    internal virtual ErrorDefinition PropertyWithoutGetter { get; } = new(56,
+        CompilerMessageCategory.Expression,
+        $"The property \"{{0}}\" has no \"{KGVL.KEYWORD_GET}\" accessor, so its value cannot be read");
+
+    internal virtual ErrorDefinition AccessorInaccessible { get; } = new(57,
+        CompilerMessageCategory.Expression,
+        "The \"{0}\" accessor of the property \"{1}\" cannot be used here, since it is \"{2}\"");
+
+    internal virtual ErrorDefinition InitOnlyAssigned { get; } = new(58,
+        CompilerMessageCategory.Expression,
+        $"The property \"{{0}}\" is given its value by an \"{KGVL.KEYWORD_INIT}\" accessor, which only works " +
+        "while an object is being made: in an object initializer, or on the object in a constructor or an " +
+        $"\"{KGVL.KEYWORD_INIT}\" accessor of the type");
+
+    internal virtual ErrorDefinition ModifiedCopy { get; } = new(59,
+        CompilerMessageCategory.Expression,
+        "A member of \"{0}\" cannot be given a value, since \"{0}\" is a value type's value which is not " +
+        "stored anywhere, so the change would be made to a copy and lost");
+
+    internal virtual ErrorDefinition AmbiguousMember { get; } = new(60,
+        CompilerMessageCategory.Expression,
+        "\"{0}\" could mean either \"{1}\" or \"{2}\", members which neither hides, so which one is meant is " +
+        "not clear");
+
+    internal virtual ErrorDefinition MemberAccessOnNull { get; } = new(61,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_NULL}\" has no members, so nothing can be reached through it with " +
+        $"'{KGVL.MEMBER_ACCESS}'");
+
+    internal virtual ErrorDefinition DefaultWithoutType { get; } = new(62,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_DEFAULT}\" written alone takes its type from where it is used, and nothing here " +
+        $"gives it one. Name the type, as in \"{KGVL.KEYWORD_DEFAULT}{KGVL.OPEN_PARENTHESIS}" +
+        $"{KGVL.KEYWORD_INT}{KGVL.CLOSE_PARENTHESIS}\"");
+
+    internal virtual ErrorDefinition MemberOfGenericParameter { get; } = new(63,
+        CompilerMessageCategory.Expression,
+        "\"{0}\" is a generic parameter, so a member cannot be reached through it as through a type: which " +
+        "members the type it stands for has is not known, beyond its constraints' static abstract and virtual " +
+        "ones");
+
+    internal virtual ErrorDefinition ThisAssigned { get; } = new(64,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_THIS}\" cannot be given a value here, where it names the object the code runs " +
+        "on, which stays the same. Only a structure's value can be replaced as a whole");
+
+    internal virtual ErrorDefinition ReadOnlyParameterAssigned { get; } = new(65,
+        CompilerMessageCategory.Expression,
+        $"The parameter \"{{0}}\" is passed \"{KGVL.KEYWORD_IN}\", which lets the function read it but not " +
+        "change it");
+
+    internal virtual ErrorDefinition ConstantValueNotConstant { get; } = new(66,
+        CompilerMessageCategory.Expression,
+        "The value given to the constant \"{0}\" is not known at compile time, which a constant's value has to " +
+        "be. It may be made of literals, other constants and the operators working on them");
+
+    internal virtual ErrorDefinition CircularConstant { get; } = new(67,
+        CompilerMessageCategory.Expression,
+        "Working out the value of the constant \"{0}\" needs its own value, through the constants its value " +
+        "names");
+
+    internal virtual ErrorDefinition BaseWithoutBaseClass { get; } = new(68,
+        CompilerMessageCategory.Expression,
+        $"\"{KGVL.KEYWORD_BASE}\" cannot be used in the {{0}} \"{{1}}\", which has no base class for it to " +
+        "reach");
+
+    internal virtual ErrorDefinition ReadOnlyFieldMemberModified { get; } = new(69,
+        CompilerMessageCategory.Expression,
+        "A member of the field \"{0}\" cannot be given a value, since the field is " +
+        $"\"{KGVL.KEYWORD_READONLY}\" and holds a value type's value, which cannot change outside a " +
+        "constructor of the type declaring the field");
+
+    internal virtual ErrorDefinition AbstractBaseMember { get; } = new(70,
+        CompilerMessageCategory.Expression,
+        $"\"{{0}}\" is abstract where \"{KGVL.KEYWORD_BASE}\" reaches it, so there is no implementation of it " +
+        $"for \"{KGVL.KEYWORD_BASE}\" to run, which runs the base class's own rather than the overriding one");
+
+    internal virtual ErrorDefinition ReadOnlyThisAssigned { get; } = new(71,
+        CompilerMessageCategory.Expression,
+        "\"{0}\" cannot be given a value here, since the code runs on a structure's value which it cannot " +
+        $"change: that of a \"{KGVL.KEYWORD_READONLY}\" structure, outside its constructors, or that of a " +
+        $"member written \"{KGVL.KEYWORD_READONLY}\"");
+
+    internal virtual ErrorDefinition ReadOnlyParameterMemberAssigned { get; } = new(72,
+        CompilerMessageCategory.Expression,
+        "A member of the parameter \"{0}\" cannot be given a value, since it is passed " +
+        $"\"{KGVL.KEYWORD_IN}\", which lets the function read it but not change it");
+
+    internal virtual ErrorDefinition StaticReadOnlyFieldMemberModified { get; } = new(73,
+        CompilerMessageCategory.Expression,
+        $"A member of the static field \"{{0}}\" cannot be given a value, since the field is " +
+        $"\"{KGVL.KEYWORD_READONLY}\" and holds a value type's value, which can only change where the field is " +
+        "declared, or, for a field a type declares, in that type's static constructor");
+
+    internal virtual ErrorDefinition NotGeneric { get; } = new(74,
+        CompilerMessageCategory.Expression,
+        "The {0} \"{1}\" is written with type arguments, but has no generic parameters for them");
+
+    internal virtual ErrorDefinition ConstantReferenceNotNull { get; } = new(75,
+        CompilerMessageCategory.Expression,
+        $"The constant \"{{0}}\" has the type \"{{1}}\", a reference type other than " +
+        $"\"{KGVL.KEYWORD_STRING}\", whose only constant value is \"{KGVL.KEYWORD_NULL}\"");
+
+    internal virtual ErrorDefinition NameSpaceReadOnlyFieldAssigned { get; } = new(76,
+        CompilerMessageCategory.Expression,
+        $"The field \"{{0}}\" is \"{KGVL.KEYWORD_READONLY}\" and held by a namespace, so it can only be given a " +
+        "value where it is declared");
+
+    internal virtual ErrorDefinition InstanceMemberThroughType { get; } = new(77,
+        CompilerMessageCategory.Expression,
+        "The {0} \"{1}\" belongs to each object of its type, so it cannot be reached through the type, which " +
+        "reaches only its static members. Reach it through an object of the type instead");
+
+    internal virtual ErrorDefinition TypeOrNameSpaceAssigned { get; } = new(78,
+        CompilerMessageCategory.Expression,
+        "\"{0}\" is a {1}, which cannot be given a value");
+
+    internal virtual ErrorDefinition PositionalParameterInStaticCode { get; } = new(79,
+        CompilerMessageCategory.Expression,
+        "The record's positional parameter \"{0}\" can only be used in the starting values of its instance " +
+        "members, which are worked out with the values a new record is given, and this starting value is a " +
+        "static or constant member's");
 
 
     /* Return typed members: fields, properties, indexers, functions, constructors and operators. */
@@ -1325,6 +1606,49 @@ internal class ErrorRepository
         CompilerMessageCategory.Statement,
         $"Expected the type and name of a constant after \"{KGVL.KEYWORD_CONST}\", as in " +
         $"\"{KGVL.KEYWORD_CONST} {KGVL.KEYWORD_INT} limit {KGVL.ASSIGN} 5{KGVL.SEMICOLON}\"");
+
+    /* Statements in function bodies. */
+    internal virtual ErrorDefinition ValueAsStatement { get; } = new(27,
+        CompilerMessageCategory.Statement,
+        "A value is written here as a statement of its own, but working it out does nothing with it. Only an " +
+        "assignment, a call, an increment or decrement, or the creation of an object can stand as a statement");
+
+    internal virtual ErrorDefinition DuplicateLocal { get; } = new(28,
+        CompilerMessageCategory.Statement,
+        "The local \"{0}\" is declared more than once in the same block");
+
+    internal virtual ErrorDefinition LocalHidesOuter { get; } = new(29,
+        CompilerMessageCategory.Statement,
+        "The local \"{0}\" has the name of a {1} of a block or function around it. A name can stand for " +
+        "only one local or parameter throughout the blocks in which both would be seen, so that it never " +
+        "means two different things there");
+
+    internal virtual ErrorDefinition LocalNamedLikeGenericParameter { get; } = new(30,
+        CompilerMessageCategory.Statement,
+        "The local \"{0}\" has the name of a generic parameter of the function declaring it");
+
+    internal virtual ErrorDefinition InferredLocalWithoutValue { get; } = new(31,
+        CompilerMessageCategory.Statement,
+        $"The local \"{{0}}\" is declared with \"{KGVL.KEYWORD_VAR}\", which takes its type from its starting " +
+        "value, but it is given none");
+
+    internal virtual ErrorDefinition InferredLocalsTogether { get; } = new(32,
+        CompilerMessageCategory.Statement,
+        $"A declaration with \"{KGVL.KEYWORD_VAR}\" can declare only one local. Declare each on its own");
+
+    internal virtual ErrorDefinition InferredLocalFromNull { get; } = new(33,
+        CompilerMessageCategory.Statement,
+        $"The local \"{{0}}\" is declared with \"{KGVL.KEYWORD_VAR}\", which takes its type from its starting " +
+        $"value, but \"{KGVL.KEYWORD_NULL}\" has no type of its own to give it");
+
+    internal virtual ErrorDefinition InferredConstant { get; } = new(34,
+        CompilerMessageCategory.Statement,
+        $"A constant cannot be declared with \"{KGVL.KEYWORD_VAR}\". Its type has to be written");
+
+    internal virtual ErrorDefinition ConstantLocalType { get; } = new(35,
+        CompilerMessageCategory.Statement,
+        "The local \"{0}\" is a constant of the type \"{1}\", which no constant can have. A constant is a " +
+        "number, a char, a bool, a string, an enum's value, or null of another reference type");
 
 
     /* Command line. */
@@ -1771,6 +2095,14 @@ internal class ErrorRepository
         "needs another's, and so on more than {2} deep, since each names a type the next one inherits. The " +
         "compiler stops resolving here rather than go deeper. Declaring each of those types before the one " +
         "naming it lets each base list be resolved in turn instead");
+
+    internal virtual ErrorDefinition ConstantsTooDeep { get; } = new(67,
+        CompilerMessageCategory.Resolution,
+        "Working out the value of the constant \"{0}\" needs the value of another constant first, which needs " +
+        "another's, and so on more than {1} deep, each naming one not worked out yet. The compiler stops " +
+        "resolving here rather than go deeper. If the constants name each other in a loop, which is not checked " +
+        "this deep, no order works; otherwise, declaring each constant after the ones its value names lets each " +
+        "be worked out in turn");
 
 
     /* Warnings. */

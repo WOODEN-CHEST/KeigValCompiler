@@ -1,0 +1,72 @@
+/* Body binding error test source file, for types whose bases are not known, where only the
+ * declarations' errors could be compared with C#'s, since C# checks no body after one. Every error in
+ * here is deliberate, and was compared with what C# reports for the same code, whose code each
+ * description gives, where C# has the construct. The directory parses cleanly, and the point is that
+ * each mistake is reported once, where it is, without errors which only follow from others. Run the
+ * directory with:
+ *
+ *     dotnet run --project KeigValCompiler -- <repository root>/tests-body-errors
+ *
+ * The whole directory gives 177 errors and 0 warnings. Expected from this
+ * file, 5 errors:
+ *
+ *   line 22 RS error 2      a base which does not resolve (CS0246), and nothing for the names it might give
+ *   line 33 RS error 2      a generic base which does not resolve (CS0246), and nothing for names it might give
+ *   line 49 RS error 15     a class deriving from itself (CS0146), and nothing for its members' names
+ *   line 61 RS error 15     a class deriving from itself (CS0146)
+ *   line 70 EX error 28     a name nothing declares, in a class whose bases are known (CS0103)
+ */
+
+namespace UnknownBases;
+
+public class Unresolved : Missing
+{
+    public void Run()
+    {
+        int named = Inherited;
+        int throughBase = base.Inherited;
+        int throughThis = this.Inherited;
+        int throughType = Unresolved.Static;
+    }
+}
+
+public class GenericUnresolved : Missing<int>
+{
+    public void Run()
+    {
+        int named = Inherited;
+    }
+}
+
+public class Derived : Unresolved
+{
+    public void Use()
+    {
+        int named = Inherited;
+    }
+}
+
+public class First : Second
+{
+    public override int Value { get { return 1; } }
+
+    public void Run()
+    {
+        Value = 1;
+        int read = Value;
+        base.Value = 2;
+    }
+}
+
+public class Second : First
+{
+    public override int Value { set { } }
+}
+
+public class Known
+{
+    public void Run()
+    {
+        int absent = Absent;
+    }
+}

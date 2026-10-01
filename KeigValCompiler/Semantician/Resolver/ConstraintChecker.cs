@@ -1,3 +1,4 @@
+using KeigValCompiler.Error;
 using KeigValCompiler.Semantician.Member;
 using KeigValCompiler.Semantician.Types;
 
@@ -13,10 +14,140 @@ namespace KeigValCompiler.Semantician.Resolver;
  * reported once, and not checked further. And every type argument written in a declaration satisfies the
  * constraints of the parameter it stands for: "class" wants a reference type, "struct" a value type which is
  * not nullable, and a type the type itself, or one deriving from it. Whether "notnull" is satisfied is a
- * matter of nullability, which is not checked yet. Types written in function bodies are not checked yet
- * either. */
+ * matter of nullability, which is not checked yet. The types written in function bodies are checked as the
+ * bodies are bound, through CheckTypeArguments and CheckGivenArguments. */
 internal class ConstraintChecker : IPackResolver
 {
+    // Internal static methods.
+    /* The type arguments written before a '.', as the "int" of "Outer<int>.Inner", and inside other type
+     * arguments are checked first, then the ones given to the type itself, each unsatisfied constraint given to
+     * report. A type which did not resolve, or which is given the wrong number of arguments, has been
+     * reported. */
+    internal static void CheckTypeArguments(TypeTargetIdentifier written,
+        PackResolutionContext context,
+        Action<ErrorCreateOptions> report)
+    {
+        ArgumentNullException.ThrowIfNull(written, nameof(written));
+        ArgumentNullException.ThrowIfNull(context, nameof(context));
+        ArgumentNullException.ThrowIfNull(report, nameof(report));
+
+        if (written.Qualifier != null)
+        {
+            CheckTypeArguments(written.Qualifier, context, report);
+        }
+        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
+        {
+            CheckTypeArguments(Argument, context, report);
+        }
+
+        if ((written.MainTarget.Target is not PackMember Declaration)
+            || (Declaration is not IGenericParameterHolder GenericsHolder)
+            || (written.TypeArguments.Length == 0)
+            || (written.TypeArguments.Length != GenericsHolder.GenericParameters.Count))
+        {
+            return;
+        }
+
+        List<SemanticType> Arguments = new();
+        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
+        {
+            SemanticType? ArgumentType = context.TypeReader.Read(Argument);
+            if (ArgumentType == null)
+            {
+                return;
+            }
+            Arguments.Add(ArgumentType);
+        }
+        DeclaredType? Holder = (written.Qualifier == null) ? null
+            : context.TypeReader.Read(written.Qualifier) as DeclaredType;
+        CheckGivenArguments(GenericsHolder, Holder, Arguments, written.ToString(), context, report);
+    }
+
+    /* The type arguments given to a generic declaration, each against the constraints of the parameter it stands
+     * for, which may name the generic parameters of the types holding it: those the holder, as seen where it is
+     * written, gives, as the "object" of "Outer<object>.Inner<string>". Each unsatisfied constraint is given to
+     * report, about the type as written. */
+    internal static void CheckGivenArguments(IGenericParameterHolder declaration,
+        DeclaredType? holder,
+        IReadOnlyList<SemanticType> arguments,
+        string written,
+        PackResolutionContext context,
+        Action<ErrorCreateOptions> report)
+    {
+        ArgumentNullException.ThrowIfNull(declaration, nameof(declaration));
+        ArgumentNullException.ThrowIfNull(arguments, nameof(arguments));
+        ArgumentNullException.ThrowIfNull(written, nameof(written));
+        ArgumentNullException.ThrowIfNull(context, nameof(context));
+        ArgumentNullException.ThrowIfNull(report, nameof(report));
+
+        (GenericTypeParameter Parameter, SemanticType Argument)[] Given = declaration.GenericParameters
+            .Zip(arguments).ToArray();
+        TypeSubstitution Substitution = (holder != null) ? TypeSubstitution.Of(holder) : new();
+        foreach ((GenericTypeParameter Parameter, SemanticType Argument) in Given)
+        {
+            Substitution.Add(Parameter, Argument);
+        }
+        foreach ((GenericTypeParameter Parameter, SemanticType Argument) in Given)
+        {
+            string? Unsatisfied = FindUnsatisfiedConstraint(Argument, Parameter, Substitution, context);
+            if (Unsatisfied != null)
+            {
+                report(context.ErrorCreator.ConstraintNotSatisfied.CreateOptions(Argument.ToString(),
+                    Parameter.SelfIdentifier.SourceCodeName, written, Unsatisfied));
+            }
+        }
+    }
+
+
+    // Private static methods.
+    /* The first constraint of a parameter the argument does not satisfy, as written in messages, or null. The
+     * types the constraints name are given in terms of the arguments, as "IComparable<T>" is
+     * "IComparable<int>" when int stands for T. */
+    private static string? FindUnsatisfiedConstraint(SemanticType argument,
+        GenericTypeParameter parameter,
+        TypeSubstitution substitution,
+        PackResolutionContext context)
+    {
+        foreach (GenericConstraint Constraint in parameter.Constraints)
+        {
+            if (Constraint.ConstrainedItemName == null)
+            {
+                bool IsSatisfied = Constraint.SpecialConstraint switch
+                {
+                    SpecialGenericConstraint.Class => context.Hierarchy.IsReferenceType(argument),
+                    SpecialGenericConstraint.Struct => context.Hierarchy.IsValueType(argument)
+                        && !((argument is DeclaredType Declared) && Declared.IsNullable),
+                    _ => true
+                };
+                if (!IsSatisfied)
+                {
+                    return GetKeyword(Constraint.SpecialConstraint);
+                }
+                continue;
+            }
+
+            SemanticType? Type = context.TypeReader.Read(Constraint.ConstrainedItemName)
+                ?.Substitute(substitution);
+            if ((Type != null) && !Type.Equals(context.Hierarchy.GetObjectType())
+                && !context.Hierarchy.IsSameOrDerived(argument, Type))
+            {
+                return Type.ToString();
+            }
+        }
+        return null;
+    }
+
+    private static string GetKeyword(SpecialGenericConstraint constraint)
+    {
+        return constraint switch
+        {
+            SpecialGenericConstraint.Class => KGVL.KEYWORD_CLASS,
+            SpecialGenericConstraint.Struct => KGVL.KEYWORD_STRUCT,
+            _ => KGVL.KEYWORD_NOTNULL
+        };
+    }
+
+
     // Private methods.
     /* A record's property made for a positional parameter has the parameter's type, which is checked with
      * the parameter. */
@@ -62,7 +193,7 @@ internal class ConstraintChecker : IPackResolver
 
         foreach (TypeTargetIdentifier Type in Written)
         {
-            CheckTypeArguments(Type, member, context);
+            CheckTypeArguments(Type, context, error => context.AddError(error, member));
         }
     }
 
@@ -292,110 +423,6 @@ internal class ConstraintChecker : IPackResolver
             chain.RemoveAt(chain.Count - 1);
         }
         return false;
-    }
-
-    /* The type arguments written before a '.', as the "int" of "Outer<int>.Inner", and inside other type
-     * arguments are checked first, then the ones given to the type itself. A type which did not resolve, or
-     * which is given the wrong number of arguments, has been reported. */
-    private void CheckTypeArguments(TypeTargetIdentifier written,
-        PackMember member,
-        PackResolutionContext context)
-    {
-        if (written.Qualifier != null)
-        {
-            CheckTypeArguments(written.Qualifier, member, context);
-        }
-        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
-        {
-            CheckTypeArguments(Argument, member, context);
-        }
-
-        if ((written.MainTarget.Target is not PackMember Declaration)
-            || (Declaration is not IGenericParameterHolder GenericsHolder)
-            || (written.TypeArguments.Length == 0)
-            || (written.TypeArguments.Length != GenericsHolder.GenericParameters.Count))
-        {
-            return;
-        }
-
-        List<SemanticType> Arguments = new();
-        foreach (TypeTargetIdentifier Argument in written.TypeArguments)
-        {
-            SemanticType? ArgumentType = context.TypeReader.Read(Argument);
-            if (ArgumentType == null)
-            {
-                return;
-            }
-            Arguments.Add(ArgumentType);
-        }
-
-        /* A nested type's constraints may name the generic parameters of the types holding it, which a qualifier
-         * gives, as the "object" of "Outer<object>.Inner<string>". */
-        (GenericTypeParameter Parameter, SemanticType Argument)[] Given = GenericsHolder.GenericParameters
-            .Zip(Arguments).ToArray();
-        TypeSubstitution Substitution = ((written.Qualifier != null)
-            && (context.TypeReader.Read(written.Qualifier) is DeclaredType Holder))
-            ? TypeSubstitution.Of(Holder) : new();
-        foreach ((GenericTypeParameter Parameter, SemanticType Argument) in Given)
-        {
-            Substitution.Add(Parameter, Argument);
-        }
-        foreach ((GenericTypeParameter Parameter, SemanticType Argument) in Given)
-        {
-            string? Unsatisfied = FindUnsatisfiedConstraint(Argument, Parameter, Substitution, context);
-            if (Unsatisfied != null)
-            {
-                context.AddError(context.ErrorCreator.ConstraintNotSatisfied.CreateOptions(Argument.ToString(),
-                    Parameter.SelfIdentifier.SourceCodeName, written.ToString(), Unsatisfied), member);
-            }
-        }
-    }
-
-    /* The first constraint of a parameter the argument does not satisfy, as written in messages, or null. The
-     * types the constraints name are given in terms of the arguments, as "IComparable<T>" is
-     * "IComparable<int>" when int stands for T. */
-    private string? FindUnsatisfiedConstraint(SemanticType argument,
-        GenericTypeParameter parameter,
-        TypeSubstitution substitution,
-        PackResolutionContext context)
-    {
-        foreach (GenericConstraint Constraint in parameter.Constraints)
-        {
-            if (Constraint.ConstrainedItemName == null)
-            {
-                bool IsSatisfied = Constraint.SpecialConstraint switch
-                {
-                    SpecialGenericConstraint.Class => context.Hierarchy.IsReferenceType(argument),
-                    SpecialGenericConstraint.Struct => context.Hierarchy.IsValueType(argument)
-                        && !((argument is DeclaredType Declared) && Declared.IsNullable),
-                    _ => true
-                };
-                if (!IsSatisfied)
-                {
-                    return GetKeyword(Constraint.SpecialConstraint);
-                }
-                continue;
-            }
-
-            SemanticType? Type = context.TypeReader.Read(Constraint.ConstrainedItemName)
-                ?.Substitute(substitution);
-            if ((Type != null) && !Type.Equals(context.Hierarchy.GetObjectType())
-                && !context.Hierarchy.IsSameOrDerived(argument, Type))
-            {
-                return Type.ToString();
-            }
-        }
-        return null;
-    }
-
-    private string GetKeyword(SpecialGenericConstraint constraint)
-    {
-        return constraint switch
-        {
-            SpecialGenericConstraint.Class => KGVL.KEYWORD_CLASS,
-            SpecialGenericConstraint.Struct => KGVL.KEYWORD_STRUCT,
-            _ => KGVL.KEYWORD_NOTNULL
-        };
     }
 
 
